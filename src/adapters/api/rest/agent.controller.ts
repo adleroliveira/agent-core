@@ -185,15 +185,20 @@ export class AgentController {
         );
       }
 
-      return {
-        id: response.id,
-        content: response.content,
-        role: response.role,
-        conversationId: response.conversationId,
-        createdAt: response.createdAt,
-        toolCalls: response.toolCalls,
-        metadata: response.metadata,
-      };
+      // For non-streaming responses
+      if (!res) {
+        return response;
+      } else {
+        res.json({
+          id: response.id,
+          content: response.content,
+          role: response.role,
+          conversationId: response.conversationId,
+          createdAt: response.createdAt,
+          toolCalls: response.toolCalls,
+          metadata: response.metadata,
+        });
+      }
     } catch (error) {
       throw new HttpException(
         `Failed to process message: ${error.message}`,
