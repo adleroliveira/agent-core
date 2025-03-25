@@ -1,12 +1,12 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from '../app.module';
-import { DirectAgentAdapter } from '../adapters/api/direct/direct-agent.adapter';
-import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
-import { TOOL_REGISTRY } from '@core/constants';
-import { Agent } from './agent';
-import { AgentOptions, SDKConfig } from './types';
-import { Tool, ToolParameter } from '@core/domain/tool.entity'; // Import your Tool entity
-import { ToolBuilder } from './tool-builder';
+import { NestFactory } from "@nestjs/core";
+import { AppModule } from "../app.module";
+import { DirectAgentAdapter } from "../adapters/api/direct/direct-agent.adapter";
+import { ToolRegistryPort } from "@ports/tool/tool-registry.port";
+import { TOOL_REGISTRY } from "@core/constants";
+import { Agent } from "./agent";
+import { AgentOptions, SDKConfig } from "./types";
+import { Tool, ToolParameter } from "@core/domain/tool.entity"; // Import your Tool entity
+import { ToolBuilder } from "./tool-builder";
 
 interface PropertySchema {
   type: string;
@@ -21,7 +21,7 @@ export class AgentSDK {
   private toolRegistry: ToolRegistryPort;
   private initialized = false;
 
-  constructor(private config: SDKConfig = {}) { }
+  constructor(private config: SDKConfig = {}) {}
 
   /**
    * Initialize the SDK - this is done lazily on first use
@@ -39,7 +39,8 @@ export class AgentSDK {
         process.env.AWS_ACCESS_KEY_ID = this.config.credentials.accessKeyId;
       }
       if (this.config.credentials.secretAccessKey) {
-        process.env.AWS_SECRET_ACCESS_KEY = this.config.credentials.secretAccessKey;
+        process.env.AWS_SECRET_ACCESS_KEY =
+          this.config.credentials.secretAccessKey;
       }
     }
 
@@ -53,10 +54,6 @@ export class AgentSDK {
     this.initialized = true;
   }
 
-
-  /**
- * Create a Tool from a ToolBuilder definition
- */
   /**
    * Create a Tool from a ToolBuilder definition
    */
@@ -68,21 +65,31 @@ export class AgentSDK {
     // Convert ToolBuilder parameters to Tool parameters
     const parameters: ToolParameter[] = [];
 
-    if (toolSpec.toolSpec && toolSpec.toolSpec.inputSchema &&
+    if (
+      toolSpec.toolSpec &&
+      toolSpec.toolSpec.inputSchema &&
       toolSpec.toolSpec.inputSchema.json &&
-      toolSpec.toolSpec.inputSchema.json.properties) {
-
+      toolSpec.toolSpec.inputSchema.json.properties
+    ) {
       const props = toolSpec.toolSpec.inputSchema.json.properties;
       const required = toolSpec.toolSpec.inputSchema.json.required || [];
 
       // Convert properties to ToolParameter[]
-      for (const [name, prop] of Object.entries(props) as [string, PropertySchema][]) {
+      for (const [name, prop] of Object.entries(props) as [
+        string,
+        PropertySchema
+      ][]) {
         parameters.push({
           name,
-          type: prop.type as "string" | "number" | "boolean" | "object" | "array",
+          type: prop.type as
+            | "string"
+            | "number"
+            | "boolean"
+            | "object"
+            | "array",
           description: prop.description,
           required: required.includes(name),
-          enum: prop.enum
+          enum: prop.enum,
         });
       }
     }
@@ -93,39 +100,51 @@ export class AgentSDK {
       description: toolSpec.toolSpec.description,
       parameters,
       handler: builderOutput.run,
-      jsonSchema: toolSpec.toolSpec.inputSchema.json
+      jsonSchema: toolSpec.toolSpec.inputSchema.json,
     });
   }
 
   /**
    * Register a tool for use with agents
    */
-  public registerTool(tool: Tool | ReturnType<typeof ToolBuilder.prototype.handle>): void {
+  public registerTool(
+    tool: Tool | ReturnType<typeof ToolBuilder.prototype.handle>
+  ): void {
     this.ensureInitialized();
 
     // Handle both direct Tool objects and ToolBuilder results
-    if ('spec' in tool && 'run' in tool) {
+    if ("spec" in tool && "run" in tool) {
       // It's a ToolBuilder result
       const toolSpec = tool.spec();
 
       // Convert ToolBuilder parameters to Tool parameters
       const parameters: ToolParameter[] = [];
 
-      if (toolSpec.toolSpec && toolSpec.toolSpec.inputSchema &&
+      if (
+        toolSpec.toolSpec &&
+        toolSpec.toolSpec.inputSchema &&
         toolSpec.toolSpec.inputSchema.json &&
-        toolSpec.toolSpec.inputSchema.json.properties) {
-
+        toolSpec.toolSpec.inputSchema.json.properties
+      ) {
         const props = toolSpec.toolSpec.inputSchema.json.properties;
         const required = toolSpec.toolSpec.inputSchema.json.required || [];
 
         // Convert properties to ToolParameter[]
-        for (const [name, prop] of Object.entries(props) as [string, PropertySchema][]) {
+        for (const [name, prop] of Object.entries(props) as [
+          string,
+          PropertySchema
+        ][]) {
           parameters.push({
             name,
-            type: prop.type as "string" | "number" | "boolean" | "object" | "array",
+            type: prop.type as
+              | "string"
+              | "number"
+              | "boolean"
+              | "object"
+              | "array",
             description: prop.description,
             required: required.includes(name),
-            enum: prop.enum
+            enum: prop.enum,
           });
         }
       }
@@ -136,7 +155,7 @@ export class AgentSDK {
         description: toolSpec.toolSpec.description,
         parameters,
         handler: tool.run,
-        jsonSchema: toolSpec.toolSpec.inputSchema.json
+        jsonSchema: toolSpec.toolSpec.inputSchema.json,
       });
 
       this.toolRegistry.registerTool(newTool);
@@ -144,7 +163,7 @@ export class AgentSDK {
       // It's already a Tool instance
       this.toolRegistry.registerTool(tool);
     } else {
-      throw new Error('Invalid tool format provided to registerTool');
+      throw new Error("Invalid tool format provided to registerTool");
     }
   }
 
@@ -158,7 +177,7 @@ export class AgentSDK {
       name: options.name,
       description: options.description || options.name,
       systemPromptContent: options.systemPrompt,
-      tools: options.tools || []
+      tools: options.tools || [],
     });
 
     return new Agent(agentEntity, this.agentAdapter);
@@ -171,7 +190,7 @@ export class AgentSDK {
     await this.ensureInitialized();
 
     const agents = await this.agentAdapter.getAllAgents();
-    return agents.map(agent => new Agent(agent, this.agentAdapter));
+    return agents.map((agent) => new Agent(agent, this.agentAdapter));
   }
 
   /**
