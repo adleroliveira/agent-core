@@ -1,22 +1,17 @@
-import { NestFactory } from "@nestjs/core";
-import { AppModule } from "../app.module";
-import { DirectAgentAdapter } from "../adapters/api/direct/direct-agent.adapter";
+import { AgentSDK } from "../sdk";
 
-async function runStockMarketAgentExample() {
-  // Bootstrap the application
-  const app = await NestFactory.createApplicationContext(AppModule);
+async function runStockMarketAgentExample(): Promise<void> {
+  // Initialize the SDK
+  const sdk = new AgentSDK();
 
   try {
-    // Get the direct agent adapter
-    const agentAdapter = app.get(DirectAgentAdapter);
-
     // Create a new agent with stock market tool
     console.log("Creating stock market-enabled agent...");
-    const agent = await agentAdapter.createAgent({
+    const agent = await sdk.createAgent({
       name: "Financial Advisor",
       description:
         "An agent that can analyze stock market data and provide insights",
-      systemPromptContent:
+      systemPrompt:
         "You are a helpful financial advisor that can retrieve and analyze stock market data. " +
         "You can perform the following actions using the stockMarket tool:\n" +
         "1. Get current stock prices with 'getPrice'\n" +
@@ -31,91 +26,60 @@ async function runStockMarketAgentExample() {
 
     console.log(`Stock Market Agent created with ID: ${agent.id}`);
 
+    // Process messages sequentially using async/await
+    async function processMessage(message: string, conversationId?: string) {
+      console.log(`\nUser: ${message}`);
+      const response = await agent.ask(message, conversationId);
+      console.log("\nAgent response:");
+      console.log(`${response.content}`);
+      return response;
+    }
+
     // First interaction - get current price
     const firstMessage = "What's the current price of AAPL stock?";
     console.log("\nSending first query:");
-    console.log(`User: ${firstMessage}`);
+    const firstResponse = await processMessage(firstMessage);
 
-    const firstResponse = await agentAdapter.sendMessageSync(
-      agent.id,
-      firstMessage
-    );
-
-    console.log("\nAgent response:");
-    console.log(`${firstResponse.content}`);
+    // Get the conversation ID for subsequent messages
+    const conversationId = firstResponse.conversationId;
 
     // Second interaction - get historical data
     const secondMessage =
       "Can you show me the historical data for AAPL for the last 10 days?";
     console.log("\nSending second query:");
-    console.log(`User: ${secondMessage}`);
-
-    // Use the same conversation ID from the first response
-    const conversationId = firstResponse.conversationId;
-    const secondResponse = await agentAdapter.sendMessageSync(
-      agent.id,
-      secondMessage,
-      conversationId
-    );
-
-    console.log("\nAgent response:");
-    console.log(`${secondResponse.content}`);
+    await processMessage(secondMessage, conversationId);
 
     // Third interaction - perform technical analysis
     const thirdMessage = "Can you analyze AAPL with RSI indicator?";
     console.log("\nSending third query:");
-    console.log(`User: ${thirdMessage}`);
-
-    const thirdResponse = await agentAdapter.sendMessageSync(
-      agent.id,
-      thirdMessage,
-      conversationId
-    );
-
-    console.log("\nAgent response:");
-    console.log(`${thirdResponse.content}`);
+    await processMessage(thirdMessage, conversationId);
 
     // Fourth interaction - generate forecast
     const fourthMessage =
       "Based on this analysis, can you give me a 5-day forecast for AAPL?";
     console.log("\nSending fourth query:");
-    console.log(`User: ${fourthMessage}`);
-
-    const fourthResponse = await agentAdapter.sendMessageSync(
-      agent.id,
-      fourthMessage,
-      conversationId
-    );
-
-    console.log("\nAgent response:");
-    console.log(`${fourthResponse.content}`);
+    await processMessage(fourthMessage, conversationId);
 
     // Fifth interaction - compare with another stock
     const fifthMessage =
       "How does AAPL compare to MSFT? Can you analyze both stocks using MACD?";
     console.log("\nSending fifth query:");
-    console.log(`User: ${fifthMessage}`);
-
-    const fifthResponse = await agentAdapter.sendMessageSync(
-      agent.id,
-      fifthMessage,
-      conversationId
-    );
-
-    console.log("\nAgent response:");
-    console.log(`${fifthResponse.content}`);
+    await processMessage(fifthMessage, conversationId);
 
     // Clean up
-    console.log("Deleting agent...");
-    await agentAdapter.deleteAgent(agent.id);
+    console.log("\nDeleting agent...");
+    await sdk.deleteAgent(agent.id);
     console.log("Stock market agent deleted successfully");
   } catch (error) {
     console.error("Error:", error);
-    console.error("Error message:", error.message);
-    console.error("Error stack:", error.stack);
+    if (error instanceof Error) {
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+    }
   } finally {
-    // Shutdown the application
-    await app.close();
+    // Close the SDK
+    await sdk.close();
+    console.log("SDK closed successfully");
   }
 }
 
