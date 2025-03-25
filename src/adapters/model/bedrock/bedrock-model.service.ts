@@ -343,35 +343,41 @@ export class BedrockModelService implements ModelServicePort {
     });
 
     try {
-      // Create the request body using our method that properly converts to Bedrock format
-      // The key difference here is that we're creating a new array of only the necessary messages
-      const toolResponseMessages = [
-        new Message({
-          role: "assistant",
-          content: "",
-          conversationId,
-          toolCalls: [
-            {
-              id: toolCall.toolId,
-              name: toolCall.toolName,
-              arguments: (() => {
-                if (typeof toolCall.arguments === "string") {
-                  try {
-                    return JSON.parse(toolCall.arguments);
-                  } catch (e) {
-                    this.logger.warn(
-                      `Failed to parse tool arguments as JSON: ${e.message}`
-                    );
-                    return { rawArguments: toolCall.arguments };
-                  }
+      // Create the assistant message with the tool call
+      const assistantMessage = new Message({
+        role: "assistant",
+        content: "",
+        conversationId,
+        id: uuidv4(), // Generate a unique ID for the assistant message
+        toolCalls: [
+          {
+            id: toolCall.toolId,
+            name: toolCall.toolName,
+            arguments: (() => {
+              if (typeof toolCall.arguments === "string") {
+                try {
+                  return JSON.parse(toolCall.arguments);
+                } catch (e) {
+                  this.logger.warn(
+                    `Failed to parse tool arguments as JSON: ${e.message}`
+                  );
+                  return { rawArguments: toolCall.arguments };
                 }
-                return toolCall.arguments;
-              })(),
-            },
-          ],
-        }),
-        toolResultMessage,
-      ];
+              }
+              return toolCall.arguments;
+            })(),
+          },
+        ],
+      });
+
+      // Associate the tool result message with the assistant message that generated it
+      toolResultMessage.metadata = {
+        ...toolResultMessage.metadata,
+        parentMessageId: assistantMessage.id,
+      };
+
+      // Create the tool response messages array
+      const toolResponseMessages = [assistantMessage, toolResultMessage];
 
       const requestBody = this.createConverseRequest(
         toolResponseMessages,
@@ -484,6 +490,7 @@ export class BedrockModelService implements ModelServicePort {
         executedToolCalls.push({
           ...toolCall,
           result,
+          isError: false,
         });
       } catch (error) {
         this.logger.error(
@@ -493,6 +500,8 @@ export class BedrockModelService implements ModelServicePort {
         executedToolCalls.push({
           ...toolCall,
           result: { error: error.message },
+          isError: true,
+          errorMessage: error.message,
         });
       }
     }
@@ -526,6 +535,12 @@ export class BedrockModelService implements ModelServicePort {
 
     // Then add each tool result as a separate message
     for (const toolCall of executedToolCalls) {
+      // Check if the result contains an error
+      const hasError =
+        toolCall.result &&
+        typeof toolCall.result === "object" &&
+        "error" in toolCall.result;
+
       updatedMessages.push(
         new Message({
           role: "tool",
@@ -536,11 +551,11 @@ export class BedrockModelService implements ModelServicePort {
           toolCallId: toolCall.toolId,
           toolName: toolCall.toolName,
           conversationId,
+          isToolError: hasError, // Set this flag based on error presence
         })
       );
     }
 
-    // Let the createConverseRequest method handle the conversion to Bedrock format
     return this.generateResponse(
       updatedMessages,
       new Prompt({
@@ -635,8 +650,42 @@ export class BedrockModelService implements ModelServicePort {
     // Convert domain model messages to Bedrock API format
     const bedrockMessages = [];
 
-    // Process each message and convert to Bedrock format
-    for (const message of messages) {
+    // Group tool results by their parent assistant message (if any)
+    const toolResultsByMessage = new Map<string, Message[]>();
+
+    // First pass: collect all tool messages and group them by their parent message
+    for (let i = 0; i < messages.length; i++) {
+      const message = messages[i];
+
+      // If this is a tool message, find its parent assistant message
+      if (message.role === "tool" && message.toolCallId) {
+        // Look backwards for the assistant message that contains this tool call
+        for (let j = i - 1; j >= 0; j--) {
+          const potentialParent = messages[j];
+          if (
+            potentialParent.role === "assistant" &&
+            potentialParent.toolCalls?.some(
+              (tc) => tc.id === message.toolCallId
+            )
+          ) {
+            // Found the parent message
+            if (!toolResultsByMessage.has(potentialParent.id)) {
+              toolResultsByMessage.set(potentialParent.id, []);
+            }
+            const resultsArray =
+              toolResultsByMessage.get(potentialParent.id) || [];
+            resultsArray.push(message);
+            toolResultsByMessage.set(potentialParent.id, resultsArray);
+            break;
+          }
+        }
+      }
+    }
+
+    // Second pass: construct the actual messages with grouped tool results
+    for (let i = 0; i < messages.length; i++) {
+      const message = messages[i];
+
       if (message.role === "assistant") {
         // Format the message content
         let formattedContent: any[] = [];
@@ -671,7 +720,7 @@ export class BedrockModelService implements ModelServicePort {
               toolUse: {
                 toolUseId: toolCall.id,
                 name: toolCall.name,
-                input: { json: toolCallArgs },
+                input: toolCallArgs,
               },
             });
           }
@@ -682,66 +731,77 @@ export class BedrockModelService implements ModelServicePort {
           role: "assistant",
           content: formattedContent,
         });
-      } else if (message.role === "user") {
-        // Add user message
-        bedrockMessages.push({
-          role: "user",
-          content: [
-            {
-              text:
-                typeof message.content === "string"
-                  ? message.content
-                  : JSON.stringify(message.content),
-            },
-          ],
-        });
-      } else if (message.role === "tool" && message.toolCallId) {
-        // Format tool content
-        let toolContent;
-        try {
-          // Try to parse the content as JSON if it's a string
-          if (typeof message.content === "string") {
-            try {
-              toolContent = JSON.parse(message.content);
-            } catch (e) {
-              this.logger.debug(
-                `Failed to parse tool content as JSON, using as string: ${e.message}`
-              );
-              toolContent = message.content;
+
+        // Check if there are tool results for this assistant message
+        const toolResults = toolResultsByMessage.get(message.id);
+        if (toolResults && toolResults.length > 0) {
+          // Create a user message with all tool results for this assistant message
+          const toolResultsContent = toolResults.map((toolResult) => {
+            // Format tool content
+            let toolContent;
+            if (toolResult.isToolError) {
+              toolContent =
+                typeof toolResult.content === "string"
+                  ? toolResult.content
+                  : JSON.stringify(toolResult.content);
+            } else {
+              // For non-error tool responses, attempt JSON parsing
+              try {
+                toolContent =
+                  typeof toolResult.content === "string"
+                    ? JSON.parse(toolResult.content)
+                    : toolResult.content;
+              } catch (e) {
+                this.logger.debug(
+                  `Failed to parse tool content as JSON, using as string: ${e.message}`
+                );
+                toolContent =
+                  typeof toolResult.content === "string"
+                    ? toolResult.content
+                    : JSON.stringify(toolResult.content);
+              }
             }
-          } else {
-            toolContent = message.content;
-          }
-        } catch (error) {
-          this.logger.error(
-            `Error processing tool content: ${error.message}`,
-            error.stack
-          );
-          toolContent =
-            typeof message.content === "string"
-              ? message.content
-              : JSON.stringify(message.content);
-        }
 
-        // Format the tool result content
-        const formattedToolContent =
-          typeof toolContent === "object" && toolContent !== null
-            ? { json: toolContent }
-            : { text: String(toolContent) };
+            // Format the tool result content
+            const formattedToolContent =
+              typeof toolContent === "object" && toolContent !== null
+                ? toolContent
+                : { text: String(toolContent) };
 
-        // Create a user message with the tool result in Bedrock format
-        bedrockMessages.push({
-          role: "user",
-          content: [
-            {
+            return {
               toolResult: {
-                toolUseId: message.toolCallId,
-                content: [formattedToolContent],
-                status: "success",
+                toolUseId: toolResult.toolCallId,
+                content: [
+                  typeof formattedToolContent === "object"
+                    ? { json: formattedToolContent }
+                    : { text: formattedToolContent },
+                ],
+                status: toolResult.isToolError ? "error" : "success",
               },
-            },
-          ],
-        });
+            };
+          });
+
+          // Add a single user message with all tool results
+          bedrockMessages.push({
+            role: "user",
+            content: toolResultsContent,
+          });
+        }
+      } else if (message.role === "user") {
+        // Add user message (only if it's not a tool result, as we're handling those separately)
+        if (!message.toolCallId) {
+          bedrockMessages.push({
+            role: "user",
+            content: [
+              {
+                text:
+                  typeof message.content === "string"
+                    ? message.content
+                    : JSON.stringify(message.content),
+              },
+            ],
+          });
+        }
       }
     }
 
@@ -802,6 +862,7 @@ export class BedrockModelService implements ModelServicePort {
       };
     }
 
+    // this.logger.debug("RequestBody.messages", bedrockMessages);
     return requestBody;
   }
 
@@ -896,6 +957,7 @@ export class BedrockModelService implements ModelServicePort {
       // Return basic response with original content even if parsing fails
     }
 
+    // this.logger.debug("ModelResponse", JSON.stringify(modelResponse, null, 2));
     return modelResponse;
   }
 }

@@ -2,25 +2,35 @@ import { Module, OnModuleInit, Inject } from "@nestjs/common";
 import { AdaptersModule } from "@adapters/adapters.module";
 import { CoreModule } from "@core/core.module";
 import { ToolRegistryPort } from "@ports/tool/tool-registry.port";
-import { TOOL_REGISTRY } from '@core/constants';
-
-// Default tools
-import { StockMarketTool } from "./default/stock-market.tool";
+import { TOOL_REGISTRY } from "@core/constants";
+import { StockMarketToolBundle } from "./examples/stock-market/StockMarket.toolBundle";
+import { GetStockPriceTool } from "./examples/stock-market/GetStockPriceTool.tool";
+import { GetStockHistoryTool } from "./examples/stock-market/GetStockHistoryTool.tool";
+import { AnalyzeStockTool } from "./examples/stock-market/AnalyzeStockTool.tool";
+import { ForecastStockTool } from "./examples/stock-market/ForecastStockTool.tool";
 
 @Module({
   imports: [AdaptersModule, CoreModule],
-  providers: [StockMarketTool],
-  exports: [StockMarketTool],
+  providers: [
+    StockMarketToolBundle,
+    GetStockPriceTool,
+    GetStockHistoryTool,
+    AnalyzeStockTool,
+    ForecastStockTool,
+  ],
+  exports: [StockMarketToolBundle], // Export the bundle if other modules need it
 })
 export class ToolsModule implements OnModuleInit {
   constructor(
     @Inject(TOOL_REGISTRY)
     private readonly toolRegistry: ToolRegistryPort,
-    private readonly searchTool: StockMarketTool
-  ) { }
+    private readonly stockMarketToolBundle: StockMarketToolBundle
+  ) {}
 
   async onModuleInit() {
-    // Register default tools
-    await this.toolRegistry.registerTool(this.searchTool.getTool());
+    const { tools } = this.stockMarketToolBundle.getBundle();
+    for (const tool of tools) {
+      await this.toolRegistry.registerTool(tool);
+    }
   }
 }

@@ -1,6 +1,6 @@
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 
-export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
+export type MessageRole = "user" | "assistant" | "system" | "tool";
 
 export interface MessageContent {
   text: string;
@@ -24,7 +24,8 @@ export class Message {
   public toolCalls?: ToolCall[];
   public toolCallId?: string;
   public toolName?: string;
-  
+  public isToolError?: boolean;
+
   public createdAt: Date;
   public isStreaming?: boolean;
 
@@ -37,6 +38,7 @@ export class Message {
     toolCalls?: ToolCall[];
     toolCallId?: string;
     toolName?: string;
+    isToolError?: boolean;
     isStreaming?: boolean;
   }) {
     this.id = params.id || uuidv4();
@@ -47,45 +49,53 @@ export class Message {
     this.toolCalls = params.toolCalls;
     this.toolCallId = params.toolCallId;
     this.toolName = params.toolName;
+    this.isToolError = params.isToolError || false;
     this.isStreaming = params.isStreaming || false;
     this.createdAt = new Date();
   }
 
   public isToolCall(): boolean {
-    return this.role === 'assistant' && (!!this.toolCallId || (this.toolCalls?.length ?? 0) > 0);
+    return (
+      this.role === "assistant" &&
+      (!!this.toolCallId || (this.toolCalls?.length ?? 0) > 0)
+    );
+  }
+
+  public isToolErrorResponse(): boolean {
+    return this.role === "tool" && this.isToolError === true;
   }
 
   public isToolResponse(): boolean {
-    return this.role === 'tool';
+    return this.role === "tool";
   }
 
   public isUserMessage(): boolean {
-    return this.role === 'user';
+    return this.role === "user";
   }
 
   public isAssistantMessage(): boolean {
-    return this.role === 'assistant' && !this.isToolCall();
+    return this.role === "assistant" && !this.isToolCall();
   }
 
   public isSystemMessage(): boolean {
-    return this.role === 'system';
+    return this.role === "system";
   }
-  
+
   public getTextContent(): string {
-    if (typeof this.content === 'string') {
+    if (typeof this.content === "string") {
       return this.content;
     }
-    return this.content.text || '';
+    return this.content.text || "";
   }
 
   public appendContent(content: string): void {
-    if (typeof this.content === 'string') {
+    if (typeof this.content === "string") {
       this.content += content;
     } else {
-      this.content.text = (this.content.text || '') + content;
+      this.content.text = (this.content.text || "") + content;
     }
   }
-  
+
   public completeStreaming(): void {
     this.isStreaming = false;
   }

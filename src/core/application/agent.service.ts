@@ -18,7 +18,7 @@ import {
   STATE_REPOSITORY,
   MODEL_SERVICE,
 } from "@adapters/adapters.module";
-import { TOOL_REGISTRY } from '@core/constants';
+import { TOOL_REGISTRY } from "@core/constants";
 
 @Injectable()
 export class AgentService {
@@ -137,7 +137,7 @@ export class AgentService {
     agent.state.addToConversation(userMessage);
 
     // Get conversation history
-    const conversationHistory = agent.state.getLastNMessages(
+    const conversationHistory = agent.state.getLastNInteractions(
       parseInt(process.env.AGENT_MEMORY_SIZE || "10")
     );
 
@@ -183,6 +183,13 @@ export class AgentService {
       maxTokens?: number;
     }
   ): Promise<Message> {
+    if (
+      conversationHistory.length > 0 &&
+      conversationHistory[0].role !== "user"
+    ) {
+      throw new Error("Conversation must start with a user message");
+    }
+
     // Call the model service to generate a response
     const modelResponse = await this.modelService.generateResponse(
       conversationHistory,
@@ -257,6 +264,13 @@ export class AgentService {
 
     // Create a subject to handle the streaming
     const responseSubject = new Subject<Partial<Message>>();
+
+    if (
+      conversationHistory.length > 0 &&
+      conversationHistory[0].role !== "user"
+    ) {
+      throw new Error("Conversation must start with a user message");
+    }
 
     // Get the streaming response
     const streamingObs = this.modelService.generateStreamingResponse(
@@ -397,8 +411,8 @@ export class AgentService {
   ): Promise<void> {
     const toolResponses: Message[] = [];
 
-    // Execute each tool call
-    for (const toolCall of toolCalls) {
+    // Execute all tool calls in parallel for better performance
+    const toolCallPromises = toolCalls.map(async (toolCall) => {
       try {
         this.logger.debug(
           `Executing tool: ${toolCall.toolName} with args: ${JSON.stringify(
@@ -406,7 +420,6 @@ export class AgentService {
           )}`
         );
 
-        // Parse arguments if they're a string
         let toolArgs = toolCall.arguments;
         if (typeof toolArgs === "string") {
           try {
@@ -418,37 +431,20 @@ export class AgentService {
           }
         }
 
-        // Inform the client that we're executing a tool
         responseSubject.next({
           content: `\nExecuting ${toolCall.toolName}...`,
         });
 
-        // Execute the tool
         const toolResult = await this.toolRegistry.executeToolByName(
           toolCall.toolName,
           toolArgs
         );
 
-        // Format the tool result for the model
         const formattedResult =
           typeof toolResult === "string"
             ? toolResult
             : JSON.stringify(toolResult);
 
-        // Create tool response message
-        const toolResponseMessage = new Message({
-          role: "tool",
-          content: formattedResult,
-          conversationId,
-          toolCallId: toolCall.toolId,
-          toolName: toolCall.toolName,
-        });
-
-        // Add to conversation history
-        agent.state.addToConversation(toolResponseMessage);
-        toolResponses.push(toolResponseMessage);
-
-        // Inform the client about the tool result (truncated for display)
         const truncatedResult =
           formattedResult.length > 100
             ? formattedResult.substring(0, 100) + "..."
@@ -457,31 +453,46 @@ export class AgentService {
         responseSubject.next({
           content: `\nTool ${toolCall.toolName} result: ${truncatedResult}`,
         });
+
+        return {
+          success: true,
+          toolCall,
+          result: formattedResult,
+        };
       } catch (error) {
-        // Handle tool execution error
         const errorMessage = `Error executing tool ${toolCall.toolName}: ${error.message}`;
         this.logger.error(errorMessage);
 
-        const errorResponseMessage = new Message({
-          role: "tool",
-          content: errorMessage,
-          conversationId,
-          toolCallId: toolCall.toolId,
-          toolName: toolCall.toolName,
-        });
-
-        // Add error message to conversation
-        agent.state.addToConversation(errorResponseMessage);
-        toolResponses.push(errorResponseMessage);
-
-        // Inform the client about the error
         responseSubject.next({
           content: `\n${errorMessage}`,
         });
+
+        return {
+          success: false,
+          toolCall,
+          result: errorMessage,
+        };
       }
+    });
+
+    // Wait for all tool executions to complete
+    const results = await Promise.all(toolCallPromises);
+
+    // Process all tool results and add to conversation history
+    for (const result of results) {
+      const toolResponseMessage = new Message({
+        role: "tool",
+        content: result.result,
+        conversationId,
+        toolCallId: result.toolCall.toolId,
+        toolName: result.toolCall.toolName,
+        isToolError: !result.success,
+      });
+
+      agent.state.addToConversation(toolResponseMessage);
+      toolResponses.push(toolResponseMessage);
     }
 
-    // Only proceed if we have tool responses
     if (toolResponses.length > 0) {
       try {
         this.logger.debug("Generating final response after tool execution");
@@ -489,23 +500,16 @@ export class AgentService {
           content: "\nProcessing results...",
         });
 
-        // IMPORTANT CHANGE: Instead of sending the entire conversation history,
-        // only send the assistant message with tool calls and the tool results
-        // This avoids duplicate tool_use IDs in the request
-        const minimalConversationContext = [
-          responseMessage, // The assistant message with tool calls
-          ...toolResponses, // The tool result messages
-        ];
+        // Use the full conversation history
+        const fullConversationHistory = agent.state.conversationHistory;
 
-        // Generate final response that incorporates the tool results
         const finalResponseData = await this.modelService.generateResponse(
-          minimalConversationContext,
+          fullConversationHistory,
           agent.systemPrompt,
           agent.tools,
           options
         );
 
-        // Create final response message
         const finalResponse = new Message({
           role: "assistant",
           content: finalResponseData.message.content,
@@ -521,15 +525,12 @@ export class AgentService {
           })),
         });
 
-        // Add to conversation
         agent.state.addToConversation(finalResponse);
 
-        // Send the final response content to the client
         responseSubject.next({
           content: `\n\n${finalResponseData.message.content}`,
         });
 
-        // Check if there are more tool calls to execute
         if (
           finalResponseData.toolCalls &&
           finalResponseData.toolCalls.length > 0
@@ -538,8 +539,7 @@ export class AgentService {
             `Final response contains ${finalResponseData.toolCalls.length} more tool calls, processing recursively`
           );
 
-          // Execute recursively with the updated conversation history
-          // We still need to maintain the full conversation history for the agent state
+          // Recursive call with updated full history via agent.state.conversation
           const updatedPreviousMessages = [
             ...previousMessages,
             responseMessage,
@@ -563,7 +563,6 @@ export class AgentService {
           error.stack
         );
 
-        // Add error message to conversation
         const errorFinalResponse = new Message({
           role: "assistant",
           content: `I encountered an error processing the tool results: ${error.message}`,
@@ -572,11 +571,11 @@ export class AgentService {
             isToolResponseSummary: true,
             error: error.message,
           },
+          isToolError: true,
         });
 
         agent.state.addToConversation(errorFinalResponse);
 
-        // Inform the client about the error
         responseSubject.next({
           content: `\n\nError: ${error.message}`,
           metadata: { error: error.message },
@@ -600,7 +599,7 @@ export class AgentService {
 
     this.logger.debug(`Executing ${toolCalls.length} tool calls`);
 
-    for (const toolCall of toolCalls) {
+    const toolCallPromises = toolCalls.map(async (toolCall) => {
       try {
         this.logger.debug(
           `Executing tool: ${toolCall.toolName} with args: ${JSON.stringify(
@@ -608,26 +607,22 @@ export class AgentService {
           )}`
         );
 
-        // Parse arguments if they're a string
         let toolArgs = toolCall.arguments;
         if (typeof toolArgs === "string") {
           try {
             toolArgs = JSON.parse(toolArgs);
           } catch (e) {
-            // If it's not valid JSON, keep as string
             this.logger.warn(
               `Could not parse tool arguments as JSON: ${toolArgs}`
             );
           }
         }
 
-        // Execute the tool
         const toolResult = await this.toolRegistry.executeToolByName(
           toolCall.toolName,
           toolArgs
         );
 
-        // Format the tool result for the model
         const formattedResult =
           typeof toolResult === "string"
             ? toolResult
@@ -640,58 +635,55 @@ export class AgentService {
           )}...`
         );
 
-        // Create tool response message using your domain model
-        const toolResponseMessage = new Message({
-          role: "tool",
-          content: formattedResult,
-          conversationId,
-          toolCallId: toolCall.toolId,
-          toolName: toolCall.toolName,
-        });
-
-        // Add tool response to conversation history
-        agent.state.addToConversation(toolResponseMessage);
-        toolResponses.push(toolResponseMessage);
+        return {
+          success: true,
+          toolCall,
+          result: formattedResult,
+        };
       } catch (error) {
-        // Handle tool execution error
         const errorMessage = `Error executing tool ${toolCall.toolName}: ${error.message}`;
         this.logger.error(errorMessage);
 
-        const errorResponseMessage = new Message({
-          role: "tool",
-          content: errorMessage,
-          conversationId,
-          toolCallId: toolCall.toolId,
-          toolName: toolCall.toolName,
-        });
-
-        // Add error message to conversation
-        agent.state.addToConversation(errorResponseMessage);
-        toolResponses.push(errorResponseMessage);
+        return {
+          success: false,
+          toolCall,
+          result: errorMessage,
+        };
       }
+    });
+
+    // Wait for all tool executions to complete
+    const results = await Promise.all(toolCallPromises);
+
+    // Create and add all tool response messages to the conversation history
+    for (const result of results) {
+      const toolResponseMessage = new Message({
+        role: "tool",
+        content: result.result,
+        conversationId,
+        toolCallId: result.toolCall.toolId,
+        toolName: result.toolCall.toolName,
+        isToolError: !result.success,
+      });
+
+      agent.state.addToConversation(toolResponseMessage);
+      toolResponses.push(toolResponseMessage);
     }
 
-    // If there are tool responses, generate a final response that incorporates tool output
     if (toolResponses.length > 0) {
       try {
         this.logger.debug("Generating final response after tool execution");
 
-        // IMPORTANT CHANGE: Instead of sending the entire conversation history,
-        // only send the assistant message with tool calls and the tool results
-        // This avoids duplicate tool_use IDs in the request
-        const minimalConversationContext = [
-          responseMessage, // The assistant message with tool calls
-          ...toolResponses, // The tool result messages
-        ];
+        // Use the full conversation history
+        const fullConversationHistory = agent.state.conversationHistory;
 
         const finalResponseData = await this.modelService.generateResponse(
-          minimalConversationContext,
+          fullConversationHistory,
           agent.systemPrompt,
           agent.tools,
           options
         );
 
-        // Create the final response message
         const finalResponse = new Message({
           role: "assistant",
           content: finalResponseData.message.content,
@@ -707,10 +699,8 @@ export class AgentService {
           })),
         });
 
-        // Add final response to conversation
         agent.state.addToConversation(finalResponse);
 
-        // Check if the final response has more tool calls - if so, process them recursively
         if (
           finalResponseData.toolCalls &&
           finalResponseData.toolCalls.length > 0
@@ -719,22 +709,13 @@ export class AgentService {
             `Final response contains ${finalResponseData.toolCalls.length} more tool calls, processing recursively`
           );
 
-          // Include the current response in the conversation history for the next recursive call
-          // We still need to maintain the full conversation history for the agent state
-          const updatedPreviousMessages = [
-            ...previousMessages,
-            responseMessage,
-            ...toolResponses,
-            finalResponse,
-          ];
-
-          // Execute tool calls in the final response recursively
+          // Recursive call uses the updated full history via agent.state.conversation
           return this.executeToolCalls(
             agent,
             finalResponse,
             finalResponseData.toolCalls,
             conversationId,
-            updatedPreviousMessages,
+            previousMessages, // Not strictly needed since we use full history
             options
           );
         }
@@ -746,7 +727,6 @@ export class AgentService {
           error.stack
         );
 
-        // Add an error message to the conversation if the final response generation fails
         const errorFinalResponse = new Message({
           role: "assistant",
           content: `I encountered an error processing the tool results: ${error.message}`,
@@ -755,6 +735,7 @@ export class AgentService {
             isToolResponseSummary: true,
             error: error.message,
           },
+          isToolError: true,
         });
 
         agent.state.addToConversation(errorFinalResponse);

@@ -21,7 +21,12 @@ async function runStockMarketAgentExample(): Promise<void> {
         "When analyzing stocks, consider using multiple indicators to provide a more complete picture. " +
         "Always remind users that forecasts are simplified estimates and should not be used for actual investment decisions. " +
         "Be concise but informative, and explain technical terms when appropriate.",
-      tools: ["stockMarket"], // Specify the stock market tool
+      tools: [
+        "analyzeStock",
+        "forecastStock",
+        "getStockHistory",
+        "getStockPrice",
+      ], // Specify the stock market tool
     });
 
     console.log(`Stock Market Agent created with ID: ${agent.id}`);

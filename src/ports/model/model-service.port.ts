@@ -17,6 +17,8 @@ export interface ToolCallResult {
   toolId: string;
   arguments: Record<string, any>;
   result?: any;
+  isError?: boolean; // Add this field to explicitly indicate error state
+  errorMessage?: string; // Optional field to store error message
 }
 
 export interface ModelResponse {
