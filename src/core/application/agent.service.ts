@@ -17,8 +17,8 @@ import {
   AGENT_REPOSITORY,
   STATE_REPOSITORY,
   MODEL_SERVICE,
-  TOOL_REGISTRY,
 } from "@adapters/adapters.module";
+import { TOOL_REGISTRY } from '@core/constants';
 
 @Injectable()
 export class AgentService {

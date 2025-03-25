@@ -1,7 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { DirectAgentAdapter } from '../adapters/api/direct/direct-agent.adapter';
-import { ToolRegistryService } from '../adapters/tool/tool-registry.service';
+import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
+import { TOOL_REGISTRY } from '@core/constants';
 import { Agent } from './agent';
 import { AgentOptions, SDKConfig } from './types';
 import { Tool, ToolParameter } from '@core/domain/tool.entity'; // Import your Tool entity
@@ -17,7 +18,7 @@ interface PropertySchema {
 export class AgentSDK {
   private app: any; // NestJS application context
   private agentAdapter: DirectAgentAdapter;
-  private toolRegistry: ToolRegistryService;
+  private toolRegistry: ToolRegistryPort;
   private initialized = false;
 
   constructor(private config: SDKConfig = {}) { }
@@ -47,7 +48,7 @@ export class AgentSDK {
 
     // Get required adapters
     this.agentAdapter = this.app.get(DirectAgentAdapter);
-    this.toolRegistry = this.app.get(ToolRegistryService);
+    this.toolRegistry = this.app.get(TOOL_REGISTRY);
 
     this.initialized = true;
   }

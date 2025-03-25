@@ -64,4 +64,4 @@ export class ToolRegistryService implements ToolRegistryPort {
 
     return this.executeTool(tool.id, args);
   }
-}
+} 

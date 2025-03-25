@@ -1,15 +1,16 @@
 import { Module, OnModuleInit, Inject } from "@nestjs/common";
-import { AdaptersModule, TOOL_REGISTRY } from "@adapters/adapters.module";
+import { AdaptersModule } from "@adapters/adapters.module";
+import { CoreModule } from "@core/core.module";
 import { ToolRegistryPort } from "@ports/tool/tool-registry.port";
-import { ToolRegistryService } from '@adapters/tool/tool-registry.service';
+import { TOOL_REGISTRY } from '@core/constants';
 
 // Default tools
 import { StockMarketTool } from "./default/stock-market.tool";
 
 @Module({
-  imports: [AdaptersModule],
-  providers: [ToolRegistryService, StockMarketTool],
-  exports: [ToolRegistryService, StockMarketTool],
+  imports: [AdaptersModule, CoreModule],
+  providers: [StockMarketTool],
+  exports: [StockMarketTool],
 })
 export class ToolsModule implements OnModuleInit {
   constructor(

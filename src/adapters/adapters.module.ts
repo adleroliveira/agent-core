@@ -16,24 +16,14 @@ import { TypeOrmStateRepository } from './storage/typeorm/typeorm-state.reposito
 import { BedrockModelService } from './model/bedrock/bedrock-model.service';
 import { BedrockConfigService } from './model/bedrock/bedrock-config.service';
 
-// Tool services
-import { ToolRegistryService } from './tool/tool-registry.service';
-
 // API interfaces
 import { AgentController } from './api/rest/agent.controller';
 import { DirectAgentAdapter } from './api/direct/direct-agent.adapter';
-
-// Ports
-import { AgentRepositoryPort } from '@ports/storage/agent-repository.port';
-import { StateRepositoryPort } from '@ports/storage/state-repository.port';
-import { ModelServicePort } from '@ports/model/model-service.port';
-import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
 
 // Injection tokens
 export const AGENT_REPOSITORY = 'AGENT_REPOSITORY';
 export const STATE_REPOSITORY = 'STATE_REPOSITORY';
 export const MODEL_SERVICE = 'MODEL_SERVICE';
-export const TOOL_REGISTRY = 'TOOL_REGISTRY';
 
 @Module({
   imports: [
@@ -64,12 +54,6 @@ export const TOOL_REGISTRY = 'TOOL_REGISTRY';
       useClass: BedrockModelService,
     },
     
-    // Tool providers
-    {
-      provide: TOOL_REGISTRY,
-      useClass: ToolRegistryService,
-    },
-    
     // Direct API adapter
     DirectAgentAdapter,
   ],
@@ -77,7 +61,6 @@ export const TOOL_REGISTRY = 'TOOL_REGISTRY';
     AGENT_REPOSITORY,
     STATE_REPOSITORY,
     MODEL_SERVICE,
-    TOOL_REGISTRY,
     DirectAgentAdapter,
   ],
 })
