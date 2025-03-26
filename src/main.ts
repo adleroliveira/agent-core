@@ -47,6 +47,12 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
   
+  // Export OpenAPI specification
+  fs.writeFileSync(
+    path.resolve('./openapi.json'),
+    JSON.stringify(document, null, 2)
+  );
+  
   // Serve static files from the public directory
   app.useStaticAssets(path.join(__dirname, '../dist/public'), {
     index: false,
