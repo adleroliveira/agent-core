@@ -1,8 +1,11 @@
-import { Injectable, Inject, forwardRef } from "@nestjs/common";
+import { Injectable, Inject } from "@nestjs/common";
 import { Observable } from "rxjs";
 import { AgentService } from "@core/application/agent.service";
 import { Agent } from "@core/domain/agent.entity";
 import { Message } from "@core/domain/message.entity";
+import { StateRepositoryPort } from "@ports/storage/state-repository.port";
+import { STATE_REPOSITORY, AGENT_SERVICE } from "@adapters/adapters.module";
+import { Logger } from "@nestjs/common";
 
 /**
  * Direct adapter for integrating the Agent within other applications
@@ -10,9 +13,13 @@ import { Message } from "@core/domain/message.entity";
  */
 @Injectable()
 export class DirectAgentAdapter {
+  private readonly logger = new Logger(DirectAgentAdapter.name);
+
   constructor(
-    @Inject(forwardRef(() => AgentService))
-    private readonly agentService: AgentService
+    @Inject(AGENT_SERVICE)
+    private readonly agentService: AgentService,
+    @Inject(STATE_REPOSITORY)
+    private readonly stateRepository: StateRepositoryPort
   ) {}
 
   async createAgent(params: {
@@ -61,6 +68,30 @@ export class DirectAgentAdapter {
       conversationId,
       options
     );
+  }
+
+  /**
+   * Get the conversation history for an agent
+   * @param agentId The ID of the agent
+   * @param conversationId Optional conversation ID to get history for a specific conversation
+   * @returns The conversation history as an array of messages
+   */
+  async getConversationHistory(agentId: string, conversationId?: string): Promise<Message[]> {
+    const agent = await this.agentService.findAgentById(agentId);
+    if (!agent) {
+      throw new Error(`Agent with ID ${agentId} not found`);
+    }
+
+    // If conversationId is provided, try to load that specific conversation state
+    if (conversationId) {
+      const existingState = await this.stateRepository.findByConversationId(conversationId);
+      if (existingState) {
+        return existingState.conversationHistory;
+      }
+    }
+
+    // Return the current conversation history
+    return agent.state.conversationHistory;
   }
 
   /**

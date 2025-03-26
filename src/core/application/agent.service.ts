@@ -184,22 +184,24 @@ export class AgentService {
       }
 
       // Non-streaming flow
-      return this.processStandardMessage(
+      const response = await this.processStandardMessage(
         agent,
         conversationHistory,
         conversationId,
         tools,
         options
       );
+
+      // Save updated state
+      await this.stateRepository.save(agent.state, agent.id);
+
+      return response;
     } catch (error) {
       this.logger.error(
         `Error processing message: ${error.message}`,
         error.stack
       );
       throw new Error(`Failed to process message: ${error.message}`);
-    } finally {
-      // Save updated state
-      await this.stateRepository.save(agent.state, agent.id);
     }
   }
 

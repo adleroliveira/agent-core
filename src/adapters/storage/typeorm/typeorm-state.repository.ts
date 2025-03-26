@@ -9,9 +9,12 @@ import { MessageEntity } from "./entities/message.entity";
 import { ToolEntity } from "./entities/tool.entity";
 import { VectorDBPort } from "@ports/storage/vector-db.port";
 import { VECTOR_DB } from "@adapters/adapters.module";
+import { Logger } from "@nestjs/common";
 
 @Injectable()
 export class TypeOrmStateRepository implements StateRepositoryPort {
+  private readonly logger = new Logger(TypeOrmStateRepository.name);
+
   constructor(
     @InjectRepository(StateEntity)
     private readonly stateRepository: Repository<StateEntity>,

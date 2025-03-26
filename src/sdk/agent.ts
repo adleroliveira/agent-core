@@ -100,4 +100,13 @@ export class Agent {
   public getConversationId(): string | undefined {
     return this.entity.state?.conversationId;
   }
+
+  /**
+   * Get the conversation history for this agent
+   * @param conversationId Optional conversation ID to get history for a specific conversation
+   * @returns The conversation history as an array of messages
+   */
+  public async getConversationHistory(conversationId?: string): Promise<Message[]> {
+    return this.adapter.getConversationHistory(this.id, conversationId);
+  }
 }

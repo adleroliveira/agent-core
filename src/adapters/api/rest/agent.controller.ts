@@ -21,11 +21,12 @@ import { SendMessageDto } from "./dto/send-message.dto";
 import { UpdatePromptDto } from "./dto/update-prompt.dto";
 import { AddToolDto } from "./dto/add-tool.dto";
 import { Message } from "@core/domain/message.entity";
+import { AGENT_SERVICE } from "@adapters/adapters.module";
 
 @Controller("agents")
 export class AgentController {
   constructor(
-    @Inject(forwardRef(() => AgentService))
+    @Inject(forwardRef(() => AGENT_SERVICE))
     private readonly agentService: AgentService
   ) {}
 

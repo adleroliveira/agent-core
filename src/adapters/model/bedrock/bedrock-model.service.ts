@@ -815,8 +815,12 @@ export class BedrockModelService implements ModelServicePort {
                 content: [
                   // If it's an array, wrap it in an object with a results key
                   typeof toolContent === "object" && toolContent !== null
-                    ? { json: Array.isArray(toolContent) ? { results: toolContent } : toolContent }
-                    : { text: String(toolContent) }
+                    ? {
+                        json: Array.isArray(toolContent)
+                          ? { results: toolContent }
+                          : toolContent,
+                      }
+                    : { text: String(toolContent) },
                 ],
                 status: toolResult.isToolError ? "error" : "success",
               },

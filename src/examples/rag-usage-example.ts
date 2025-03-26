@@ -72,6 +72,11 @@ async function runRagExample(): Promise<void> {
     console.log("\nSearching for art-related information:");
     await processMessage(sixthMessage, conversationId);
 
+    // Get and display the full conversation history
+    // console.log("\nFull conversation history:");
+    // const history = await agent.getConversationHistory(conversationId);
+    // console.log(history);
+
     // Clean up
     console.log("\nDeleting agent...");
     await sdk.deleteAgent(agent.id);

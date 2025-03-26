@@ -1,7 +1,9 @@
-import { Module, forwardRef } from "@nestjs/common";
+import { Module, forwardRef, InjectionToken } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { CoreModule } from "@core/core.module";
 import { ConfigModule } from "@nestjs/config";
+import { AgentService } from "@core/application/agent.service";
+import { StateRepositoryPort } from "@ports/storage/state-repository.port";
 
 // Storage entities
 import { AgentEntity } from "./storage/typeorm/entities/agent.entity";
@@ -26,8 +28,9 @@ import { DirectAgentAdapter } from "./api/direct/direct-agent.adapter";
 // Injection tokens
 export const AGENT_REPOSITORY = "AGENT_REPOSITORY";
 export const STATE_REPOSITORY = "STATE_REPOSITORY";
-export const MODEL_SERVICE = "MODEL_SERVICE";
 export const VECTOR_DB = "VECTOR_DB";
+export const MODEL_SERVICE = "MODEL_SERVICE";
+export const AGENT_SERVICE = Symbol("AGENT_SERVICE");
 
 @Module({
   imports: [
@@ -65,7 +68,13 @@ export const VECTOR_DB = "VECTOR_DB";
     },
 
     // Direct API adapter
-    DirectAgentAdapter,
+    {
+      provide: DirectAgentAdapter,
+      useFactory: (agentService: AgentService, stateRepository: StateRepositoryPort) => {
+        return new DirectAgentAdapter(agentService, stateRepository);
+      },
+      inject: [AGENT_SERVICE, STATE_REPOSITORY],
+    },
   ],
   exports: [
     AGENT_REPOSITORY,
