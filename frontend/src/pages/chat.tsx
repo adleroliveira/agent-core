@@ -8,12 +8,41 @@ interface ChatProps {
   agentId?: string;
 }
 
+interface ParsedMessage {
+  thinking?: string;
+  content: string;
+}
+
 export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isStreaming, setIsStreaming] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [expandedThinking, setExpandedThinking] = useState<Set<number>>(new Set());
   const chatService = useRef<ChatService | null>(null);
+
+  const parseMessage = (content: string): ParsedMessage => {
+    const thinkingMatch = content.match(/<thinking>(.*?)<\/thinking>/s);
+    if (thinkingMatch) {
+      return {
+        thinking: thinkingMatch[1].trim(),
+        content: content.replace(/<thinking>.*?<\/thinking>/s, '').trim()
+      };
+    }
+    return { content };
+  };
+
+  const toggleThinking = (index: number) => {
+    setExpandedThinking(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
 
   useEffect(() => {
     if (agentId) {
@@ -93,11 +122,38 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
               <p>Start a conversation with your agent</p>
             </div>
           ) : (
-            messages.map((message, index) => (
-              <div key={index} class={`message ${message.role}`}>
-                <div class="message-content">{message.content}</div>
-              </div>
-            ))
+            messages.map((message, index) => {
+              const parsedMessage = parseMessage(message.content);
+              return (
+                <div key={index} class={`message ${message.role}`}>
+                  {parsedMessage.thinking && (
+                    <div class="thinking-section">
+                      <div
+                        class="thinking-header"
+                        onClick={() => toggleThinking(index)}
+                      >
+                        <svg
+                          class={`thinking-icon ${expandedThinking.has(index) ? 'expanded' : ''}`}
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                        <span>Thought Process</span>
+                      </div>
+                      <div class={`thinking-content ${expandedThinking.has(index) ? 'expanded' : ''}`}>
+                        {parsedMessage.thinking}
+                      </div>
+                    </div>
+                  )}
+                  <div class="message-content">{parsedMessage.content}</div>
+                </div>
+              );
+            })
           )}
         </div>
 

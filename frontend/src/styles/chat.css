@@ -134,6 +134,50 @@ input:checked + .toggle-slider:before {
   line-height: 1.5;
 }
 
+.thinking-section {
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding-bottom: 0.75rem;
+}
+
+.thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  color: #64748b;
+  font-size: 0.9rem;
+  user-select: none;
+}
+
+.thinking-header:hover {
+  color: #475569;
+}
+
+.thinking-content {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  color: #475569;
+  display: none;
+}
+
+.thinking-content.expanded {
+  display: block;
+}
+
+.thinking-icon {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s ease;
+}
+
+.thinking-icon.expanded {
+  transform: rotate(180deg);
+}
+
 .chat-input-form {
   display: flex;
   gap: 1rem;
