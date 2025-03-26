@@ -85,7 +85,7 @@ export const Home: ComponentType = () => {
                   <span>Model ID: {agent.modelId}</span>
                   <span>Created: {new Date(agent.createdAt).toLocaleDateString()}</span>
                 </div>
-                <button class="talk-to-agent-button" onClick={() => console.log('Talk to agent:', agent.id)}>
+                <button class="talk-to-agent-button" onClick={() => route(`/chat/${agent.id}`)}>
                   Talk to Agent
                 </button>
               </div>

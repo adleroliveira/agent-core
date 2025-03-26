@@ -2,6 +2,7 @@
 import { Router } from 'preact-router';
 import { Home } from './pages/home';
 import { CreateAgent } from './pages/create-agent';
+import { Chat } from './pages/chat';
 import './styles/app.css';
 
 export function App() {
@@ -23,6 +24,7 @@ export function App() {
         <Router>
           <Home path="/" />
           <CreateAgent path="/create-agent" />
+          <Chat path="/chat/:agentId" />
         </Router>
       </main>
     </div>
