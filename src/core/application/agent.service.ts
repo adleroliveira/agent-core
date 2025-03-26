@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException, Inject } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Inject,
+  OnModuleInit,
+} from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { Observable, Subject } from "rxjs";
 
@@ -23,7 +29,7 @@ import {
 import { TOOL_REGISTRY } from "@core/constants";
 
 @Injectable()
-export class AgentService {
+export class AgentService implements OnModuleInit {
   private readonly logger = new Logger(AgentService.name);
   private readonly initializedAgents: Map<string, Agent> = new Map();
 
@@ -39,6 +45,11 @@ export class AgentService {
     @Inject(VECTOR_DB)
     private readonly vectorDB: VectorDBPort
   ) {}
+
+  onModuleInit() {
+    // Clear the cache when the service starts
+    this.initializedAgents.clear();
+  }
 
   async createAgent(params: {
     name: string;
@@ -63,7 +74,11 @@ export class AgentService {
     });
 
     // Initialize services
-    await agent.setServices(this.modelService, this.vectorDB, this.toolRegistry);
+    await agent.setServices(
+      this.modelService,
+      this.vectorDB,
+      this.toolRegistry
+    );
 
     // Register default tools if available
     if (tools && tools.length > 0) {
@@ -81,7 +96,7 @@ export class AgentService {
     }
 
     const savedAgent = await this.agentRepository.save(agent);
-    
+
     // Cache the initialized agent
     this.initializedAgents.set(savedAgent.id, savedAgent);
 
@@ -101,9 +116,19 @@ export class AgentService {
       throw new NotFoundException(`Agent with ID ${id} not found`);
     }
 
+    // Load the most recent state for this agent
+    const state = await this.stateRepository.findByAgentId(id);
+    if (state) {
+      agent.state = state;
+    }
+
     // Initialize services for new agent
-    await agent.setServices(this.modelService, this.vectorDB, this.toolRegistry);
-    
+    await agent.setServices(
+      this.modelService,
+      this.vectorDB,
+      this.toolRegistry
+    );
+
     // Cache the initialized agent
     this.initializedAgents.set(id, agent);
 
@@ -221,6 +246,8 @@ export class AgentService {
     ) {
       throw new Error("Conversation must start with a user message");
     }
+
+    this.logger.debug("ConversationHistory", conversationHistory);
 
     // Call the model service to generate a response
     const modelResponse = await this.modelService.generateResponse(

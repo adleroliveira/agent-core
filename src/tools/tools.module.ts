@@ -8,6 +8,7 @@ import { GetStockPriceTool } from "./examples/stock-market/GetStockPriceTool.too
 import { GetStockHistoryTool } from "./examples/stock-market/GetStockHistoryTool.tool";
 import { AnalyzeStockTool } from "./examples/stock-market/AnalyzeStockTool.tool";
 import { ForecastStockTool } from "./examples/stock-market/ForecastStockTool.tool";
+import { RagToolBundle } from "./default/rag.toolBundle";
 
 @Module({
   imports: [AdaptersModule, CoreModule],
@@ -17,20 +18,28 @@ import { ForecastStockTool } from "./examples/stock-market/ForecastStockTool.too
     GetStockHistoryTool,
     AnalyzeStockTool,
     ForecastStockTool,
+    RagToolBundle,
   ],
-  exports: [StockMarketToolBundle],
+  exports: [StockMarketToolBundle, RagToolBundle],
 })
 export class ToolsModule implements OnModuleInit {
   constructor(
     @Inject(TOOL_REGISTRY)
     private readonly toolRegistry: ToolRegistryPort,
     private readonly stockMarketToolBundle: StockMarketToolBundle,
+    private readonly ragToolBundle: RagToolBundle,
   ) {}
 
   async onModuleInit() {
     // Register stock market tools
     const { tools: stockMarketTools } = this.stockMarketToolBundle.getBundle();
     for (const tool of stockMarketTools) {
+      await this.toolRegistry.registerTool(tool);
+    }
+
+    // Register RAG tools
+    const { tools: ragTools } = this.ragToolBundle.getBundle();
+    for (const tool of ragTools) {
       await this.toolRegistry.registerTool(tool);
     }
   }

@@ -74,6 +74,26 @@ export class Agent {
     
     if (!hasRagToolsLocally && !hasRagToolsInRegistry) {
       await this.initializeRagTools();
+    } else {
+      // Create new RAG tools with the knowledge base
+      const ragToolBundle = new RagToolBundle(this.knowledgeBase);
+      const { tools: newRagTools } = ragToolBundle.getBundle();
+      
+      // Update tools in the registry
+      for (const tool of tools) {
+        if (tool.name === 'rag_add' || tool.name === 'rag_search') {
+          await toolRegistry.unregisterTool(tool.id);
+        }
+      }
+      
+      // Register new tools
+      for (const tool of newRagTools) {
+        await toolRegistry.registerTool(tool);
+      }
+      
+      // Update local tools array
+      this.tools = this.tools.filter(tool => tool.name !== 'rag_add' && tool.name !== 'rag_search');
+      this.tools.push(...newRagTools);
     }
   }
 
