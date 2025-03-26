@@ -7,6 +7,8 @@ import { Agent } from "./agent";
 import { AgentOptions, SDKConfig } from "./types";
 import { Tool, ToolParameter } from "@core/domain/tool.entity"; // Import your Tool entity
 import { ToolBuilder } from "./tool-builder";
+import { ModelServicePort } from "@ports/model/model-service.port";
+import { MODEL_SERVICE } from "@adapters/adapters.module";
 
 interface PropertySchema {
   type: string;
@@ -17,8 +19,9 @@ interface PropertySchema {
 
 export class AgentSDK {
   private app: any; // NestJS application context
-  private agentAdapter: DirectAgentAdapter;
-  private toolRegistry: ToolRegistryPort;
+  private agentAdapter!: DirectAgentAdapter;
+  private toolRegistry!: ToolRegistryPort;
+  private modelService: ModelServicePort | undefined;
   private initialized = false;
 
   constructor(private config: SDKConfig = {}) {}
@@ -50,6 +53,13 @@ export class AgentSDK {
     // Get required adapters
     this.agentAdapter = this.app.get(DirectAgentAdapter);
     this.toolRegistry = this.app.get(TOOL_REGISTRY);
+
+    try {
+      this.modelService = this.app.get(MODEL_SERVICE);
+    } catch (error) {
+      console.warn("Model service not available:", error);
+      this.modelService = undefined;
+    }
 
     this.initialized = true;
   }
@@ -107,10 +117,10 @@ export class AgentSDK {
   /**
    * Register a tool for use with agents
    */
-  public registerTool(
+  public async registerTool(
     tool: Tool | ReturnType<typeof ToolBuilder.prototype.handle>
-  ): void {
-    this.ensureInitialized();
+  ): Promise<void> {
+    await this.ensureInitialized();
 
     // Handle both direct Tool objects and ToolBuilder results
     if ("spec" in tool && "run" in tool) {
@@ -218,5 +228,39 @@ export class AgentSDK {
     if (!this.initialized) {
       await this.initialize();
     }
+  }
+
+  /**
+   * Generate embeddings for a single text
+   * @param text The text to generate embeddings for
+   * @param options Additional options for the embedding generation
+   * @returns A promise that resolves to the embedding vector
+   */
+  public async generateEmbedding(
+    text: string,
+    options?: Record<string, any>
+  ): Promise<number[]> {
+    await this.ensureInitialized();
+    if (!this.modelService) {
+      throw new Error("Model service not initialized");
+    }
+    return this.modelService.generateEmbedding(text, options);
+  }
+
+  /**
+   * Generate embeddings for multiple texts
+   * @param texts Array of texts to generate embeddings for
+   * @param options Additional options for the embedding generation
+   * @returns A promise that resolves to an array of embedding vectors
+   */
+  public async generateEmbeddings(
+    texts: string[],
+    options?: Record<string, any>
+  ): Promise<number[][]> {
+    await this.ensureInitialized();
+    if (!this.modelService) {
+      throw new Error("Model service not initialized");
+    }
+    return this.modelService.generateEmbeddings(texts, options);
   }
 }

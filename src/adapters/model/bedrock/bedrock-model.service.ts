@@ -3,6 +3,7 @@ import {
   BedrockRuntimeClient,
   ConverseCommand,
   ConverseStreamCommand,
+  InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import { v4 as uuidv4 } from "uuid";
 import { Observable, Subject } from "rxjs";
@@ -572,53 +573,88 @@ export class BedrockModelService implements ModelServicePort {
     const embeddingModelId = this.configService.getEmbeddingModelId();
 
     try {
-      // For embedding models, we need to use a different approach
-      // Since ConverseAPI doesn't directly support embeddings, we'll need to use a model-specific approach
-
-      // For Amazon Titan Embeddings
+      // Handle different embedding model types based on their IDs
       if (embeddingModelId.includes("amazon.titan-embed")) {
-        const command = new ConverseCommand({
+        // Amazon Titan Embeddings format - use InvokeModelCommand
+        const payload = {
+          inputText: text,
+        };
+
+        const command = new InvokeModelCommand({
           modelId: embeddingModelId,
-          messages: [
-            {
-              role: "user",
-              content: [{ text }],
-            },
-          ],
-          // Add any additional embedding-specific parameters from options
-          ...(options || {}),
+          body: JSON.stringify(payload),
         });
 
         const response = await this.bedrockClient.send(command);
 
-        // Access embeddings based on model's response structure
-        // This access pattern will depend on the specific embedding model used
-        if (response.output && "embedding" in response.output) {
-          return (response.output as unknown as { embedding: number[] })
-            .embedding;
-        }
+        // Parse the response body
+        const responseBody = JSON.parse(
+          new TextDecoder().decode(response.body)
+        );
 
-        // Fallback for different structure
-        if (response.output && "results" in response.output) {
-          const results = (
-            response.output as unknown as {
-              results: Array<{ embedding: number[] }>;
-            }
-          ).results;
-          if (results && results[0] && results[0].embedding) {
-            return results[0].embedding;
-          }
+        // Return the embedding from the response
+        if (responseBody.embedding) {
+          return responseBody.embedding;
+        }
+      } else if (embeddingModelId.includes("cohere.embed")) {
+        // Cohere embedding format
+        const payload = {
+          texts: [text],
+          input_type: "search_document",
+        };
+
+        const command = new InvokeModelCommand({
+          modelId: embeddingModelId,
+          body: JSON.stringify(payload),
+        });
+
+        const response = await this.bedrockClient.send(command);
+        const responseBody = JSON.parse(
+          new TextDecoder().decode(response.body)
+        );
+
+        // Cohere returns embeddings array
+        if (responseBody.embeddings && responseBody.embeddings.length > 0) {
+          return responseBody.embeddings[0];
+        }
+      } else {
+        // For other embedding models - generic approach
+        const payload = {
+          input: text,
+        };
+
+        const command = new InvokeModelCommand({
+          modelId: embeddingModelId,
+          body: JSON.stringify(payload),
+          ...(options || {}),
+        });
+
+        const response = await this.bedrockClient.send(command);
+        const responseBody = JSON.parse(
+          new TextDecoder().decode(response.body)
+        );
+
+        // Try to extract embedding from common response formats
+        if (responseBody.embedding) {
+          return responseBody.embedding;
+        } else if (
+          responseBody.embeddings &&
+          responseBody.embeddings.length > 0
+        ) {
+          return responseBody.embeddings[0];
+        } else if (Array.isArray(responseBody)) {
+          return responseBody;
         }
       }
 
-      // If we get here, the embedding wasn't found in the expected format
+      // If we get here, the embedding wasn't found in any expected format
       this.logger.warn(
-        `Embedding model ${embeddingModelId} returned unexpected format`
+        `Embedding model ${embeddingModelId} returned unexpected format from InvokeModel`
       );
       throw new Error("Embedding not found in model response");
     } catch (error) {
       this.logger.error(
-        `Error generating embedding: ${error.message}`,
+        `Error generating embedding with model ${embeddingModelId}: ${error.message}`,
         error.stack
       );
       throw new Error(`Failed to generate embedding: ${error.message}`);
@@ -629,16 +665,26 @@ export class BedrockModelService implements ModelServicePort {
     texts: string[],
     options?: Record<string, any>
   ): Promise<number[][]> {
-    // For batch processing, we'll process each text individually
-    // In a production system, you might want to implement batching based on the provider's capabilities
-    const embeddings: number[][] = [];
+    const embeddingModelId = this.configService.getEmbeddingModelId();
 
-    for (const text of texts) {
-      const embedding = await this.generateEmbedding(text, options);
-      embeddings.push(embedding);
+    try {
+      // For batch processing, we'll process each text individually
+      // In a production system, you might want to implement batching based on the provider's capabilities
+      const embeddings: number[][] = [];
+
+      for (const text of texts) {
+        const embedding = await this.generateEmbedding(text, options);
+        embeddings.push(embedding);
+      }
+
+      return embeddings;
+    } catch (error) {
+      this.logger.error(
+        `Error generating batch embeddings with model ${embeddingModelId}: ${error.message}`,
+        error.stack
+      );
+      throw new Error(`Failed to generate batch embeddings: ${error.message}`);
     }
-
-    return embeddings;
   }
 
   private createConverseRequest(

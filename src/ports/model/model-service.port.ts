@@ -62,7 +62,7 @@ export interface ModelServicePort {
   ): Promise<number[]>;
 
   // Optional method for batch embeddings for efficiency
-  generateEmbeddings?(
+  generateEmbeddings(
     texts: string[],
     options?: Record<string, any>
   ): Promise<number[][]>;
