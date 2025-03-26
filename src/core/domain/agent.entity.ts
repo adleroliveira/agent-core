@@ -3,11 +3,15 @@ import { AgentState } from "./agent-state.entity";
 import { Prompt } from "./prompt.entity";
 import { Tool } from "./tool.entity";
 import { Message } from "./message.entity";
+import { KnowledgeBase } from "./knowledge-base.entity";
+import { RagToolBundle } from "@tools/default/rag.toolBundle";
 import {
   ModelServicePort,
   ToolCallResult,
 } from "@ports/model/model-service.port";
 import { Observable, map } from "rxjs";
+import { VectorDBPort } from "@ports/storage/vector-db.port";
+import { ToolRegistryPort } from "@ports/tool/tool-registry.port";
 
 export class Agent {
   public readonly id: string;
@@ -17,9 +21,12 @@ export class Agent {
   public state: AgentState;
   public systemPrompt: Prompt;
   public tools: Tool[];
+  public knowledgeBase: KnowledgeBase;
   public createdAt: Date;
   public updatedAt: Date;
   private modelService?: ModelServicePort;
+  private vectorDB?: VectorDBPort;
+  private toolRegistry?: ToolRegistryPort;
 
   constructor(params: {
     id?: string;
@@ -29,6 +36,9 @@ export class Agent {
     systemPrompt: Prompt;
     tools?: Tool[];
     modelService?: ModelServicePort;
+    vectorDB?: VectorDBPort;
+    toolRegistry?: ToolRegistryPort;
+    knowledgeBase?: KnowledgeBase;
   }) {
     this.id = params.id || uuidv4();
     this.name = params.name;
@@ -37,9 +47,49 @@ export class Agent {
     this.systemPrompt = params.systemPrompt;
     this.tools = params.tools || [];
     this.modelService = params.modelService;
+    this.vectorDB = params.vectorDB;
+    this.toolRegistry = params.toolRegistry;
     this.state = new AgentState();
+    this.knowledgeBase = params.knowledgeBase || new KnowledgeBase({
+      agentId: this.id,
+      name: `${this.name}'s Knowledge Base`,
+      description: `Knowledge base for agent ${this.name}`,
+      modelService: this.modelService,
+      vectorDB: this.vectorDB,
+    });
     this.createdAt = new Date();
     this.updatedAt = new Date();
+  }
+
+  public async setServices(modelService: ModelServicePort, vectorDB: VectorDBPort, toolRegistry: ToolRegistryPort): Promise<void> {
+    this.modelService = modelService;
+    this.vectorDB = vectorDB;
+    this.toolRegistry = toolRegistry;
+    this.knowledgeBase.setServices(modelService, vectorDB);
+    
+    // Only initialize RAG tools if they haven't been initialized yet in either the local tools array or the registry
+    const hasRagToolsLocally = this.tools.some(tool => tool.name === 'rag_add' || tool.name === 'rag_search');
+    const tools = await toolRegistry.getAllTools();
+    const hasRagToolsInRegistry = tools.some(tool => tool.name === 'rag_add' || tool.name === 'rag_search');
+    
+    if (!hasRagToolsLocally && !hasRagToolsInRegistry) {
+      await this.initializeRagTools();
+    }
+  }
+
+  private async initializeRagTools(): Promise<void> {
+    if (!this.toolRegistry) {
+      throw new Error("Tool registry not initialized");
+    }
+
+    const ragToolBundle = new RagToolBundle(this.knowledgeBase);
+    const { tools: ragTools } = ragToolBundle.getBundle();
+    
+    // Register RAG tools
+    for (const tool of ragTools) {
+      await this.toolRegistry.registerTool(tool);
+      this.tools.push(tool);
+    }
   }
 
   public async processMessage(

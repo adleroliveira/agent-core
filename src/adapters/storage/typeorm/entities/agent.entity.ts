@@ -1,6 +1,7 @@
 import { Entity, Column, PrimaryColumn, CreateDateColumn, UpdateDateColumn, OneToMany, OneToOne, JoinColumn } from 'typeorm';
 import { StateEntity } from './state.entity';
 import { ToolEntity } from './tool.entity';
+import { KnowledgeBaseEntity } from './knowledge-base.entity';
 
 @Entity('agents')
 export class AgentEntity {
@@ -33,6 +34,9 @@ export class AgentEntity {
 
   @OneToMany(() => ToolEntity, tool => tool.agent, { cascade: true })
   tools: ToolEntity[];
+
+  @OneToOne(() => KnowledgeBaseEntity, knowledgeBase => knowledgeBase.agent, { nullable: true })
+  knowledgeBase: KnowledgeBaseEntity | null;
 
   @CreateDateColumn()
   createdAt: Date;

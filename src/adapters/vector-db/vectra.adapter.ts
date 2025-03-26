@@ -3,21 +3,29 @@ import { VectorDBPort } from "@ports/storage/vector-db.port";
 import * as path from "path";
 import { ConfigService } from "@nestjs/config";
 import { Injectable } from "@nestjs/common";
+import * as fs from "fs/promises";
 
 @Injectable()
 export class VectraAdapter implements VectorDBPort {
-  private index: LocalIndex;
+  private indices: Map<string, LocalIndex> = new Map();
 
-  constructor(private configService: ConfigService) {
+  constructor(private configService: ConfigService) {}
+
+  private getIndexPath(knowledgeBaseId: string): string {
     const dbPath = this.configService.get<string>("DATABASE_PATH") || "./data/";
-    const vectraDir = path.join(dbPath, "vectra");
-    this.index = new LocalIndex(vectraDir);
+    return path.join(dbPath, "vectra", knowledgeBaseId);
   }
 
-  private async ensureIndexCreated(): Promise<void> {
-    if (!(await this.index.isIndexCreated())) {
-      await this.index.createIndex();
+  private async getOrCreateIndex(knowledgeBaseId: string): Promise<LocalIndex> {
+    if (!this.indices.has(knowledgeBaseId)) {
+      const indexPath = this.getIndexPath(knowledgeBaseId);
+      const index = new LocalIndex(indexPath);
+      if (!(await index.isIndexCreated())) {
+        await index.createIndex();
+      }
+      this.indices.set(knowledgeBaseId, index);
     }
+    return this.indices.get(knowledgeBaseId)!;
   }
 
   async upsert(
@@ -25,32 +33,53 @@ export class VectraAdapter implements VectorDBPort {
       id: string;
       embedding: number[];
       metadata?: Record<string, any>;
+      knowledgeBaseId: string;
     }[]
   ): Promise<void> {
-    await this.ensureIndexCreated();
-    for (const { id, embedding, metadata } of vectors) {
-      await this.index.insertItem({
-        vector: embedding,
-        metadata: { id, ...metadata }, // Store the string id in metadata
-      });
+    const vectorsByKnowledgeBase = vectors.reduce((acc, vector) => {
+      if (!acc[vector.knowledgeBaseId]) {
+        acc[vector.knowledgeBaseId] = [];
+      }
+      acc[vector.knowledgeBaseId].push(vector);
+      return acc;
+    }, {} as Record<string, typeof vectors>);
+
+    for (const [knowledgeBaseId, knowledgeBaseVectors] of Object.entries(vectorsByKnowledgeBase)) {
+      const index = await this.getOrCreateIndex(knowledgeBaseId);
+      for (const { id, embedding, metadata } of knowledgeBaseVectors) {
+        await index.insertItem({
+          vector: embedding,
+          metadata: { id, ...metadata },
+        });
+      }
     }
   }
 
   async query(
     embedding: number[],
-    topK: number
+    topK: number,
+    knowledgeBaseId: string
   ): Promise<{ id: string; score: number; metadata?: Record<string, any> }[]> {
-    await this.ensureIndexCreated();
-    const results = await this.index.queryItems(embedding, topK);
+    const index = await this.getOrCreateIndex(knowledgeBaseId);
+    const results = await index.queryItems(embedding, topK);
     return results.map((result) => {
-      const metadata = { ...result.item.metadata }; // Clone metadata
-      const id = metadata.id as string; // Assert id as string (we control it in upsert)
-      delete metadata.id; // Remove id from metadata to avoid duplication
+      const metadata = { ...result.item.metadata };
+      const id = metadata.id as string;
+      delete metadata.id;
       return {
-        id, // Return the string id from metadata
+        id,
         score: result.score,
-        metadata: Object.keys(metadata).length > 0 ? metadata : undefined, // Only include metadata if non-empty
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       };
     });
+  }
+
+  async deleteKnowledgeBase(knowledgeBaseId: string): Promise<void> {
+    // Remove the index from memory if it exists
+    if (this.indices.has(knowledgeBaseId)) {
+      const index = this.indices.get(knowledgeBaseId)!;
+      await index.deleteIndex();
+      this.indices.delete(knowledgeBaseId);
+    }
   }
 }

@@ -4,10 +4,12 @@ import { KnowledgeBaseEntry, KnowledgeBasePort, KnowledgeBaseConfig } from "@por
 export class KnowledgeBaseService implements KnowledgeBasePort {
   private readonly modelService: KnowledgeBaseConfig["modelService"];
   private readonly vectorDB: KnowledgeBaseConfig["vectorDB"];
+  private readonly knowledgeBaseId: string;
 
-  constructor(config: KnowledgeBaseConfig) {
+  constructor(config: KnowledgeBaseConfig & { knowledgeBaseId: string }) {
     this.modelService = config.modelService;
     this.vectorDB = config.vectorDB;
+    this.knowledgeBaseId = config.knowledgeBaseId;
   }
 
   async addKnowledge(
@@ -31,6 +33,7 @@ export class KnowledgeBaseService implements KnowledgeBasePort {
       {
         id: entry.id,
         embedding,
+        knowledgeBaseId: this.knowledgeBaseId,
         metadata: {
           ...entry.metadata,
           content: entry.content,
@@ -51,7 +54,7 @@ export class KnowledgeBaseService implements KnowledgeBasePort {
     const queryEmbedding = await this.modelService.generateEmbedding(query);
 
     // Search in vector database
-    const results = await this.vectorDB.query(queryEmbedding, topK);
+    const results = await this.vectorDB.query(queryEmbedding, topK, this.knowledgeBaseId);
 
     // Transform results into KnowledgeBaseEntry format
     return results.map((result) => ({

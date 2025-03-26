@@ -5,6 +5,7 @@ import { AgentEntity } from "./adapters/storage/typeorm/entities/agent.entity";
 import { StateEntity } from "./adapters/storage/typeorm/entities/state.entity";
 import { MessageEntity } from "./adapters/storage/typeorm/entities/message.entity";
 import { ToolEntity } from "./adapters/storage/typeorm/entities/tool.entity";
+import { KnowledgeBaseEntity } from "./adapters/storage/typeorm/entities/knowledge-base.entity";
 import { CoreModule } from "./core/core.module";
 import { AdaptersModule } from "./adapters/adapters.module";
 import { ToolsModule } from "./tools/tools.module";
@@ -30,7 +31,7 @@ import { ToolsModule } from "./tools/tools.module";
           return {
             type: "sqlite",
             database: `${dbPath}${dbName}`,
-            entities: [AgentEntity, StateEntity, MessageEntity, ToolEntity],
+            entities: [AgentEntity, StateEntity, MessageEntity, ToolEntity, KnowledgeBaseEntity],
             synchronize: true, // TODO: Set to false in production
           };
         }
@@ -40,7 +41,7 @@ import { ToolsModule } from "./tools/tools.module";
         return {
           type: "sqlite", // Default fallback
           database: "./data/agent.sqlite",
-          entities: [AgentEntity, StateEntity, MessageEntity, ToolEntity],
+          entities: [AgentEntity, StateEntity, MessageEntity, ToolEntity, KnowledgeBaseEntity],
           synchronize: true,
         };
       },

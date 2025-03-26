@@ -26,7 +26,6 @@ async function runRagExample(): Promise<void> {
       - If you don't find relevant information, let the user know
 
       Always maintain a helpful and informative tone.`,
-      tools: ["ragAdd", "ragSearch"],
     });
 
     console.log(`RAG Agent created with ID: ${agent.id}`);

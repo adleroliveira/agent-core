@@ -8,6 +8,7 @@ import { AgentEntity } from "./storage/typeorm/entities/agent.entity";
 import { StateEntity } from "./storage/typeorm/entities/state.entity";
 import { MessageEntity } from "./storage/typeorm/entities/message.entity";
 import { ToolEntity } from "./storage/typeorm/entities/tool.entity";
+import { KnowledgeBaseEntity } from "./storage/typeorm/entities/knowledge-base.entity";
 import { VectraAdapter } from "./vector-db/vectra.adapter";
 
 // Storage repositories
@@ -35,6 +36,7 @@ export const VECTOR_DB = "VECTOR_DB";
       StateEntity,
       MessageEntity,
       ToolEntity,
+      KnowledgeBaseEntity,
     ]),
     forwardRef(() => CoreModule),
     ConfigModule,

@@ -3,6 +3,7 @@ import { Prompt } from '@core/domain/prompt.entity';
 import { AgentEntity } from '../entities/agent.entity';
 import { StateMapper } from './state.mapper';
 import { ToolMapper } from './tool.mapper';
+import { KnowledgeBaseMapper } from './knowledge-base.mapper';
 
 export class AgentMapper {
   static toDomain(entity: AgentEntity): Agent {
@@ -19,6 +20,7 @@ export class AgentMapper {
         metadata: entity.systemPrompt.metadata,
       }),
       tools: entity.tools ? entity.tools.map(ToolMapper.toDomain) : [],
+      knowledgeBase: entity.knowledgeBase ? KnowledgeBaseMapper.toDomain(entity.knowledgeBase) : undefined,
     });
 
     if (entity.state) {
@@ -55,6 +57,10 @@ export class AgentMapper {
 
     if (domain.tools) {
       entity.tools = domain.tools.map(tool => ToolMapper.toPersistence(tool, domain.id));
+    }
+
+    if (domain.knowledgeBase) {
+      entity.knowledgeBase = KnowledgeBaseMapper.toPersistence(domain.knowledgeBase, domain.id);
     }
 
     return entity;

@@ -1,12 +1,12 @@
 import { Tool } from "@core/domain/tool.entity";
-import { KnowledgeBasePort } from "@ports/knowledge-base/knowledge-base.port";
+import { KnowledgeBase } from "@core/domain/knowledge-base.entity";
 import { RagAddTool } from "./rag-add.tool";
 import { RagSearchTool } from "./rag-search.tool";
 
 export class RagToolBundle {
   private readonly tools: Tool[];
 
-  constructor(knowledgeBase: KnowledgeBasePort) {
+  constructor(knowledgeBase: KnowledgeBase) {
     this.tools = [
       new RagAddTool(knowledgeBase),
       new RagSearchTool(knowledgeBase),

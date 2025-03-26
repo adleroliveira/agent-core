@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Inject, forwardRef } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { AgentState } from "@core/domain/agent-state.entity";
@@ -7,12 +7,16 @@ import { StateEntity } from "./entities/state.entity";
 import { StateMapper } from "./mappers/state.mapper";
 import { MessageEntity } from "./entities/message.entity";
 import { ToolEntity } from "./entities/tool.entity";
+import { VectorDBPort } from "@ports/storage/vector-db.port";
+import { VECTOR_DB } from "@adapters/adapters.module";
 
 @Injectable()
 export class TypeOrmStateRepository implements StateRepositoryPort {
   constructor(
     @InjectRepository(StateEntity)
-    private readonly stateRepository: Repository<StateEntity>
+    private readonly stateRepository: Repository<StateEntity>,
+    @Inject(forwardRef(() => VECTOR_DB))
+    private readonly vectorDB: VectorDBPort
   ) {}
 
   async findById(id: string): Promise<AgentState | null> {

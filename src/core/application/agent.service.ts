@@ -13,16 +13,19 @@ import {
   ToolCallResult,
 } from "@ports/model/model-service.port";
 import { ToolRegistryPort } from "@ports/tool/tool-registry.port";
+import { VectorDBPort } from "@ports/storage/vector-db.port";
 import {
   AGENT_REPOSITORY,
   STATE_REPOSITORY,
   MODEL_SERVICE,
+  VECTOR_DB,
 } from "@adapters/adapters.module";
 import { TOOL_REGISTRY } from "@core/constants";
 
 @Injectable()
 export class AgentService {
   private readonly logger = new Logger(AgentService.name);
+  private readonly initializedAgents: Map<string, Agent> = new Map();
 
   constructor(
     @Inject(AGENT_REPOSITORY)
@@ -32,7 +35,9 @@ export class AgentService {
     @Inject(MODEL_SERVICE)
     private readonly modelService: ModelServicePort,
     @Inject(TOOL_REGISTRY)
-    private readonly toolRegistry: ToolRegistryPort
+    private readonly toolRegistry: ToolRegistryPort,
+    @Inject(VECTOR_DB)
+    private readonly vectorDB: VectorDBPort
   ) {}
 
   async createAgent(params: {
@@ -57,6 +62,9 @@ export class AgentService {
       systemPrompt,
     });
 
+    // Initialize services
+    await agent.setServices(this.modelService, this.vectorDB, this.toolRegistry);
+
     // Register default tools if available
     if (tools && tools.length > 0) {
       const allTools = await this.toolRegistry.getAllTools();
@@ -72,14 +80,33 @@ export class AgentService {
       }
     }
 
-    return this.agentRepository.save(agent);
+    const savedAgent = await this.agentRepository.save(agent);
+    
+    // Cache the initialized agent
+    this.initializedAgents.set(savedAgent.id, savedAgent);
+
+    return savedAgent;
   }
 
   async findAgentById(id: string): Promise<Agent> {
+    // Check if we already have an initialized agent
+    const cachedAgent = this.initializedAgents.get(id);
+    if (cachedAgent) {
+      return cachedAgent;
+    }
+
+    // If not in cache, load from database
     const agent = await this.agentRepository.findById(id);
     if (!agent) {
       throw new NotFoundException(`Agent with ID ${id} not found`);
     }
+
+    // Initialize services for new agent
+    await agent.setServices(this.modelService, this.vectorDB, this.toolRegistry);
+    
+    // Cache the initialized agent
+    this.initializedAgents.set(id, agent);
+
     return agent;
   }
 
@@ -170,6 +197,9 @@ export class AgentService {
         error.stack
       );
       throw new Error(`Failed to process message: ${error.message}`);
+    } finally {
+      // Save updated state
+      await this.stateRepository.save(agent.state, agent.id);
     }
   }
 
@@ -231,9 +261,6 @@ export class AgentService {
         responseMessage = finalResponse;
       }
     }
-
-    // Save updated state
-    await this.stateRepository.save(agent.state, agent.id);
 
     return responseMessage;
   }
