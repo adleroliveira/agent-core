@@ -8,6 +8,8 @@ import { GetStockPriceTool } from "./examples/stock-market/GetStockPriceTool.too
 import { GetStockHistoryTool } from "./examples/stock-market/GetStockHistoryTool.tool";
 import { AnalyzeStockTool } from "./examples/stock-market/AnalyzeStockTool.tool";
 import { ForecastStockTool } from "./examples/stock-market/ForecastStockTool.tool";
+import { RagToolBundle } from "./default/rag.toolBundle";
+import { KnowledgeBaseService } from "@core/services/knowledge-base.service";
 
 @Module({
   imports: [AdaptersModule, CoreModule],
@@ -17,19 +19,34 @@ import { ForecastStockTool } from "./examples/stock-market/ForecastStockTool.too
     GetStockHistoryTool,
     AnalyzeStockTool,
     ForecastStockTool,
+    {
+      provide: RagToolBundle,
+      useFactory: (knowledgeBase: KnowledgeBaseService) => {
+        return new RagToolBundle(knowledgeBase);
+      },
+      inject: [KnowledgeBaseService],
+    },
   ],
-  exports: [StockMarketToolBundle], // Export the bundle if other modules need it
+  exports: [StockMarketToolBundle, RagToolBundle], // Export both bundles
 })
 export class ToolsModule implements OnModuleInit {
   constructor(
     @Inject(TOOL_REGISTRY)
     private readonly toolRegistry: ToolRegistryPort,
-    private readonly stockMarketToolBundle: StockMarketToolBundle
+    private readonly stockMarketToolBundle: StockMarketToolBundle,
+    private readonly ragToolBundle: RagToolBundle
   ) {}
 
   async onModuleInit() {
-    const { tools } = this.stockMarketToolBundle.getBundle();
-    for (const tool of tools) {
+    // Register stock market tools
+    const { tools: stockMarketTools } = this.stockMarketToolBundle.getBundle();
+    for (const tool of stockMarketTools) {
+      await this.toolRegistry.registerTool(tool);
+    }
+
+    // Register RAG tools
+    const { tools: ragTools } = this.ragToolBundle.getBundle();
+    for (const tool of ragTools) {
       await this.toolRegistry.registerTool(tool);
     }
   }

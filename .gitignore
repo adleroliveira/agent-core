@@ -51,3 +51,5 @@ temp/
 
 # Local AWS config
 .aws/
+
+data/*
