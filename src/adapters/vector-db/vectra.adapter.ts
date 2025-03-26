@@ -3,7 +3,6 @@ import { VectorDBPort } from "@ports/storage/vector-db.port";
 import * as path from "path";
 import { ConfigService } from "@nestjs/config";
 import { Injectable } from "@nestjs/common";
-import * as fs from "fs/promises";
 
 @Injectable()
 export class VectraAdapter implements VectorDBPort {
@@ -44,7 +43,9 @@ export class VectraAdapter implements VectorDBPort {
       return acc;
     }, {} as Record<string, typeof vectors>);
 
-    for (const [knowledgeBaseId, knowledgeBaseVectors] of Object.entries(vectorsByKnowledgeBase)) {
+    for (const [knowledgeBaseId, knowledgeBaseVectors] of Object.entries(
+      vectorsByKnowledgeBase
+    )) {
       const index = await this.getOrCreateIndex(knowledgeBaseId);
       for (const { id, embedding, metadata } of knowledgeBaseVectors) {
         await index.insertItem({
