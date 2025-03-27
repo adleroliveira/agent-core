@@ -27,6 +27,7 @@ import {
   VECTOR_DB,
 } from "@adapters/adapters.module";
 import { TOOL_REGISTRY } from "@core/constants";
+import { DEFAULT_SYSTEM_PROMPT } from "@config/prompts.config";
 
 @Injectable()
 export class AgentService implements OnModuleInit {
@@ -60,8 +61,11 @@ export class AgentService implements OnModuleInit {
   }): Promise<Agent> {
     const { name, description, modelId, systemPromptContent, tools } = params;
 
+    // Combine default prompt with user's prompt
+    const combinedPromptContent = `${DEFAULT_SYSTEM_PROMPT}\n\n${systemPromptContent}`;
+
     const systemPrompt = new Prompt({
-      content: systemPromptContent,
+      content: combinedPromptContent,
       type: "system",
       name: `${name} System Prompt`,
     });
@@ -826,8 +830,11 @@ export class AgentService implements OnModuleInit {
   ): Promise<Agent> {
     const agent = await this.findAgentById(agentId);
 
+    // Combine default prompt with user's prompt
+    const combinedPromptContent = `${DEFAULT_SYSTEM_PROMPT}\n\n${promptContent}`;
+
     const updatedPrompt = new Prompt({
-      content: promptContent,
+      content: combinedPromptContent,
       type: "system",
       name: agent.systemPrompt.name,
     });
