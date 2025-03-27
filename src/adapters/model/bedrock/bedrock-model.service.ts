@@ -243,13 +243,7 @@ export class BedrockModelService implements ModelServicePort {
                   return;
                 } else {
                   // Final message with completed content
-                  subject.next({
-                    message: new Message({
-                      role: "assistant",
-                      content: currentContent,
-                      conversationId,
-                    }),
-                  });
+
                   subject.complete();
                 }
                 break;

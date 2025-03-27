@@ -56,26 +56,31 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
       switch (token.type) {
         case TokenType.TEXT:
           if (!token.value) return newMessages;
-          // Append based on the current block type
-          if (
-            lastMessage?.role === 'assistant' &&
-            ((currentBlockType.current === null && lastMessage.blockType === 'normal') ||
-              (lastMessage.blockType === currentBlockType.current)) &&
-            !lastMessage.isComplete
-          ) {
+          // Always append to the last message if it's from the assistant and not complete
+          if (lastMessage?.role === 'assistant' && !lastMessage.isComplete) {
             if (currentBlockType.current === 'thinking') {
               lastMessage.thinking = (lastMessage.thinking || '') + token.value;
             } else {
               lastMessage.content = (lastMessage.content || '') + token.value;
             }
           } else {
-            newMessages.push({
-              role: 'assistant',
-              content: currentBlockType.current === 'thinking' ? '' : token.value,
-              thinking: currentBlockType.current === 'thinking' ? token.value : undefined,
-              blockType: currentBlockType.current || 'normal',
-              isComplete: false
-            });
+            // If the last message is a tool message, create a new normal message for the text
+            if (lastMessage?.blockType === 'tool') {
+              newMessages.push({
+                role: 'assistant',
+                content: token.value,
+                blockType: 'normal',
+                isComplete: false
+              });
+            } else {
+              newMessages.push({
+                role: 'assistant',
+                content: currentBlockType.current === 'thinking' ? '' : token.value,
+                thinking: currentBlockType.current === 'thinking' ? token.value : undefined,
+                blockType: currentBlockType.current || 'normal',
+                isComplete: false
+              });
+            }
           }
           break;
 
@@ -88,7 +93,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           }
           newMessages.push({
             role: 'assistant',
-            content: blockType === 'thinking' ? '' : '',
+            content: '',
             thinking: blockType === 'thinking' ? '' : undefined,
             blockType,
             isComplete: false
@@ -125,12 +130,13 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
             !lastMessage.isComplete
           ) {
             lastMessage.content = (lastMessage.content || '') + (token.value || '');
+            lastMessage.isComplete = true; // Mark tool message as complete after result
           } else {
             newMessages.push({
               role: 'assistant',
               content: token.value || '',
               blockType: 'tool',
-              isComplete: false,
+              isComplete: true,
               toolName: token.toolInfo?.name
             });
           }
@@ -196,6 +202,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           (chunk) => {
             if (lexerRef.current) {
               for (const token of lexerRef.current.processChunk(chunk)) {
+                console.log(token);
                 processToken(token);
               }
             }
