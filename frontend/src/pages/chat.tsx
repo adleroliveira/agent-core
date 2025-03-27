@@ -128,39 +128,6 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
               currentContentRef.current += data.content;
               let remainingContent = currentContentRef.current;
 
-              // Process complete thinking sections
-              while (remainingContent.includes('<thinking>') && remainingContent.includes('</thinking>')) {
-                const thinkingStart = remainingContent.indexOf('<thinking>');
-                const thinkingEnd = remainingContent.indexOf('</thinking>') + '</thinking>'.length;
-                const beforeThinking = remainingContent.substring(0, thinkingStart);
-                const thinkingSection = remainingContent.substring(thinkingStart, thinkingEnd);
-                const afterThinking = remainingContent.substring(thinkingEnd);
-
-                // Process content before thinking tag
-                if (beforeThinking.trim() && !isInToolCallRef.current) {
-                  if (messages[messages.length - 1]?.content && !messages[messages.length - 1]?.thinking) {
-                    appendToLastMessage(beforeThinking.trim(), false);
-                  } else {
-                    addNewMessage('normal', beforeThinking.trim());
-                  }
-                }
-
-                // Process thinking section
-                const thinkingText = thinkingSection.replace('<thinking>', '').replace('</thinking>', '').trim();
-                if (thinkingText) {
-                  if (isInThinkingRef.current && messages[messages.length - 1]?.thinking) {
-                    appendToLastMessage(thinkingText, true);
-                  } else {
-                    addNewMessage('thinking', thinkingText);
-                  }
-                }
-
-                remainingContent = afterThinking;
-                currentContentRef.current = remainingContent;
-                isInThinkingRef.current = false;
-                currentBubbleTypeRef.current = 'normal';
-              }
-
               // Handle opening thinking tag without closing
               if (remainingContent.includes('<thinking>') && !remainingContent.includes('</thinking>')) {
                 const [before, after] = remainingContent.split('<thinking>', 2);
@@ -200,6 +167,38 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
                   }
                   currentContentRef.current = '';
                 }
+              }
+              // Process complete thinking sections
+              else if (remainingContent.includes('<thinking>') && remainingContent.includes('</thinking>')) {
+                const thinkingStart = remainingContent.indexOf('<thinking>');
+                const thinkingEnd = remainingContent.indexOf('</thinking>') + '</thinking>'.length;
+                const beforeThinking = remainingContent.substring(0, thinkingStart);
+                const thinkingSection = remainingContent.substring(thinkingStart, thinkingEnd);
+                const afterThinking = remainingContent.substring(thinkingEnd);
+
+                // Process content before thinking tag
+                if (beforeThinking.trim() && !isInToolCallRef.current) {
+                  if (messages[messages.length - 1]?.content && !messages[messages.length - 1]?.thinking) {
+                    appendToLastMessage(beforeThinking.trim(), false);
+                  } else {
+                    addNewMessage('normal', beforeThinking.trim());
+                  }
+                }
+
+                // Process thinking section
+                const thinkingText = thinkingSection.replace('<thinking>', '').replace('</thinking>', '').trim();
+                if (thinkingText) {
+                  if (isInThinkingRef.current && messages[messages.length - 1]?.thinking) {
+                    appendToLastMessage(thinkingText, true);
+                  } else {
+                    addNewMessage('thinking', thinkingText);
+                  }
+                }
+
+                remainingContent = afterThinking;
+                currentContentRef.current = remainingContent;
+                isInThinkingRef.current = false;
+                currentBubbleTypeRef.current = 'normal';
               }
               // Handle regular content
               else if (!isInThinkingRef.current && !isInToolCallRef.current) {
