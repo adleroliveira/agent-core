@@ -28,6 +28,7 @@ import {
 } from "@adapters/adapters.module";
 import { TOOL_REGISTRY } from "@core/constants";
 import { DEFAULT_SYSTEM_PROMPT } from "@config/prompts.config";
+import { WorkspaceConfig } from "@core/config/workspace.config";
 
 @Injectable()
 export class AgentService implements OnModuleInit {
@@ -44,7 +45,8 @@ export class AgentService implements OnModuleInit {
     @Inject(TOOL_REGISTRY)
     private readonly toolRegistry: ToolRegistryPort,
     @Inject(VECTOR_DB)
-    private readonly vectorDB: VectorDBPort
+    private readonly vectorDB: VectorDBPort,
+    private readonly workspaceConfig: WorkspaceConfig
   ) {}
 
   onModuleInit() {
@@ -81,7 +83,8 @@ export class AgentService implements OnModuleInit {
     await agent.setServices(
       this.modelService,
       this.vectorDB,
-      this.toolRegistry
+      this.toolRegistry,
+      this.workspaceConfig
     );
 
     // Register default tools if available
@@ -130,7 +133,8 @@ export class AgentService implements OnModuleInit {
     await agent.setServices(
       this.modelService,
       this.vectorDB,
-      this.toolRegistry
+      this.toolRegistry,
+      this.workspaceConfig
     );
 
     // Cache the initialized agent

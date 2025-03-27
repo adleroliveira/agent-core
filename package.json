@@ -6,7 +6,7 @@
   "types": "dist/sdk/index.d.ts",
   "scripts": {
     "prebuild": "pnpm generate:openapi && pnpm generate:api-client",
-    "build": "cd frontend && pnpm build",
+    "build": "cd frontend && pnpm build && cd .. && nest build",
     "start": "nest start",
     "start:dev": "nest start --watch --preserveWatchOutput",
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -33,6 +33,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.7",
+    "node-pty": "^1.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "sqlite3": "^5.1.7",
@@ -59,7 +60,8 @@
   },
   "pnpm": {
     "ignoredBuiltDependencies": [
-      "@nestjs/core"
+      "@nestjs/core",
+      "node-pty"
     ],
     "onlyBuiltDependencies": [
       "@nestjs/core",

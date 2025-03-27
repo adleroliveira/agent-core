@@ -26,7 +26,7 @@ export class RagAddTool extends Tool {
       handler: async (args: Record<string, any>) => {
         const entry = await this.knowledgeBase.addKnowledge(args.content, args.metadata);
         return { id: entry.id };
-      },
+      }
     });
   }
 } 

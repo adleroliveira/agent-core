@@ -9,6 +9,7 @@ import { GetStockHistoryTool } from "./examples/stock-market/GetStockHistoryTool
 import { AnalyzeStockTool } from "./examples/stock-market/AnalyzeStockTool.tool";
 import { ForecastStockTool } from "./examples/stock-market/ForecastStockTool.tool";
 import { RagToolBundle } from "./default/rag.toolBundle";
+import { PtyToolBundle } from "./default/pty.toolBundle";
 
 @Module({
   imports: [AdaptersModule, CoreModule],
@@ -19,8 +20,9 @@ import { RagToolBundle } from "./default/rag.toolBundle";
     AnalyzeStockTool,
     ForecastStockTool,
     RagToolBundle,
+    PtyToolBundle,
   ],
-  exports: [StockMarketToolBundle, RagToolBundle],
+  exports: [StockMarketToolBundle, RagToolBundle, PtyToolBundle],
 })
 export class ToolsModule implements OnModuleInit {
   constructor(
@@ -28,6 +30,7 @@ export class ToolsModule implements OnModuleInit {
     private readonly toolRegistry: ToolRegistryPort,
     private readonly stockMarketToolBundle: StockMarketToolBundle,
     private readonly ragToolBundle: RagToolBundle,
+    private readonly ptyToolBundle: PtyToolBundle,
   ) {}
 
   async onModuleInit() {
@@ -40,6 +43,12 @@ export class ToolsModule implements OnModuleInit {
     // Register RAG tools
     const { tools: ragTools } = this.ragToolBundle.getBundle();
     for (const tool of ragTools) {
+      await this.toolRegistry.registerTool(tool);
+    }
+
+    // Register PTY tools
+    const { tools: ptyTools } = this.ptyToolBundle.getBundle();
+    for (const tool of ptyTools) {
       await this.toolRegistry.registerTool(tool);
     }
   }

@@ -5,6 +5,7 @@ import { Tool } from "./tool.entity";
 import { Message } from "./message.entity";
 import { KnowledgeBase } from "./knowledge-base.entity";
 import { RagToolBundle } from "@tools/default/rag.toolBundle";
+import { PtyToolBundle } from "@tools/default/pty.toolBundle";
 import {
   ModelServicePort,
   ToolCallResult,
@@ -12,6 +13,7 @@ import {
 import { Observable, map } from "rxjs";
 import { VectorDBPort } from "@ports/storage/vector-db.port";
 import { ToolRegistryPort } from "@ports/tool/tool-registry.port";
+import { WorkspaceConfig } from "@core/config/workspace.config";
 
 export class Agent {
   public readonly id: string;
@@ -27,6 +29,7 @@ export class Agent {
   private modelService?: ModelServicePort;
   private vectorDB?: VectorDBPort;
   private toolRegistry?: ToolRegistryPort;
+  private workspaceConfig?: WorkspaceConfig;
 
   constructor(params: {
     id?: string;
@@ -39,6 +42,7 @@ export class Agent {
     vectorDB?: VectorDBPort;
     toolRegistry?: ToolRegistryPort;
     knowledgeBase?: KnowledgeBase;
+    workspaceConfig?: WorkspaceConfig;
   }) {
     this.id = params.id || uuidv4();
     this.name = params.name;
@@ -49,6 +53,7 @@ export class Agent {
     this.modelService = params.modelService;
     this.vectorDB = params.vectorDB;
     this.toolRegistry = params.toolRegistry;
+    this.workspaceConfig = params.workspaceConfig;
     this.state = new AgentState();
     this.knowledgeBase = params.knowledgeBase || new KnowledgeBase({
       agentId: this.id,
@@ -61,55 +66,43 @@ export class Agent {
     this.updatedAt = new Date();
   }
 
-  public async setServices(modelService: ModelServicePort, vectorDB: VectorDBPort, toolRegistry: ToolRegistryPort): Promise<void> {
+  public async setServices(
+    modelService: ModelServicePort, 
+    vectorDB: VectorDBPort, 
+    toolRegistry: ToolRegistryPort,
+    workspaceConfig: WorkspaceConfig
+  ): Promise<void> {
     this.modelService = modelService;
     this.vectorDB = vectorDB;
     this.toolRegistry = toolRegistry;
+    this.workspaceConfig = workspaceConfig;
     this.knowledgeBase.setServices(modelService, vectorDB);
     
-    // Only initialize RAG tools if they haven't been initialized yet in either the local tools array or the registry
-    const hasRagToolsLocally = this.tools.some(tool => tool.name === 'rag_add' || tool.name === 'rag_search');
-    const tools = await toolRegistry.getAllTools();
-    const hasRagToolsInRegistry = tools.some(tool => tool.name === 'rag_add' || tool.name === 'rag_search');
+    // Initialize RAG tools if needed
+    await this.initializeRagTools();
     
-    if (!hasRagToolsLocally && !hasRagToolsInRegistry) {
-      await this.initializeRagTools();
-    } else {
-      // Create new RAG tools with the knowledge base
-      const ragToolBundle = new RagToolBundle(this.knowledgeBase);
-      const { tools: newRagTools } = ragToolBundle.getBundle();
-      
-      // Update tools in the registry
-      for (const tool of tools) {
-        if (tool.name === 'rag_add' || tool.name === 'rag_search') {
-          await toolRegistry.unregisterTool(tool.id);
-        }
-      }
-      
-      // Register new tools
-      for (const tool of newRagTools) {
-        await toolRegistry.registerTool(tool);
-      }
-      
-      // Update local tools array
-      this.tools = this.tools.filter(tool => tool.name !== 'rag_add' && tool.name !== 'rag_search');
-      this.tools.push(...newRagTools);
+    // Initialize PTY tools
+    await this.initializePtyTools();
+  }
+
+  private async initializePtyTools(): Promise<void> {
+    if (!this.workspaceConfig) {
+      throw new Error("Workspace config must be initialized");
     }
+
+    const ptyToolBundle = new PtyToolBundle(this.workspaceConfig);
+    const { tools: ptyTools } = ptyToolBundle.getBundle();
+    
+    // Add PTY tools to agent's tools array
+    this.tools.push(...ptyTools);
   }
 
   private async initializeRagTools(): Promise<void> {
-    if (!this.toolRegistry) {
-      throw new Error("Tool registry not initialized");
-    }
-
     const ragToolBundle = new RagToolBundle(this.knowledgeBase);
     const { tools: ragTools } = ragToolBundle.getBundle();
     
-    // Register RAG tools
-    for (const tool of ragTools) {
-      await this.toolRegistry.registerTool(tool);
-      this.tools.push(tool);
-    }
+    // Add RAG tools to agent's tools array
+    this.tools.push(...ragTools);
   }
 
   public async processMessage(
@@ -187,7 +180,7 @@ export class Agent {
     const streamingObs = this.modelService!.generateStreamingResponse(
       this.state.getLastNMessages(20),
       this.systemPrompt,
-      this.tools,
+      undefined, // Don't pass tools since they are already registered in the registry
       options
     );
 

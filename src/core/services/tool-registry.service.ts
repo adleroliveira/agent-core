@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Tool } from '@core/domain/tool.entity';
 import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
+import { WorkspaceConfig } from '@core/config/workspace.config';
 
 @Injectable()
 export class ToolRegistryService implements ToolRegistryPort {
@@ -8,7 +9,12 @@ export class ToolRegistryService implements ToolRegistryPort {
   private readonly tools: Map<string, Tool> = new Map();
   private readonly toolsByName: Map<string, Tool> = new Map();
 
+  constructor(private readonly workspaceConfig: WorkspaceConfig) {}
+
   async registerTool(tool: Tool): Promise<Tool> {
+    if (tool.name === 'pty_execute') {
+      (tool as any).workspaceConfig = this.workspaceConfig;
+    }
     this.tools.set(tool.id, tool);
     this.toolsByName.set(tool.name, tool);
     this.logger.log(`Tool registered: ${tool.name} (${tool.id})`);

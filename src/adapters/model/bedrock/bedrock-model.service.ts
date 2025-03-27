@@ -870,8 +870,16 @@ export class BedrockModelService implements ModelServicePort {
 
     // Add tools if provided
     if (tools && tools.length > 0) {
+      // Deduplicate tools by name
+      const uniqueTools = tools.reduce((acc: Tool[], tool) => {
+        if (!acc.find(t => t.name === tool.name)) {
+          acc.push(tool);
+        }
+        return acc;
+      }, []);
+
       requestBody.toolConfig = {
-        tools: tools.map((tool) => ({
+        tools: uniqueTools.map((tool) => ({
           toolSpec: {
             name: tool.name,
             description: tool.description || "",
