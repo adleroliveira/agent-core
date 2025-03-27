@@ -33,12 +33,17 @@
   margin: 0 0 1.5rem 0;
 }
 
-.streaming-toggle {
+.chat-toggles {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.streaming-toggle,
+.thinking-toggle {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: 0.5rem;
 }
 
 .toggle-label {
@@ -140,6 +145,10 @@ input:checked + .toggle-slider:before {
   border-radius: 8px;
   align-self: flex-start;
   max-width: 80%;
+  display: none;
+}
+
+.message.assistant.thinking.show {
   display: block !important;
 }
 

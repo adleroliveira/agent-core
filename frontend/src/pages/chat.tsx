@@ -13,6 +13,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   const [isStreaming, setIsStreaming] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isUsingTool, setIsUsingTool] = useState(false);
+  const [showThinkingBubbles, setShowThinkingBubbles] = useState(true);
   const chatService = useRef<ChatService | null>(null);
 
   // State for tracking streaming content
@@ -261,17 +262,31 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         <div class="chat-header">
           <h1>Chat with Agent</h1>
           <p class="chat-description">Interact with your AI agent</p>
-          <div class="streaming-toggle">
-            <label class="toggle-switch">
-              <input
-                type="checkbox"
-                checked={isStreaming}
-                onChange={(e) => setIsStreaming((e.target as HTMLInputElement).checked)}
-                disabled={isLoading}
-              />
-              <span class="toggle-slider"></span>
-            </label>
-            <span class="toggle-label">Streaming {isStreaming ? 'Enabled' : 'Disabled'}</span>
+          <div class="chat-toggles">
+            <div class="streaming-toggle">
+              <label class="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={isStreaming}
+                  onChange={(e) => setIsStreaming((e.target as HTMLInputElement).checked)}
+                  disabled={isLoading}
+                />
+                <span class="toggle-slider"></span>
+              </label>
+              <span class="toggle-label">Streaming {isStreaming ? 'Enabled' : 'Disabled'}</span>
+            </div>
+            <div class="thinking-toggle">
+              <label class="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={showThinkingBubbles}
+                  onChange={(e) => setShowThinkingBubbles((e.target as HTMLInputElement).checked)}
+                  disabled={isLoading}
+                />
+                <span class="toggle-slider"></span>
+              </label>
+              <span class="toggle-label">Show Thought Process</span>
+            </div>
           </div>
         </div>
 
@@ -283,9 +298,9 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           ) : (
             <>
               {messages.map((message, index) => (
-                <div key={index} class={`message ${message.role} ${message.thinking ? 'thinking' : ''}`}>
+                <div key={index} class={`message ${message.role} ${message.thinking ? 'thinking' : ''} ${message.thinking && showThinkingBubbles ? 'show' : ''}`}>
                   <div class="message-content">
-                    {message.thinking ? (
+                    {message.thinking && showThinkingBubbles ? (
                       <div class="thinking-content">
                         <span class="thinking-icon">🤔</span>
                         {message.thinking}
