@@ -91,10 +91,13 @@ export class ChatService {
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
             if (data === '[DONE]') {
+              onChunk('[DONE]');
               onComplete();
             } else {
               onChunk(data);
             }
+          } else {
+            // console.warn('Unexpected line:', line);
           }
         }
       }

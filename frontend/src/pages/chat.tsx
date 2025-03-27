@@ -3,13 +3,20 @@ import type { ComponentType } from 'preact';
 import '../styles/chat.css';
 import { ChatService, Message } from '../services/chat.service';
 import { DefaultService } from '../api-client';
+import { GenAIStreamLexer, TokenType, Token } from '../utils/StreamLexer';
 
 interface ChatProps {
   agentId?: string;
 }
 
+interface ExtendedMessage extends Message {
+  blockType: 'normal' | 'thinking' | 'tool';
+  isComplete: boolean;
+  toolName?: string;
+}
+
 export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ExtendedMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isStreaming, setIsStreaming] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -17,21 +24,16 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   const [showThinkingBubbles, setShowThinkingBubbles] = useState(true);
   const [agentName, setAgentName] = useState<string>('');
   const chatService = useRef<ChatService | null>(null);
-
-  // State for tracking streaming content
-  const currentContentRef = useRef('');
-  const currentBubbleTypeRef = useRef<'normal' | 'thinking' | 'tool'>('normal');
-  const isInThinkingRef = useRef(false);
-  const isInToolCallRef = useRef(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const lexerRef = useRef<GenAIStreamLexer | null>(null);
+  const currentBlockType = useRef<'normal' | 'thinking' | 'tool' | null>(null); // Track current block
 
   useEffect(() => {
     if (agentId) {
       chatService.current = new ChatService(agentId);
-      // Fetch agent details
+      lexerRef.current = new GenAIStreamLexer();
       DefaultService.agentControllerGetAgent(agentId)
-        .then(agent => {
-          setAgentName(agent.name);
-        })
+        .then(agent => setAgentName(agent.name))
         .catch(error => {
           console.error('Error fetching agent details:', error);
           setAgentName('Agent');
@@ -39,214 +41,165 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     }
   }, [agentId]);
 
-  const appendToLastMessage = (content: string, isThinking: boolean) => {
+  useEffect(() => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  }, [messages, isUsingTool]);
+
+  const processToken = (token: Token) => {
     setMessages(prev => {
       const newMessages = [...prev];
       const lastMessage = newMessages[newMessages.length - 1];
-      if (lastMessage && lastMessage.role === 'assistant') {
-        if (isThinking && lastMessage.thinking !== undefined && !lastMessage.content) {
-          lastMessage.thinking += content;
-        } else if (!isThinking && lastMessage.content !== undefined && !lastMessage.thinking) {
-          lastMessage.content += content;
-        } else {
-          // Create a new message if the type doesn't match
+
+      switch (token.type) {
+        case TokenType.TEXT:
+          if (!token.value) return newMessages;
+          // Append based on the current block type
+          if (
+            lastMessage?.role === 'assistant' &&
+            ((currentBlockType.current === null && lastMessage.blockType === 'normal') ||
+              (lastMessage.blockType === currentBlockType.current)) &&
+            !lastMessage.isComplete
+          ) {
+            if (currentBlockType.current === 'thinking') {
+              lastMessage.thinking = (lastMessage.thinking || '') + token.value;
+            } else {
+              lastMessage.content = (lastMessage.content || '') + token.value;
+            }
+          } else {
+            newMessages.push({
+              role: 'assistant',
+              content: currentBlockType.current === 'thinking' ? '' : token.value,
+              thinking: currentBlockType.current === 'thinking' ? token.value : undefined,
+              blockType: currentBlockType.current || 'normal',
+              isComplete: false
+            });
+          }
+          break;
+
+        case TokenType.BLOCK_START:
+          if (!token.blockName) return newMessages;
+          const blockType = token.blockName.toLowerCase() as 'thinking' | 'tool' | 'normal';
+          currentBlockType.current = blockType;
+          if (lastMessage?.role === 'assistant' && !lastMessage.isComplete) {
+            lastMessage.isComplete = true;
+          }
           newMessages.push({
             role: 'assistant',
-            thinking: isThinking ? content : undefined,
-            content: !isThinking ? content : ''
+            content: blockType === 'thinking' ? '' : '',
+            thinking: blockType === 'thinking' ? '' : undefined,
+            blockType,
+            isComplete: false
           });
-        }
-      } else {
-        newMessages.push({
-          role: 'assistant',
-          thinking: isThinking ? content : undefined,
-          content: !isThinking ? content : ''
-        });
+          if (blockType === 'tool') setIsUsingTool(true);
+          break;
+
+        case TokenType.BLOCK_END:
+          if (lastMessage?.role === 'assistant' && !lastMessage.isComplete) {
+            lastMessage.isComplete = true;
+          }
+          currentBlockType.current = null;
+          break;
+
+        case TokenType.TOOL_CALL:
+          if (lastMessage?.role === 'assistant' && !lastMessage.isComplete) {
+            lastMessage.isComplete = true;
+          }
+          currentBlockType.current = 'tool';
+          setIsUsingTool(true);
+          newMessages.push({
+            role: 'assistant',
+            content: '',
+            blockType: 'tool',
+            isComplete: false,
+            toolName: token.toolInfo?.name
+          });
+          break;
+
+        case TokenType.TOOL_RESULT:
+          if (
+            lastMessage?.role === 'assistant' &&
+            lastMessage.blockType === 'tool' &&
+            !lastMessage.isComplete
+          ) {
+            lastMessage.content = (lastMessage.content || '') + (token.value || '');
+          } else {
+            newMessages.push({
+              role: 'assistant',
+              content: token.value || '',
+              blockType: 'tool',
+              isComplete: false,
+              toolName: token.toolInfo?.name
+            });
+          }
+          setIsUsingTool(true);
+          break;
+
+        case TokenType.DONE:
+          if (lastMessage?.role === 'assistant' && !lastMessage.isComplete) {
+            lastMessage.isComplete = true;
+          }
+          currentBlockType.current = null;
+          setIsLoading(false);
+          setIsUsingTool(false);
+          break;
+
+        case TokenType.UNPARSEABLE:
+          console.warn('Unparseable content:', token.value);
+          if (
+            lastMessage?.role === 'assistant' &&
+            lastMessage.blockType === (currentBlockType.current || 'normal') &&
+            !lastMessage.isComplete
+          ) {
+            if (currentBlockType.current === 'thinking') {
+              lastMessage.thinking = (lastMessage.thinking || '') + (token.value || '');
+            } else {
+              lastMessage.content = (lastMessage.content || '') + (token.value || '');
+            }
+          } else {
+            newMessages.push({
+              role: 'assistant',
+              content: currentBlockType.current === 'thinking' ? '' : (token.value || ''),
+              thinking: currentBlockType.current === 'thinking' ? (token.value || '') : undefined,
+              blockType: currentBlockType.current || 'normal',
+              isComplete: false
+            });
+          }
+          break;
       }
       return newMessages;
     });
-  };
-
-  const addNewMessage = (bubbleType: 'normal' | 'thinking' | 'tool', content: string) => {
-    setMessages(prev => [
-      ...prev,
-      {
-        role: 'assistant' as const,
-        thinking: bubbleType === 'thinking' ? content : undefined,
-        content: bubbleType === 'normal' || bubbleType === 'tool' ? content : ''
-      }
-    ]);
   };
 
   const handleSendMessage = async (e: Event) => {
     e.preventDefault();
     if (!inputMessage.trim() || !chatService.current || isLoading) return;
 
-    const userMessage = { role: 'user' as const, content: inputMessage };
+    const userMessage: ExtendedMessage = {
+      role: 'user',
+      content: inputMessage,
+      blockType: 'normal',
+      isComplete: true
+    };
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     setIsLoading(true);
     setIsUsingTool(false);
-
-    // Reset streaming state
-    currentContentRef.current = '';
-    currentBubbleTypeRef.current = 'normal';
-    isInThinkingRef.current = false;
-    isInToolCallRef.current = false;
+    currentBlockType.current = null; // Reset block type on new message
 
     try {
       if (isStreaming) {
         await chatService.current.sendStreamingMessage(
           inputMessage,
-          async (chunk) => {
-            try {
-              const data = JSON.parse(chunk);
-
-              // Reset tool call state if this is not a tool-related chunk
-              if (
-                !data.toolCalls &&
-                !(data.content && (
-                  data.content.startsWith('\nExecuting ') ||
-                  data.content.startsWith('\nTool ') ||
-                  data.content.startsWith('\nProcessing results')
-                ))
-              ) {
-                if (isInToolCallRef.current) {
-                  isInToolCallRef.current = false;
-                  currentBubbleTypeRef.current = 'normal';
-                }
+          (chunk) => {
+            if (lexerRef.current) {
+              for (const token of lexerRef.current.processChunk(chunk)) {
+                processToken(token);
               }
-
-              // Handle tool calls
-              if (data.toolCalls) {
-                setIsUsingTool(true);
-                return;
-              }
-
-              // Handle tool execution messages
-              if (
-                data.content &&
-                (data.content.startsWith('\nExecuting ') ||
-                  data.content.startsWith('\nTool ') ||
-                  data.content.startsWith('\nProcessing results'))
-              ) {
-                setIsUsingTool(true);
-                return;
-              }
-
-              if (!data.content) return;
-
-              // Accumulate content
-              currentContentRef.current += data.content;
-              let remainingContent = currentContentRef.current;
-
-              // Handle opening thinking tag without closing
-              if (remainingContent.includes('<thinking>') && !remainingContent.includes('</thinking>')) {
-                const [before, after] = remainingContent.split('<thinking>', 2);
-                if (before.trim() && !isInToolCallRef.current) {
-                  if (messages[messages.length - 1]?.content && !messages[messages.length - 1]?.thinking) {
-                    appendToLastMessage(before.trim(), false);
-                  } else {
-                    addNewMessage('normal', before.trim());
-                  }
-                }
-                remainingContent = '<thinking>' + after;
-                isInThinkingRef.current = true;
-                currentBubbleTypeRef.current = 'thinking';
-                currentContentRef.current = remainingContent;
-              }
-              // Handle closing thinking tag when already in thinking
-              else if (isInThinkingRef.current && remainingContent.includes('</thinking>')) {
-                const [thinkingPart, rest] = remainingContent.split('</thinking>', 2);
-                const thinkingText = thinkingPart.replace('<thinking>', '').trim();
-                if (thinkingText) {
-                  if (messages[messages.length - 1]?.thinking) {
-                    appendToLastMessage(thinkingText, true);
-                  } else {
-                    addNewMessage('thinking', thinkingText);
-                  }
-                }
-                remainingContent = rest.trim();
-                isInThinkingRef.current = false;
-                currentBubbleTypeRef.current = 'normal';
-                currentContentRef.current = remainingContent;
-
-                if (remainingContent && !isInToolCallRef.current) {
-                  if (messages[messages.length - 1]?.content && !messages[messages.length - 1]?.thinking) {
-                    appendToLastMessage(remainingContent, false);
-                  } else {
-                    addNewMessage('normal', remainingContent);
-                  }
-                  currentContentRef.current = '';
-                }
-              }
-              // Process complete thinking sections
-              else if (remainingContent.includes('<thinking>') && remainingContent.includes('</thinking>')) {
-                const thinkingStart = remainingContent.indexOf('<thinking>');
-                const thinkingEnd = remainingContent.indexOf('</thinking>') + '</thinking>'.length;
-                const beforeThinking = remainingContent.substring(0, thinkingStart);
-                const thinkingSection = remainingContent.substring(thinkingStart, thinkingEnd);
-                const afterThinking = remainingContent.substring(thinkingEnd);
-
-                // Process content before thinking tag
-                if (beforeThinking.trim() && !isInToolCallRef.current) {
-                  if (messages[messages.length - 1]?.content && !messages[messages.length - 1]?.thinking) {
-                    appendToLastMessage(beforeThinking.trim(), false);
-                  } else {
-                    addNewMessage('normal', beforeThinking.trim());
-                  }
-                }
-
-                // Process thinking section
-                const thinkingText = thinkingSection.replace('<thinking>', '').replace('</thinking>', '').trim();
-                if (thinkingText) {
-                  if (isInThinkingRef.current && messages[messages.length - 1]?.thinking) {
-                    appendToLastMessage(thinkingText, true);
-                  } else {
-                    addNewMessage('thinking', thinkingText);
-                  }
-                }
-
-                remainingContent = afterThinking;
-                currentContentRef.current = remainingContent;
-                isInThinkingRef.current = false;
-                currentBubbleTypeRef.current = 'normal';
-              }
-              // Handle regular content
-              else if (!isInThinkingRef.current && !isInToolCallRef.current) {
-                const trimmedContent = remainingContent.trim();
-                if (trimmedContent && !trimmedContent.includes('<thinking>')) {
-                  if (messages[messages.length - 1]?.content && !messages[messages.length - 1]?.thinking) {
-                    appendToLastMessage(trimmedContent, false);
-                  } else {
-                    addNewMessage('normal', trimmedContent);
-                  }
-                  currentContentRef.current = '';
-                }
-              }
-            } catch (e) {
-              console.error('Error parsing chunk:', e);
             }
           },
           () => {
-            // Finalize remaining content
-            if (currentContentRef.current.trim()) {
-              const finalContent = currentContentRef.current
-                .replace(/<thinking>.*$/g, '') // Strip unclosed thinking tags
-                .trim();
-              if (finalContent && !isInToolCallRef.current) {
-                if (isInThinkingRef.current && messages[messages.length - 1]?.thinking) {
-                  appendToLastMessage(finalContent, true);
-                } else if (isInThinkingRef.current) {
-                  addNewMessage('thinking', finalContent);
-                } else if (messages[messages.length - 1]?.content && !messages[messages.length - 1]?.thinking) {
-                  appendToLastMessage(finalContent, false);
-                } else {
-                  addNewMessage('normal', finalContent);
-                }
-              }
-              currentContentRef.current = '';
-            }
             setIsLoading(false);
             setIsUsingTool(false);
           },
@@ -258,7 +211,10 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         );
       } else {
         const response = await chatService.current.sendMessage(inputMessage, false);
-        setMessages(prev => [...prev, response]);
+        setMessages(prev => [
+          ...prev,
+          { ...response, blockType: 'normal', isComplete: true }
+        ]);
         setIsLoading(false);
       }
     } catch (error) {
@@ -300,7 +256,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           </div>
         </div>
 
-        <div class="chat-messages">
+        <div class="chat-messages" ref={messagesContainerRef}>
           {messages.length === 0 ? (
             <div class="empty-chat">
               <p>Start a conversation with your agent</p>
@@ -308,25 +264,30 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           ) : (
             <>
               {messages.map((message, index) => (
-                <div key={index} class={`message ${message.role} ${message.thinking ? 'thinking' : ''} ${message.thinking && showThinkingBubbles ? 'show' : ''}`}>
+                <div
+                  key={index}
+                  class={`message ${message.role} ${message.blockType === 'thinking' ? 'thinking' : ''} ${message.blockType === 'thinking' && showThinkingBubbles ? 'show' : ''} ${message.blockType === 'tool' ? 'tool-message' : ''}`}
+                >
                   <div class="message-content">
-                    {message.thinking && showThinkingBubbles ? (
+                    {message.blockType === 'thinking' && showThinkingBubbles ? (
                       <div class="thinking-content">
-                        <span class="thinking-icon">🤔</span>
-                        {message.thinking}
+                        <div class="thinking-header">Thought Process</div>
+                        <div class="thinking-body">
+                          <span class="thinking-icon">🤔</span>
+                          {(message.thinking || message.content || '').trimStart()}
+                        </div>
+                      </div>
+                    ) : message.blockType === 'tool' ? (
+                      <div class="tool-message-content">
+                        <span class="tool-icon">🔧</span>
+                        <span>Using {message.toolName || 'tool'}...</span>
                       </div>
                     ) : (
-                      message.content
+                      (message.content || '').trimStart()
                     )}
                   </div>
                 </div>
               ))}
-              {isUsingTool && (
-                <div class="tool-usage-indicator">
-                  <span class="tool-icon">🔧</span>
-                  <span>Using tool...</span>
-                </div>
-              )}
             </>
           )}
         </div>

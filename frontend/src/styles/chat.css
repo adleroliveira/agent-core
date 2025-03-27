@@ -169,10 +169,24 @@ input:checked + .toggle-slider:before {
 
 .thinking-content {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: 8px;
   color: #475569;
   font-size: 0.95em;
+}
+
+.thinking-header {
+  font-weight: 600;
+  color: #64748b;
+  font-size: 0.9em;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.thinking-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .thinking-icon {
@@ -193,16 +207,6 @@ input:checked + .toggle-slider:before {
   margin-bottom: 0.75rem;
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   padding-bottom: 0.75rem;
-}
-
-.thinking-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  color: #64748b;
-  font-size: 0.9rem;
-  user-select: none;
 }
 
 .thinking-header:hover {
@@ -398,6 +402,29 @@ input:checked + .toggle-slider:before {
 }
 
 .tool-icon {
+  font-size: 1.1rem;
+  opacity: 0.8;
+}
+
+.tool-message {
+  background-color: #f8fafc;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 8px 0;
+  color: #64748b;
+  font-size: 0.9rem;
+  align-self: flex-start;
+  max-width: none;
+  width: auto;
+}
+
+.tool-message-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tool-message .tool-icon {
   font-size: 1.1rem;
   opacity: 0.8;
 } 
