@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'preact/hooks';
 import type { ComponentType } from 'preact';
 import '../styles/chat.css';
 import { ChatService, Message } from '../services/chat.service';
+import { DefaultService } from '../api-client';
 
 interface ChatProps {
   agentId?: string;
@@ -14,6 +15,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isUsingTool, setIsUsingTool] = useState(false);
   const [showThinkingBubbles, setShowThinkingBubbles] = useState(true);
+  const [agentName, setAgentName] = useState<string>('');
   const chatService = useRef<ChatService | null>(null);
 
   // State for tracking streaming content
@@ -25,6 +27,15 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   useEffect(() => {
     if (agentId) {
       chatService.current = new ChatService(agentId);
+      // Fetch agent details
+      DefaultService.agentControllerGetAgent(agentId)
+        .then(agent => {
+          setAgentName(agent.name);
+        })
+        .catch(error => {
+          console.error('Error fetching agent details:', error);
+          setAgentName('Agent');
+        });
     }
   }, [agentId]);
 
@@ -260,8 +271,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     <div class="chat-page">
       <div class="chat-container">
         <div class="chat-header">
-          <h1>Chat with Agent</h1>
-          <p class="chat-description">Interact with your AI agent</p>
+          <h1>{agentName}</h1>
           <div class="chat-toggles">
             <div class="streaming-toggle">
               <label class="toggle-switch">
