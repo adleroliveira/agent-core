@@ -4,6 +4,7 @@ import '../styles/chat.css';
 import { ChatService, Message } from '../services/chat.service';
 import { DefaultService } from '../api-client';
 import { GenAIStreamLexer, TokenType, Token } from '../utils/StreamLexer';
+import { marked } from 'marked';
 
 interface ChatProps {
   agentId?: string;
@@ -223,6 +224,14 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     }
   };
 
+  const renderMarkdown = (content: string): string => {
+    marked.setOptions({
+      breaks: true,
+      gfm: true
+    });
+    return marked.parse(content) as string;
+  };
+
   return (
     <div class="chat-page">
       <div class="chat-container">
@@ -283,7 +292,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
                         <span>Using {message.toolName || 'tool'}...</span>
                       </div>
                     ) : (
-                      (message.content || '').trimStart()
+                      <div class="message-content" dangerouslySetInnerHTML={{ __html: renderMarkdown((message.content || '').trimStart()) }} />
                     )}
                   </div>
                 </div>
