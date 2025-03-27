@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'preact/hooks';
 import type { ComponentType } from 'preact';
-import { route } from 'preact-router';
 import '../styles/chat.css';
 import { ChatService, Message } from '../services/chat.service';
 
@@ -8,47 +7,63 @@ interface ChatProps {
   agentId?: string;
 }
 
-interface ParsedMessage {
-  thinking?: string;
-  content: string;
-}
-
 export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isStreaming, setIsStreaming] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [expandedThinking, setExpandedThinking] = useState<Set<number>>(new Set());
   const chatService = useRef<ChatService | null>(null);
 
-  const parseMessage = (content: string): ParsedMessage => {
-    const thinkingMatch = content.match(/<thinking>(.*?)<\/thinking>/s);
-    if (thinkingMatch) {
-      return {
-        thinking: thinkingMatch[1].trim(),
-        content: content.replace(/<thinking>.*?<\/thinking>/s, '').trim()
-      };
-    }
-    return { content };
-  };
-
-  const toggleThinking = (index: number) => {
-    setExpandedThinking(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(index)) {
-        newSet.delete(index);
-      } else {
-        newSet.add(index);
-      }
-      return newSet;
-    });
-  };
+  // State for tracking streaming content
+  const currentContentRef = useRef('');
+  const currentBubbleTypeRef = useRef<'normal' | 'thinking' | 'tool'>('normal');
+  const isInThinkingRef = useRef(false);
+  const isInToolCallRef = useRef(false);
 
   useEffect(() => {
     if (agentId) {
       chatService.current = new ChatService(agentId);
     }
   }, [agentId]);
+
+  const appendToLastMessage = (content: string, isThinking: boolean) => {
+    setMessages(prev => {
+      const newMessages = [...prev];
+      const lastMessage = newMessages[newMessages.length - 1];
+      if (lastMessage && lastMessage.role === 'assistant') {
+        if (isThinking && lastMessage.thinking !== undefined && !lastMessage.content) {
+          lastMessage.thinking += content;
+        } else if (!isThinking && lastMessage.content !== undefined && !lastMessage.thinking) {
+          lastMessage.content += content;
+        } else {
+          // Create a new message if the type doesn't match
+          newMessages.push({
+            role: 'assistant',
+            thinking: isThinking ? content : undefined,
+            content: !isThinking ? content : ''
+          });
+        }
+      } else {
+        newMessages.push({
+          role: 'assistant',
+          thinking: isThinking ? content : undefined,
+          content: !isThinking ? content : ''
+        });
+      }
+      return newMessages;
+    });
+  };
+
+  const addNewMessage = (bubbleType: 'normal' | 'thinking' | 'tool', content: string) => {
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'assistant' as const,
+        thinking: bubbleType === 'thinking' ? content : undefined,
+        content: bubbleType === 'normal' || bubbleType === 'tool' ? content : ''
+      }
+    ]);
+  };
 
   const handleSendMessage = async (e: Event) => {
     e.preventDefault();
@@ -59,25 +74,182 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     setInputMessage('');
     setIsLoading(true);
 
+    // Reset streaming state
+    currentContentRef.current = '';
+    currentBubbleTypeRef.current = 'normal';
+    isInThinkingRef.current = false;
+    isInToolCallRef.current = false;
+
     try {
       if (isStreaming) {
-        let assistantMessage = { role: 'assistant' as const, content: '' };
-        setMessages(prev => [...prev, assistantMessage]);
-
         await chatService.current.sendStreamingMessage(
           inputMessage,
-          (chunk) => {
-            setMessages(prev => {
-              const newMessages = [...prev];
-              const lastMessage = newMessages[newMessages.length - 1];
-              if (lastMessage.role === 'assistant') {
-                lastMessage.content += chunk;
-                return newMessages;
+          async (chunk) => {
+            try {
+              const data = JSON.parse(chunk);
+
+              // Reset tool call state if this is not a tool-related chunk
+              if (
+                !data.toolCalls &&
+                !(data.content && (
+                  data.content.startsWith('\nExecuting ') ||
+                  data.content.startsWith('\nTool ') ||
+                  data.content.startsWith('\nProcessing results')
+                ))
+              ) {
+                if (isInToolCallRef.current) {
+                  isInToolCallRef.current = false;
+                  currentBubbleTypeRef.current = 'normal';
+                }
               }
-              return prev;
-            });
+
+              // Handle tool calls
+              if (data.toolCalls) {
+                if (currentContentRef.current.trim()) {
+                  addNewMessage(currentBubbleTypeRef.current, currentContentRef.current.trim());
+                  currentContentRef.current = '';
+                }
+                isInToolCallRef.current = true;
+                currentBubbleTypeRef.current = 'tool';
+                addNewMessage('tool', `Tool Call: ${JSON.stringify(data.toolCalls)}\n`);
+                return;
+              }
+
+              // Handle tool execution messages
+              if (
+                data.content &&
+                (data.content.startsWith('\nExecuting ') ||
+                  data.content.startsWith('\nTool ') ||
+                  data.content.startsWith('\nProcessing results'))
+              ) {
+                if (!isInToolCallRef.current) {
+                  if (currentContentRef.current.trim()) {
+                    addNewMessage(currentBubbleTypeRef.current, currentContentRef.current.trim());
+                    currentContentRef.current = '';
+                  }
+                  isInToolCallRef.current = true;
+                  currentBubbleTypeRef.current = 'tool';
+                  addNewMessage('tool', data.content.trim() + '\n');
+                } else {
+                  appendToLastMessage(data.content.trim() + '\n', false);
+                }
+                return;
+              }
+
+              if (!data.content) return;
+
+              // Accumulate content
+              currentContentRef.current += data.content;
+              let remainingContent = currentContentRef.current;
+
+              // Process complete thinking sections
+              while (remainingContent.includes('<thinking>') && remainingContent.includes('</thinking>')) {
+                const thinkingStart = remainingContent.indexOf('<thinking>');
+                const thinkingEnd = remainingContent.indexOf('</thinking>') + '</thinking>'.length;
+                const beforeThinking = remainingContent.substring(0, thinkingStart);
+                const thinkingSection = remainingContent.substring(thinkingStart, thinkingEnd);
+                const afterThinking = remainingContent.substring(thinkingEnd);
+
+                // Process content before thinking tag
+                if (beforeThinking.trim() && !isInToolCallRef.current) {
+                  if (messages[messages.length - 1]?.content && !messages[messages.length - 1]?.thinking) {
+                    appendToLastMessage(beforeThinking.trim(), false);
+                  } else {
+                    addNewMessage('normal', beforeThinking.trim());
+                  }
+                }
+
+                // Process thinking section
+                const thinkingText = thinkingSection.replace('<thinking>', '').replace('</thinking>', '').trim();
+                if (thinkingText) {
+                  if (isInThinkingRef.current && messages[messages.length - 1]?.thinking) {
+                    appendToLastMessage(thinkingText, true);
+                  } else {
+                    addNewMessage('thinking', thinkingText);
+                  }
+                }
+
+                remainingContent = afterThinking;
+                currentContentRef.current = remainingContent;
+                isInThinkingRef.current = false;
+                currentBubbleTypeRef.current = 'normal';
+              }
+
+              // Handle opening thinking tag without closing
+              if (remainingContent.includes('<thinking>') && !remainingContent.includes('</thinking>')) {
+                const [before, after] = remainingContent.split('<thinking>', 2);
+                if (before.trim() && !isInToolCallRef.current) {
+                  if (messages[messages.length - 1]?.content && !messages[messages.length - 1]?.thinking) {
+                    appendToLastMessage(before.trim(), false);
+                  } else {
+                    addNewMessage('normal', before.trim());
+                  }
+                }
+                remainingContent = '<thinking>' + after;
+                isInThinkingRef.current = true;
+                currentBubbleTypeRef.current = 'thinking';
+                currentContentRef.current = remainingContent;
+              }
+              // Handle closing thinking tag when already in thinking
+              else if (isInThinkingRef.current && remainingContent.includes('</thinking>')) {
+                const [thinkingPart, rest] = remainingContent.split('</thinking>', 2);
+                const thinkingText = thinkingPart.replace('<thinking>', '').trim();
+                if (thinkingText) {
+                  if (messages[messages.length - 1]?.thinking) {
+                    appendToLastMessage(thinkingText, true);
+                  } else {
+                    addNewMessage('thinking', thinkingText);
+                  }
+                }
+                remainingContent = rest.trim();
+                isInThinkingRef.current = false;
+                currentBubbleTypeRef.current = 'normal';
+                currentContentRef.current = remainingContent;
+
+                if (remainingContent && !isInToolCallRef.current) {
+                  if (messages[messages.length - 1]?.content && !messages[messages.length - 1]?.thinking) {
+                    appendToLastMessage(remainingContent, false);
+                  } else {
+                    addNewMessage('normal', remainingContent);
+                  }
+                  currentContentRef.current = '';
+                }
+              }
+              // Handle regular content
+              else if (!isInThinkingRef.current && !isInToolCallRef.current) {
+                const trimmedContent = remainingContent.trim();
+                if (trimmedContent && !trimmedContent.includes('<thinking>')) {
+                  if (messages[messages.length - 1]?.content && !messages[messages.length - 1]?.thinking) {
+                    appendToLastMessage(trimmedContent, false);
+                  } else {
+                    addNewMessage('normal', trimmedContent);
+                  }
+                  currentContentRef.current = '';
+                }
+              }
+            } catch (e) {
+              console.error('Error parsing chunk:', e);
+            }
           },
           () => {
+            // Finalize remaining content
+            if (currentContentRef.current.trim()) {
+              const finalContent = currentContentRef.current
+                .replace(/<thinking>.*$/g, '') // Strip unclosed thinking tags
+                .trim();
+              if (finalContent && !isInToolCallRef.current) {
+                if (isInThinkingRef.current && messages[messages.length - 1]?.thinking) {
+                  appendToLastMessage(finalContent, true);
+                } else if (isInThinkingRef.current) {
+                  addNewMessage('thinking', finalContent);
+                } else if (messages[messages.length - 1]?.content && !messages[messages.length - 1]?.thinking) {
+                  appendToLastMessage(finalContent, false);
+                } else {
+                  addNewMessage('normal', finalContent);
+                }
+              }
+              currentContentRef.current = '';
+            }
             setIsLoading(false);
           },
           (error) => {
@@ -122,38 +294,20 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
               <p>Start a conversation with your agent</p>
             </div>
           ) : (
-            messages.map((message, index) => {
-              const parsedMessage = parseMessage(message.content);
-              return (
-                <div key={index} class={`message ${message.role}`}>
-                  {parsedMessage.thinking && (
-                    <div class="thinking-section">
-                      <div
-                        class="thinking-header"
-                        onClick={() => toggleThinking(index)}
-                      >
-                        <svg
-                          class={`thinking-icon ${expandedThinking.has(index) ? 'expanded' : ''}`}
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        >
-                          <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
-                        <span>Thought Process</span>
-                      </div>
-                      <div class={`thinking-content ${expandedThinking.has(index) ? 'expanded' : ''}`}>
-                        {parsedMessage.thinking}
-                      </div>
+            messages.map((message, index) => (
+              <div key={index} class={`message ${message.role} ${message.thinking ? 'thinking' : ''}`}>
+                <div class="message-content">
+                  {message.thinking ? (
+                    <div class="thinking-content">
+                      <span class="thinking-icon">🤔</span>
+                      {message.thinking}
                     </div>
+                  ) : (
+                    message.content
                   )}
-                  <div class="message-content">{parsedMessage.content}</div>
                 </div>
-              );
-            })
+              </div>
+            ))
           )}
         </div>
 
@@ -180,4 +334,4 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
       </div>
     </div>
   );
-}; 
+};

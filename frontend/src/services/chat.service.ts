@@ -1,9 +1,24 @@
 import { DefaultService } from '../api-client/services/DefaultService';
 import type { SendMessageDto } from '../api-client/models/SendMessageDto';
 
+export interface ToolCall {
+  id: string;
+  name: string;
+  arguments: any;
+}
+
+export interface ToolResult {
+  id: string;
+  content: string;
+}
+
 export interface Message {
   role: 'user' | 'assistant';
-  content: string;
+  content?: string;
+  thinking?: string;
+  toolCalls?: ToolCall[];
+  toolResults?: ToolResult[];
+  isExecutingTool?: boolean;
 }
 
 export class ChatService {
@@ -46,18 +61,23 @@ export class ChatService {
     };
 
     try {
-      const response = await DefaultService.agentControllerSendMessage(
-        this.agentId,
-        'true',
-        messageDto
-      );
+      const response = await fetch(`/api/agents/${this.agentId}/message?stream=true`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messageDto),
+      });
 
-      // Handle streaming response
-      const reader = response.body?.getReader();
-      if (!reader) {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      if (!response.body) {
         throw new Error('No response body available');
       }
 
+      const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
       while (true) {
@@ -73,14 +93,7 @@ export class ChatService {
             if (data === '[DONE]') {
               onComplete();
             } else {
-              try {
-                const parsed = JSON.parse(data);
-                if (parsed.content) {
-                  onChunk(parsed.content);
-                }
-              } catch (e) {
-                console.error('Error parsing chunk:', e);
-              }
+              onChunk(data);
             }
           }
         }
