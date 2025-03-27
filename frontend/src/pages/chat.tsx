@@ -12,6 +12,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   const [inputMessage, setInputMessage] = useState('');
   const [isStreaming, setIsStreaming] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUsingTool, setIsUsingTool] = useState(false);
   const chatService = useRef<ChatService | null>(null);
 
   // State for tracking streaming content
@@ -73,6 +74,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     setIsLoading(true);
+    setIsUsingTool(false);
 
     // Reset streaming state
     currentContentRef.current = '';
@@ -105,13 +107,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
 
               // Handle tool calls
               if (data.toolCalls) {
-                if (currentContentRef.current.trim()) {
-                  addNewMessage(currentBubbleTypeRef.current, currentContentRef.current.trim());
-                  currentContentRef.current = '';
-                }
-                isInToolCallRef.current = true;
-                currentBubbleTypeRef.current = 'tool';
-                addNewMessage('tool', `Tool Call: ${JSON.stringify(data.toolCalls)}\n`);
+                setIsUsingTool(true);
                 return;
               }
 
@@ -122,17 +118,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
                   data.content.startsWith('\nTool ') ||
                   data.content.startsWith('\nProcessing results'))
               ) {
-                if (!isInToolCallRef.current) {
-                  if (currentContentRef.current.trim()) {
-                    addNewMessage(currentBubbleTypeRef.current, currentContentRef.current.trim());
-                    currentContentRef.current = '';
-                  }
-                  isInToolCallRef.current = true;
-                  currentBubbleTypeRef.current = 'tool';
-                  addNewMessage('tool', data.content.trim() + '\n');
-                } else {
-                  appendToLastMessage(data.content.trim() + '\n', false);
-                }
+                setIsUsingTool(true);
                 return;
               }
 
@@ -251,10 +237,12 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
               currentContentRef.current = '';
             }
             setIsLoading(false);
+            setIsUsingTool(false);
           },
           (error) => {
             console.error('Error in streaming:', error);
             setIsLoading(false);
+            setIsUsingTool(false);
           }
         );
       } else {
@@ -294,20 +282,28 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
               <p>Start a conversation with your agent</p>
             </div>
           ) : (
-            messages.map((message, index) => (
-              <div key={index} class={`message ${message.role} ${message.thinking ? 'thinking' : ''}`}>
-                <div class="message-content">
-                  {message.thinking ? (
-                    <div class="thinking-content">
-                      <span class="thinking-icon">🤔</span>
-                      {message.thinking}
-                    </div>
-                  ) : (
-                    message.content
-                  )}
+            <>
+              {messages.map((message, index) => (
+                <div key={index} class={`message ${message.role} ${message.thinking ? 'thinking' : ''}`}>
+                  <div class="message-content">
+                    {message.thinking ? (
+                      <div class="thinking-content">
+                        <span class="thinking-icon">🤔</span>
+                        {message.thinking}
+                      </div>
+                    ) : (
+                      message.content
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+              {isUsingTool && (
+                <div class="tool-usage-indicator">
+                  <span class="tool-icon">🔧</span>
+                  <span>Using tool...</span>
+                </div>
+              )}
+            </>
           )}
         </div>
 

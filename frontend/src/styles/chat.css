@@ -354,4 +354,22 @@ input:checked + .toggle-slider:before {
   40% { 
     transform: scale(1.0);
   }
+}
+
+.tool-usage-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: #f8fafc;
+  border-radius: 8px;
+  margin: 8px 0;
+  color: #64748b;
+  font-size: 0.9rem;
+  align-self: flex-start;
+}
+
+.tool-icon {
+  font-size: 1.1rem;
+  opacity: 0.8;
 } 
