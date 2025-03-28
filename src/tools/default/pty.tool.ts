@@ -37,12 +37,30 @@ export class PtyTool extends Tool {
         description: "Timeout in milliseconds for the command execution",
         required: false,
       },
+      {
+        name: "outputLength",
+        type: "number",
+        description: "Number of characters to return from command output (0 for no output, defaults to 0)",
+        required: false,
+        default: 0
+      }
     ];
 
     super({
       id: "pty-execute",
       name: "pty_execute",
-      description: "Execute a command in a pseudo-terminal and return its output. Commands are confined to the workspace directory.",
+      description: `Execute a command in a pseudo-terminal and return its output. All commands are strictly confined to the workspace directory.
+
+PATH HANDLING:
+- All paths (both absolute and relative) are treated as relative to the workspace directory
+- The workspace acts as a sandbox - you cannot access files outside the workspace
+- Example: "/tmp/file.txt" will be created as "workspace/tmp/file.txt"
+- Example: "src/file.txt" will be created as "workspace/src/file.txt"
+
+You can control command output visibility using the outputLength parameter:
+- Set to 0 (default) to receive no output
+- Set to a positive number to receive that many characters from the end of the output
+- Useful for commands that generate large outputs or when you only need the final result`,
       parameters,
       handler: async (args: Record<string, any>) => {
         return this.executeCommand(args);
@@ -100,19 +118,19 @@ export class PtyTool extends Tool {
         
         if (!args.cwd) {
           cwd = workspacePath;
-        } else if (path.isAbsolute(args.cwd)) {
-          // If absolute path is provided, verify it's within workspace
-          if (!args.cwd.startsWith(workspacePath)) {
-            throw new Error("Working directory must be within the workspace");
-          }
-          cwd = args.cwd;
         } else {
-          // If relative path, resolve it against workspace
-          cwd = path.resolve(workspacePath, args.cwd);
+          // Normalize the path to handle different OS path formats
+          const normalizedCwd = path.normalize(args.cwd);
           
-          // Double-check it's still within workspace (for ../.. paths)
+          // Remove leading slash if present to treat absolute paths as relative
+          const relativePath = normalizedCwd.startsWith(path.sep) ? normalizedCwd.slice(1) : normalizedCwd;
+          
+          // Resolve the path relative to workspace
+          cwd = path.resolve(workspacePath, relativePath);
+          
+          // Ensure the path is within workspace
           if (!cwd.startsWith(workspacePath)) {
-            throw new Error("Working directory must be within the workspace");
+            throw new Error(`Path "${normalizedCwd}" resolved to "${cwd}" which is outside the workspace "${workspacePath}"`);
           }
         }
         
@@ -176,6 +194,13 @@ export class PtyTool extends Tool {
             
             // Final cleaning of the entire output
             output = this.cleanOutput(output, args.command);
+            
+            // Handle output truncation if requested
+            if (args.outputLength > 0) {
+              output = output.slice(-args.outputLength);
+            } else {
+              output = '';
+            }
             
             resolve({ output, exitCode });
           }

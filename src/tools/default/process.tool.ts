@@ -45,7 +45,13 @@ export class ProcessTool extends Tool {
     super({
       id: 'process-manager',
       name: 'process_manager',
-      description: 'Manage long-running processes',
+      description: `Manages long-running processes in the background. Use this tool when you need to:
+- Start and monitor background services (e.g., development servers, databases)
+- Run time-consuming operations that shouldn't block the conversation (e.g., npm install, build processes)
+- Execute commands that need to maintain state or run continuously
+- Manage multiple concurrent processes with proper lifecycle control
+
+The tool provides process lifecycle management (start/status/cancel) and environment configuration capabilities.`,
       parameters,
       handler: async (args: Record<string, any>) => {
         return this.handleProcessCommand(args);

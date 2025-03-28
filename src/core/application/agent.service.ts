@@ -96,6 +96,7 @@ export class AgentService implements OnModuleInit {
         const tool = toolMap.get(toolName);
         if (tool) {
           agent.registerTool(tool);
+          this.logger.debug(`Registered tool: ${toolName} for agent: ${agent.id}`);
         } else {
           this.logger.warn(`Tool '${toolName}' not found in registry`);
         }

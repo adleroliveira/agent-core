@@ -83,6 +83,9 @@ export class Agent {
     
     // Initialize PTY tools
     await this.initializePtyTools();
+
+    // Initialize Process tools
+    await this.initializeProcessTools();
   }
 
   private async initializePtyTools(): Promise<void> {
@@ -95,6 +98,18 @@ export class Agent {
     
     // Add PTY tools to agent's tools array
     this.tools.push(...ptyTools);
+  }
+
+  private async initializeProcessTools(): Promise<void> {
+    if (!this.toolRegistry) {
+      throw new Error("Tool registry must be initialized");
+    }
+
+    // Get the process tool from the registry
+    const processTool = await this.toolRegistry.getToolByName('process_manager');
+    if (processTool) {
+      this.tools.push(processTool);
+    }
   }
 
   private async initializeRagTools(): Promise<void> {
