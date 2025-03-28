@@ -50,6 +50,7 @@ export class PtyTool extends Tool {
       id: "pty-execute",
       name: "pty_execute",
       description: `Execute a command in a pseudo-terminal and return its output. All commands are strictly confined to the workspace directory.
+      You may be running on an enviroment that has access to the internet, in which case you can use commands that require internet access.
 
 PATH HANDLING:
 - All paths (both absolute and relative) are treated as relative to the workspace directory
