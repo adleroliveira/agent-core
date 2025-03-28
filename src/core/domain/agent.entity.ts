@@ -101,6 +101,11 @@ export class Agent {
     const ragToolBundle = new RagToolBundle(this.knowledgeBase);
     const { tools: ragTools } = ragToolBundle.getBundle();
     
+    // Register RAG tools with the tool registry
+    for (const tool of ragTools) {
+      await this.toolRegistry?.registerTool(tool);
+    }
+    
     // Add RAG tools to agent's tools array
     this.tools.push(...ragTools);
   }
