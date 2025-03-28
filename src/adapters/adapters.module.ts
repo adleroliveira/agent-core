@@ -7,6 +7,7 @@ import { StateRepositoryPort } from "@ports/storage/state-repository.port";
 import { ProcessRepositoryPort } from "@ports/storage/process-repository.port";
 import { ProcessManagerService } from "@core/application/process-manager.service";
 import { WorkspaceConfig } from "@core/config/workspace.config";
+import { AgentMapper } from "./storage/typeorm/mappers/agent.mapper";
 
 // Storage entities
 import { AgentEntity } from "./storage/typeorm/entities/agent.entity";
@@ -85,6 +86,9 @@ export const AGENT_SERVICE = "AGENT_SERVICE";
     ProcessTool,
     WorkspaceConfig,
 
+    // Mappers
+    AgentMapper,
+
     // Direct API adapter
     {
       provide: DirectAgentAdapter,
@@ -102,6 +106,7 @@ export const AGENT_SERVICE = "AGENT_SERVICE";
     VECTOR_DB,
     DirectAgentAdapter,
     ProcessTool,
+    AgentMapper,
   ],
 })
 export class AdaptersModule {}

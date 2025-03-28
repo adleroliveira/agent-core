@@ -29,6 +29,7 @@ import {
 import { TOOL_REGISTRY } from "@core/constants";
 import { DEFAULT_SYSTEM_PROMPT } from "@config/prompts.config";
 import { WorkspaceConfig } from "@core/config/workspace.config";
+import { InternetSearchTool } from "@tools/default/internet-search.tool";
 
 @Injectable()
 export class AgentService implements OnModuleInit {
@@ -46,7 +47,8 @@ export class AgentService implements OnModuleInit {
     private readonly toolRegistry: ToolRegistryPort,
     @Inject(VECTOR_DB)
     private readonly vectorDB: VectorDBPort,
-    private readonly workspaceConfig: WorkspaceConfig
+    private readonly workspaceConfig: WorkspaceConfig,
+    private readonly internetSearchTool: InternetSearchTool
   ) {}
 
   onModuleInit() {
@@ -72,7 +74,7 @@ export class AgentService implements OnModuleInit {
       name: `${name} System Prompt`,
     });
 
-    const agent = new Agent({
+    const agent = new Agent(this.internetSearchTool, {
       name,
       description,
       modelId: modelId || process.env.BEDROCK_MODEL_ID || "",

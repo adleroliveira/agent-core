@@ -10,8 +10,9 @@ export class PtyTool extends Tool {
   private shell: string;
   private readonly DEFAULT_TIMEOUT = 30000; // 30 seconds timeout
   private readonly logger = new Logger(PtyTool.name);
+  private workspaceConfig: WorkspaceConfig;
 
-  constructor(private readonly workspaceConfig: WorkspaceConfig) {
+  constructor() {
     const parameters: ToolParameter[] = [
       {
         name: "command",
@@ -70,18 +71,26 @@ You can control command output visibility using the outputLength parameter:
 
     // Determine the appropriate shell based on the OS
     this.shell = os.platform() === "win32" ? "powershell.exe" : "bash";
-    
-    // Ensure workspace exists
+  }
+
+  setWorkspaceConfig(config: WorkspaceConfig) {
+    if (!config) {
+      throw new Error("Workspace config cannot be null or undefined");
+    }
+    this.workspaceConfig = config;
     this.ensureWorkspaceExists();
   }
   
   private ensureWorkspaceExists(): void {
     try {
+      if (!this.workspaceConfig) {
+        throw new Error("Workspace config is not set");
+      }
+
       const workspacePath = this.workspaceConfig.getWorkspacePath();
       
       if (!workspacePath) {
-        this.logger.error('Workspace path is not configured');
-        return;
+        throw new Error("Workspace path is not configured");
       }
 
       this.logger.log(`Using workspace path: ${workspacePath}`);
@@ -92,10 +101,15 @@ You can control command output visibility using the outputLength parameter:
       }
     } catch (error) {
       this.logger.error(`Failed to verify workspace: ${error.message}`);
+      throw error;
     }
   }
 
   private async executeCommand(args: Record<string, any>): Promise<{ output: string; exitCode: number }> {
+    if (!this.workspaceConfig) {
+      throw new Error("Workspace config is not set. Please ensure the tool is properly initialized.");
+    }
+
     return new Promise((resolve, reject) => {
       try {
         const workspacePath = this.workspaceConfig.getWorkspacePath();

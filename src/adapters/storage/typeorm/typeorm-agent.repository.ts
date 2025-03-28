@@ -18,6 +18,7 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
     private readonly knowledgeBaseRepository: Repository<KnowledgeBaseEntity>,
     @Inject(forwardRef(() => VECTOR_DB))
     private readonly vectorDB: VectorDBPort,
+    private readonly agentMapper: AgentMapper
   ) {}
 
   async findById(id: string): Promise<Agent | null> {
@@ -30,7 +31,7 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
       return null;
     }
     
-    return AgentMapper.toDomain(agentEntity);
+    return this.agentMapper.toDomain(agentEntity);
   }
 
   async findAll(): Promise<Agent[]> {
@@ -38,11 +39,11 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
       relations: ['state', 'tools', 'knowledgeBase'],
     });
     
-    return agentEntities.map(entity => AgentMapper.toDomain(entity));
+    return agentEntities.map(entity => this.agentMapper.toDomain(entity));
   }
 
   async save(agent: Agent): Promise<Agent> {
-    const agentEntity = AgentMapper.toPersistence(agent);
+    const agentEntity = this.agentMapper.toPersistence(agent);
     
     // Save the agent first without the knowledge base
     const knowledgeBase: KnowledgeBaseEntity | null = agentEntity.knowledgeBase;
@@ -60,6 +61,7 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
     if (!reloadedAgent) {
       throw new Error('Failed to reload agent after save');
     }
+    
     return reloadedAgent;
   }
 

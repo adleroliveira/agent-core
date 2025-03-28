@@ -5,6 +5,7 @@ import { ToolRegistryService } from './services/tool-registry.service';
 import { TOOL_REGISTRY } from './constants';
 import { WorkspaceConfig } from './config/workspace.config';
 import { ProcessManagerService } from './application/process-manager.service';
+import { InternetSearchTool } from '@tools/default/internet-search.tool';
 
 @Module({
   imports: [forwardRef(() => AdaptersModule)],
@@ -19,7 +20,8 @@ import { ProcessManagerService } from './application/process-manager.service';
     },
     WorkspaceConfig,
     ProcessManagerService,
+    InternetSearchTool,
   ],
-  exports: [AGENT_SERVICE, TOOL_REGISTRY, WorkspaceConfig, ProcessManagerService],
+  exports: [AGENT_SERVICE, TOOL_REGISTRY, WorkspaceConfig, ProcessManagerService, InternetSearchTool],
 })
 export class CoreModule {}

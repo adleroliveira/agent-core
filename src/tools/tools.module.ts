@@ -11,6 +11,7 @@ import { ForecastStockTool } from "./examples/stock-market/ForecastStockTool.too
 import { RagToolBundle } from "./default/rag.toolBundle";
 import { PtyToolBundle } from "./default/pty.toolBundle";
 import { ProcessToolBundle } from "./default/process.toolBundle";
+import { InternetSearchToolBundle } from "./default/internet-search.toolBundle";
 
 @Module({
   imports: [AdaptersModule, CoreModule],
@@ -23,8 +24,9 @@ import { ProcessToolBundle } from "./default/process.toolBundle";
     RagToolBundle,
     PtyToolBundle,
     ProcessToolBundle,
+    InternetSearchToolBundle,
   ],
-  exports: [StockMarketToolBundle, RagToolBundle, PtyToolBundle, ProcessToolBundle],
+  exports: [StockMarketToolBundle, RagToolBundle, PtyToolBundle, ProcessToolBundle, InternetSearchToolBundle],
 })
 export class ToolsModule implements OnModuleInit {
   constructor(
@@ -34,6 +36,7 @@ export class ToolsModule implements OnModuleInit {
     private readonly ragToolBundle: RagToolBundle,
     private readonly ptyToolBundle: PtyToolBundle,
     private readonly processToolBundle: ProcessToolBundle,
+    private readonly internetSearchToolBundle: InternetSearchToolBundle,
   ) {}
 
   async onModuleInit() {
@@ -58,6 +61,12 @@ export class ToolsModule implements OnModuleInit {
     // Register Process tools
     const { tools: processTools } = this.processToolBundle.getBundle();
     for (const tool of processTools) {
+      await this.toolRegistry.registerTool(tool);
+    }
+
+    // Register Internet Search tools
+    const { tools: internetSearchTools } = this.internetSearchToolBundle.getBundle();
+    for (const tool of internetSearchTools) {
       await this.toolRegistry.registerTool(tool);
     }
   }
