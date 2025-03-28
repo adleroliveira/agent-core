@@ -8,46 +8,46 @@
 }
 
 .app-header {
-  background: #1a365d;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(to right, #1a365d, #2c5282);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
 .header-content {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0.5rem 2rem;
+  padding: 0.75rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 3rem;
+  height: 4rem;
 }
 
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .header-brand h1 {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.25rem;
+  font-weight: 700;
   color: white;
   line-height: 1;
 }
 
 .header-subtitle {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: #94a3b8;
   margin-top: 0;
 }
 
 .header-nav {
   display: flex;
-  gap: 0.75rem;
+  gap: 1rem;
   align-items: center;
 }
 
@@ -56,8 +56,8 @@
   text-decoration: none;
   font-size: 0.875rem;
   font-weight: 500;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
   transition: all 0.2s ease;
 }
 
@@ -77,5 +77,5 @@
   flex-direction: column;
   overflow: hidden;
   padding-top: 1rem;
-  height: calc(100vh - 4rem); /* 3rem header + 1rem padding */
+  height: calc(100vh - 5rem); /* 4rem header + 1rem padding */
 } 
