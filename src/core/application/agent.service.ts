@@ -11,7 +11,6 @@ import { Observable, Subject } from "rxjs";
 import { Agent } from "@core/domain/agent.entity";
 import { Message } from "@core/domain/message.entity";
 import { Prompt } from "@core/domain/prompt.entity";
-import { Tool } from "@core/domain/tool.entity";
 import { AgentRepositoryPort } from "@ports/storage/agent-repository.port";
 import { StateRepositoryPort } from "@ports/storage/state-repository.port";
 import {
@@ -29,7 +28,6 @@ import {
 import { TOOL_REGISTRY } from "@core/constants";
 import { DEFAULT_SYSTEM_PROMPT } from "@config/prompts.config";
 import { WorkspaceConfig } from "@core/config/workspace.config";
-import { InternetSearchTool } from "@tools/default/internet-search.tool";
 
 @Injectable()
 export class AgentService implements OnModuleInit {
@@ -47,8 +45,7 @@ export class AgentService implements OnModuleInit {
     private readonly toolRegistry: ToolRegistryPort,
     @Inject(VECTOR_DB)
     private readonly vectorDB: VectorDBPort,
-    private readonly workspaceConfig: WorkspaceConfig,
-    private readonly internetSearchTool: InternetSearchTool
+    private readonly workspaceConfig: WorkspaceConfig
   ) {}
 
   onModuleInit() {
@@ -74,7 +71,7 @@ export class AgentService implements OnModuleInit {
       name: `${name} System Prompt`,
     });
 
-    const agent = new Agent(this.internetSearchTool, {
+    const agent = new Agent({
       name,
       description,
       modelId: modelId || process.env.BEDROCK_MODEL_ID || "",
@@ -89,7 +86,7 @@ export class AgentService implements OnModuleInit {
       this.workspaceConfig
     );
 
-    // Register default tools if available
+    // Register tools if specified
     if (tools && tools.length > 0) {
       const allTools = await this.toolRegistry.getAllTools();
       const toolMap = new Map(allTools.map((tool) => [tool.name, tool]));
@@ -168,6 +165,8 @@ export class AgentService implements OnModuleInit {
       temperature?: number;
       maxTokens?: number;
       stream?: boolean;
+      memorySize?: number;
+      conversationHistory?: Message[];
     }
   ): Promise<Message | Observable<Partial<Message>>> {
     const agent = await this.findAgentById(agentId);
@@ -189,6 +188,11 @@ export class AgentService implements OnModuleInit {
       }
     }
 
+    // If conversation history is provided, inject it
+    if (options?.conversationHistory) {
+      agent.state.conversationHistory = options.conversationHistory;
+    }
+
     // Create user message
     const userMessage = new Message({
       role: "user",
@@ -199,13 +203,9 @@ export class AgentService implements OnModuleInit {
     // Add message to agent's state
     agent.state.addToConversation(userMessage);
 
-    // Get conversation history
-    const conversationHistory = agent.state.getLastNInteractions(
-      parseInt(process.env.AGENT_MEMORY_SIZE || "10")
-    );
-
-    // Gather available tools for this agent
-    const tools = agent.tools;
+    // Get conversation history with custom memory size if provided
+    const memorySize = options?.memorySize || parseInt(process.env.AGENT_MEMORY_SIZE || "10");
+    const conversationHistory = agent.state.getLastNInteractions(memorySize);
 
     try {
       // Handle streaming if requested
@@ -214,7 +214,6 @@ export class AgentService implements OnModuleInit {
           agent,
           conversationHistory,
           conversationId,
-          tools,
           options
         );
       }
@@ -224,7 +223,6 @@ export class AgentService implements OnModuleInit {
         agent,
         conversationHistory,
         conversationId,
-        tools,
         options
       );
 
@@ -245,7 +243,6 @@ export class AgentService implements OnModuleInit {
     agent: Agent,
     conversationHistory: Message[],
     conversationId: string,
-    tools: Tool[],
     options?: {
       temperature?: number;
       maxTokens?: number;
@@ -264,7 +261,7 @@ export class AgentService implements OnModuleInit {
     const modelResponse = await this.modelService.generateResponse(
       conversationHistory,
       agent.systemPrompt,
-      tools,
+      agent.tools,
       options
     );
 
@@ -309,7 +306,6 @@ export class AgentService implements OnModuleInit {
     agent: Agent,
     conversationHistory: Message[],
     conversationId: string,
-    tools: Tool[],
     options?: {
       temperature?: number;
       maxTokens?: number;
@@ -343,7 +339,7 @@ export class AgentService implements OnModuleInit {
     const streamingObs = this.modelService.generateStreamingResponse(
       conversationHistory,
       agent.systemPrompt,
-      tools,
+      agent.tools,
       options
     );
 

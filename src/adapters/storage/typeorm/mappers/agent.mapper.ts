@@ -4,17 +4,10 @@ import { AgentEntity } from '../entities/agent.entity';
 import { StateMapper } from './state.mapper';
 import { ToolMapper } from './tool.mapper';
 import { KnowledgeBaseMapper } from './knowledge-base.mapper';
-import { InternetSearchTool } from "@tools/default/internet-search.tool";
-import { Inject } from "@nestjs/common";
 
 export class AgentMapper {
-  constructor(
-    @Inject(InternetSearchTool)
-    private readonly internetSearchTool: InternetSearchTool
-  ) {}
-
   toDomain(entity: AgentEntity): Agent {
-    const agent = new Agent(this.internetSearchTool, {
+    const agent = new Agent({
       id: entity.id,
       name: entity.name,
       description: entity.description,

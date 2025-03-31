@@ -2,8 +2,26 @@ import { Agent as AgentEntity } from '@core/domain/agent.entity';
 import { Message, MessageContent } from '@core/domain/message.entity';
 import { DirectAgentAdapter } from '../adapters/api/direct/direct-agent.adapter';
 import { StreamCallbacks } from './types';
+import { Tool } from '@core/domain/tool.entity';
+import { Prompt } from '@core/domain/prompt.entity';
+
+export interface MessageOptions {
+  temperature?: number;
+  maxTokens?: number;
+  stream?: boolean;
+  /**
+   * Number of past interactions (message pairs) to include in the context.
+   * For example, a value of 5 means the last 5 user-assistant message pairs will be included.
+   * Defaults to the value of AGENT_MEMORY_SIZE environment variable or 10.
+   */
+  memorySize?: number;
+  conversationHistory?: Message[];
+}
 
 export class Agent {
+  private _memorySize?: number;
+  private _conversationHistory?: Message[];
+
   constructor(
     private entity: AgentEntity,
     private adapter: DirectAgentAdapter
@@ -24,14 +42,48 @@ export class Agent {
   }
 
   /**
+   * Get agent description
+   */
+  get description(): string | undefined {
+    return this.entity.description;
+  }
+
+  /**
+   * Get agent model ID
+   */
+  get modelId(): string {
+    return this.entity.modelId;
+  }
+
+  /**
+   * Set the number of past interactions to include in future messages
+   * @param size Number of past interactions (message pairs) to include
+   */
+  setMemorySize(size?: number): void {
+    this._memorySize = size;
+  }
+
+  /**
+   * Set the conversation history for future messages
+   */
+  setConversationHistory(history: Message[]): void {
+    this._conversationHistory = history;
+  }
+
+  /**
    * Send a message to the agent and get a response
    * @returns The full Message entity from the agent's response
    */
-  public async ask(message: string, conversationId?: string): Promise<Message> {
+  public async ask(message: string, options?: MessageOptions): Promise<Message> {
     const response = await this.adapter.sendMessageSync(
       this.id,
       message,
-      conversationId || this.entity.state?.conversationId
+      options?.conversationHistory?.[0]?.conversationId || this.entity.state?.conversationId,
+      {
+        ...options,
+        memorySize: options?.memorySize || this._memorySize,
+        conversationHistory: options?.conversationHistory || this._conversationHistory
+      }
     );
 
     return response;
@@ -41,8 +93,8 @@ export class Agent {
    * Send a message and get just the text content
    * Convenience method if you just want the text
    */
-  public async askForText(message: string, conversationId?: string): Promise<string> {
-    const response = await this.ask(message, conversationId);
+  public async askForText(message: string, options?: MessageOptions): Promise<string> {
+    const response = await this.ask(message, options);
     return response.getTextContent();
   }
 
@@ -52,12 +104,17 @@ export class Agent {
   public async askStream(
     message: string,
     callbacks: StreamCallbacks,
-    conversationId?: string
+    options?: MessageOptions
   ): Promise<void> {
     const observable = await this.adapter.sendMessageStream(
       this.id,
       message,
-      conversationId || this.entity.state?.conversationId
+      options?.conversationHistory?.[0]?.conversationId || this.entity.state?.conversationId,
+      {
+        ...options,
+        memorySize: options?.memorySize || this._memorySize,
+        conversationHistory: options?.conversationHistory || this._conversationHistory
+      }
     );
 
     return new Promise((resolve, reject) => {
@@ -108,5 +165,50 @@ export class Agent {
    */
   public async getConversationHistory(conversationId?: string): Promise<Message[]> {
     return this.adapter.getConversationHistory(this.id, conversationId);
+  }
+
+  /**
+   * Add a tool to the agent
+   * @param tool The tool to add
+   */
+  public async addTool(tool: Tool): Promise<void> {
+    await this.adapter.addToolToAgent(this.id, tool.name);
+  }
+
+  /**
+   * Remove a tool from the agent
+   * @param toolId The ID of the tool to remove
+   */
+  public async removeTool(toolId: string): Promise<void> {
+    await this.adapter.removeToolFromAgent(this.id, toolId);
+  }
+
+  /**
+   * Update the agent's system prompt
+   * @param promptContent The new system prompt content
+   */
+  public async updateSystemPrompt(promptContent: string): Promise<void> {
+    await this.adapter.updateSystemPrompt(this.id, promptContent);
+  }
+
+  /**
+   * Reset the agent's state
+   */
+  public async resetState(): Promise<void> {
+    await this.adapter.resetAgentState(this.id);
+  }
+
+  /**
+   * Get all tools registered with this agent
+   */
+  public getTools(): Tool[] {
+    return this.entity.tools;
+  }
+
+  /**
+   * Get the agent's system prompt
+   */
+  public getSystemPrompt(): Prompt {
+    return this.entity.systemPrompt;
   }
 }

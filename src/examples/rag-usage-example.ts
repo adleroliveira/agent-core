@@ -31,9 +31,9 @@ async function runRagExample(): Promise<void> {
     console.log(`RAG Agent created with ID: ${agent.id}`);
 
     // Process messages sequentially using async/await
-    async function processMessage(message: string, conversationId?: string) {
+    async function processMessage(message: string) {
       console.log(`\nUser: ${message}`);
-      const response = await agent.ask(message, conversationId);
+      const response = await agent.ask(message);
       console.log("\nAgent response:");
       console.log(`${response.content}`);
       return response;
@@ -42,35 +42,32 @@ async function runRagExample(): Promise<void> {
     // First interaction - add some knowledge
     const firstMessage = "Learn this information: The capital of France is Paris, and it's known for the Eiffel Tower.";
     console.log("\nAdding first piece of knowledge:");
-    const firstResponse = await processMessage(firstMessage);
-
-    // Get the conversation ID for subsequent messages
-    const conversationId = firstResponse.conversationId;
+    await processMessage(firstMessage);
 
     // Second interaction - add more knowledge
     const secondMessage = "Learn this information: The Louvre Museum in Paris houses the famous Mona Lisa painting.";
     console.log("\nAdding second piece of knowledge:");
-    await processMessage(secondMessage, conversationId);
+    await processMessage(secondMessage);
 
     // Third interaction - search for information
     const thirdMessage = "What do you know about Paris?";
     console.log("\nSearching for information about Paris:");
-    await processMessage(thirdMessage, conversationId);
+    await processMessage(thirdMessage);
 
     // Fourth interaction - add more knowledge
     const fourthMessage = "Learn this information: Paris is the capital of France and is located in the northern part of the country.";
     console.log("\nAdding third piece of knowledge:");
-    await processMessage(fourthMessage, conversationId);
+    await processMessage(fourthMessage);
 
     // Fifth interaction - search with a specific query
     const fifthMessage = "What famous landmarks are in Paris?";
     console.log("\nSearching for landmarks in Paris:");
-    await processMessage(fifthMessage, conversationId);
+    await processMessage(fifthMessage);
 
     // Sixth interaction - search with a different context
     const sixthMessage = "Tell me about the art in Paris.";
     console.log("\nSearching for art-related information:");
-    await processMessage(sixthMessage, conversationId);
+    await processMessage(sixthMessage);
 
     // Get and display the full conversation history
     // console.log("\nFull conversation history:");

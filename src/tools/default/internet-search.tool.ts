@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Tool, ToolParameter } from "@core/domain/tool.entity";
 import { v4 as uuidv4 } from "uuid";
-import { search, SearchResult } from "duck-duck-scrape";
+import { search } from "duck-duck-scrape";
 
 interface SearchResponse {
   title: string;

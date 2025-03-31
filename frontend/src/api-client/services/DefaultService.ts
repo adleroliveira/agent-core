@@ -167,4 +167,15 @@ export class DefaultService {
             },
         });
     }
+    /**
+     * Get all available tools
+     * @returns any List of all available tools
+     * @throws ApiError
+     */
+    public static toolsControllerGetAllTools(): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/tools',
+        });
+    }
 }

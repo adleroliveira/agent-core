@@ -9,12 +9,21 @@ import { Tool, ToolParameter } from "@core/domain/tool.entity"; // Import your T
 import { ToolBuilder } from "./tool-builder";
 import { ModelServicePort } from "@ports/model/model-service.port";
 import { MODEL_SERVICE } from "@adapters/adapters.module";
+import { NotFoundException } from "@nestjs/common";
+import { Message } from '@core/domain/message.entity';
 
 interface PropertySchema {
   type: string;
   description?: string;
   enum?: any[];
   [key: string]: any; // For other possible properties
+}
+
+export interface CreateAgentOptions {
+  name: string;
+  description?: string;
+  systemPrompt?: string;
+  tools?: string[]; // Array of tool names to register with the agent
 }
 
 export class AgentSDK {
@@ -180,17 +189,49 @@ export class AgentSDK {
   /**
    * Create a new agent
    */
-  public async createAgent(options: AgentOptions): Promise<Agent> {
+  public async createAgent(options: CreateAgentOptions): Promise<Agent> {
     await this.ensureInitialized();
 
-    const agentEntity = await this.agentAdapter.createAgent({
-      name: options.name,
-      description: options.description || options.name,
-      systemPromptContent: options.systemPrompt,
-      tools: options.tools || [],
-    });
+    const agentEntity = await this.agentAdapter.createAgent(
+      options.name,
+      options.description,
+      options.systemPrompt,
+      options.tools
+    );
 
     return new Agent(agentEntity, this.agentAdapter);
+  }
+
+  /**
+   * Get an existing agent by ID
+   * @throws {NotFoundException} If the agent is not found
+   */
+  public async getAgent(id: string): Promise<Agent> {
+    await this.ensureInitialized();
+    const agentEntity = await this.agentAdapter.getAgent(id);
+    return new Agent(agentEntity, this.agentAdapter);
+  }
+
+  /**
+   * Find an agent by ID or create a new one if it doesn't exist
+   * @param id The ID of the agent to find
+   * @param createOptions Options to use if creating a new agent
+   * @returns The existing or newly created agent
+   */
+  public async findOrCreateAgent(options: CreateAgentOptions): Promise<Agent> {
+    await this.ensureInitialized();
+    
+    try {
+      // Try to get the existing agent
+      return await this.getAgent(options.name);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        // Agent doesn't exist, create a new one
+        return await this.createAgent(options);
+      }
+      // Re-throw other errors
+      throw error;
+    }
   }
 
   /**
@@ -198,17 +239,17 @@ export class AgentSDK {
    */
   public async getAgents(): Promise<Agent[]> {
     await this.ensureInitialized();
-
     const agents = await this.agentAdapter.getAllAgents();
     return agents.map((agent) => new Agent(agent, this.agentAdapter));
   }
 
   /**
-   * Delete an agent
+   * Delete an agent by ID
    */
-  public async deleteAgent(agentId: string): Promise<boolean> {
+  public async deleteAgent(id: string): Promise<boolean> {
     await this.ensureInitialized();
-    return this.agentAdapter.deleteAgent(agentId);
+    await this.agentAdapter.deleteAgent(id);
+    return true;
   }
 
   /**
@@ -262,5 +303,32 @@ export class AgentSDK {
       throw new Error("Model service not initialized");
     }
     return this.modelService.generateEmbeddings(texts, options);
+  }
+
+  /**
+   * Create a new agent with custom memory size
+   * @param options Agent creation options plus memory size
+   * @param options.memorySize Number of past interactions (message pairs) to include in the context.
+   *                          For example, a value of 5 means the last 5 user-assistant message pairs will be included.
+   */
+  async createAgentWithMemory(
+    options: CreateAgentOptions & { memorySize?: number }
+  ): Promise<Agent> {
+    const agent = await this.createAgent(options);
+    // Set the memory size for future messages
+    agent.setMemorySize(options.memorySize);
+    return agent;
+  }
+
+  /**
+   * Create a new agent with conversation history
+   */
+  async createAgentWithHistory(
+    options: CreateAgentOptions & { conversationHistory: Message[] }
+  ): Promise<Agent> {
+    const agent = await this.createAgent(options);
+    // Set the conversation history for future messages
+    agent.setConversationHistory(options.conversationHistory);
+    return agent;
   }
 }

@@ -1,8 +1,15 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import type { ComponentType } from 'preact';
 import { DefaultService } from '../api-client';
 import { route } from 'preact-router';
 import '../styles/create-agent.css';
+
+interface Tool {
+  id: string;
+  name: string;
+  description: string;
+  parameters: any;
+}
 
 export const CreateAgent: ComponentType = () => {
   const [formData, setFormData] = useState({
@@ -10,9 +17,25 @@ export const CreateAgent: ComponentType = () => {
     description: '',
     modelId: 'us.amazon.nova-lite-v1:0',
     systemPrompt: 'You are a helpful agent that assists users with their tasks. You are friendly, professional, and always aim to provide accurate and useful information.',
+    tools: [] as string[],
   });
+  const [availableTools, setAvailableTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchTools = async () => {
+      try {
+        const tools = await DefaultService.toolsControllerGetAllTools();
+        setAvailableTools(tools);
+      } catch (err) {
+        console.error('Error fetching tools:', err);
+        setError('Failed to load available tools');
+      }
+    };
+
+    fetchTools();
+  }, []);
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
@@ -25,6 +48,7 @@ export const CreateAgent: ComponentType = () => {
         description: formData.description,
         modelId: formData.modelId,
         systemPrompt: formData.systemPrompt,
+        tools: formData.tools,
       });
       route('/');
     } catch (err) {
@@ -40,6 +64,15 @@ export const CreateAgent: ComponentType = () => {
     setFormData(prev => ({
       ...prev,
       [target.name]: target.value
+    }));
+  };
+
+  const handleToolToggle = (toolName: string) => {
+    setFormData(prev => ({
+      ...prev,
+      tools: prev.tools.includes(toolName)
+        ? prev.tools.filter(t => t !== toolName)
+        : [...prev.tools, toolName]
     }));
   };
 
@@ -98,6 +131,27 @@ export const CreateAgent: ComponentType = () => {
             placeholder="Enter the system prompt for the agent"
             rows={6}
           />
+        </div>
+
+        <div class="form-group">
+          <label>Available Tools</label>
+          <div class="tools-grid">
+            {availableTools.map(tool => (
+              <div key={tool.id} class="tool-card">
+                <label class="tool-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={formData.tools.includes(tool.name)}
+                    onChange={() => handleToolToggle(tool.name)}
+                  />
+                  <div class="tool-info">
+                    <h4>{tool.name}</h4>
+                    <p>{tool.description}</p>
+                  </div>
+                </label>
+              </div>
+            ))}
+          </div>
         </div>
 
         {error && <p class="error">{error}</p>}

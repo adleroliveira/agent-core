@@ -1,8 +1,9 @@
 .create-agent-page {
-  max-width: 1200px;
-  width: 100%;
+  max-width: 800px;
   margin: 0 auto;
   padding: 2rem;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .create-agent-page h2 {
@@ -12,38 +13,28 @@
 }
 
 .create-agent-form {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .form-group {
-  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  color: #374151;
   font-weight: 500;
+  color: #333;
 }
 
-.form-group input,
+.form-group input[type="text"],
 .form-group textarea {
-  width: 100%;
   padding: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
   font-size: 1rem;
-  transition: border-color 0.2s ease;
-}
-
-.form-group input:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .form-group textarea {
@@ -51,53 +42,100 @@
   min-height: 100px;
 }
 
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.tool-card {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 1rem;
+  background-color: #fff;
+  transition: all 0.2s ease;
+}
+
+.tool-card:hover {
+  border-color: #007bff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tool-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  cursor: pointer;
+}
+
+.tool-checkbox input[type="checkbox"] {
+  margin-top: 0.25rem;
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.tool-info {
+  flex: 1;
+}
+
+.tool-info h4 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+}
+
+.tool-info p {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
 .form-actions {
   display: flex;
   gap: 1rem;
-  margin-top: 2rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
 }
 
 .submit-button,
 .cancel-button {
   padding: 0.75rem 1.5rem;
-  border-radius: 6px;
+  border-radius: 4px;
   font-size: 1rem;
-  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .submit-button {
-  background-color: #3b82f6;
+  background-color: #007bff;
   color: white;
   border: none;
-  flex: 1;
 }
 
 .submit-button:hover {
-  background-color: #2563eb;
+  background-color: #0056b3;
 }
 
 .submit-button:disabled {
-  background-color: #93c5fd;
+  background-color: #ccc;
   cursor: not-allowed;
 }
 
 .cancel-button {
-  background-color: white;
-  color: #374151;
-  border: 1px solid #d1d5db;
-  flex: 1;
+  background-color: #fff;
+  color: #333;
+  border: 1px solid #ddd;
 }
 
 .cancel-button:hover {
-  background-color: #f3f4f6;
+  background-color: #f8f9fa;
 }
 
 .error {
-  color: #dc2626;
-  padding: 1rem;
-  background-color: #fee2e2;
-  border-radius: 6px;
-  margin-bottom: 1rem;
+  color: #dc3545;
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  background-color: #f8d7da;
+  border-radius: 4px;
 } 

@@ -22,12 +22,17 @@ import { UpdatePromptDto } from "./dto/update-prompt.dto";
 import { AddToolDto } from "./dto/add-tool.dto";
 import { Message } from "@core/domain/message.entity";
 import { AGENT_SERVICE } from "@adapters/adapters.module";
+import { ToolRegistryService } from "@core/services/tool-registry.service";
+import { TOOL_REGISTRY } from "@core/constants";
+import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 
 @Controller("agents")
 export class AgentController {
   constructor(
     @Inject(forwardRef(() => AGENT_SERVICE))
-    private readonly agentService: AgentService
+    private readonly agentService: AgentService,
+    @Inject(TOOL_REGISTRY)
+    private readonly toolRegistry: ToolRegistryService
   ) {}
 
   @Post()

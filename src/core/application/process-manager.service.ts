@@ -1,5 +1,5 @@
 import { Injectable, Inject, Logger, forwardRef } from '@nestjs/common';
-import { Process, ProcessStatus } from '@core/domain/process.entity';
+import { Process } from '@core/domain/process.entity';
 import { ProcessRepositoryPort } from '@ports/storage/process-repository.port';
 import { WorkspaceConfig } from '@core/config/workspace.config';
 import * as pty from 'node-pty';

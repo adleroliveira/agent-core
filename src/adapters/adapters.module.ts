@@ -29,6 +29,7 @@ import { BedrockConfigService } from "./model/bedrock/bedrock-config.service";
 
 // API interfaces
 import { AgentController } from "./api/rest/agent.controller";
+import { ToolsController } from "./api/rest/tools.controller";
 import { DirectAgentAdapter } from "./api/direct/direct-agent.adapter";
 
 // Tools
@@ -55,7 +56,7 @@ export const AGENT_SERVICE = "AGENT_SERVICE";
     forwardRef(() => CoreModule),
     ConfigModule,
   ],
-  controllers: [AgentController],
+  controllers: [AgentController, ToolsController],
   providers: [
     // Storage providers
     {
@@ -92,10 +93,10 @@ export const AGENT_SERVICE = "AGENT_SERVICE";
     // Direct API adapter
     {
       provide: DirectAgentAdapter,
-      useFactory: (agentService: AgentService, stateRepository: StateRepositoryPort) => {
-        return new DirectAgentAdapter(agentService, stateRepository);
+      useFactory: (agentService: AgentService) => {
+        return new DirectAgentAdapter(agentService);
       },
-      inject: [AGENT_SERVICE, STATE_REPOSITORY],
+      inject: [AGENT_SERVICE],
     },
   ],
   exports: [

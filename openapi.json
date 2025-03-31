@@ -214,6 +214,18 @@
           }
         }
       }
+    },
+    "/api/tools": {
+      "get": {
+        "operationId": "ToolsController_getAllTools",
+        "summary": "Get all available tools",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "List of all available tools"
+          }
+        }
+      }
     }
   },
   "info": {

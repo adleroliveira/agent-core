@@ -4,11 +4,6 @@ import { Prompt } from "./prompt.entity";
 import { Tool } from "./tool.entity";
 import { Message } from "./message.entity";
 import { KnowledgeBase } from "./knowledge-base.entity";
-import { RagToolBundle } from "@tools/default/rag.toolBundle";
-import { PtyToolBundle } from "@tools/default/pty.toolBundle";
-import { ProcessToolBundle } from "@tools/default/process.toolBundle";
-import { InternetSearchToolBundle } from "@tools/default/internet-search.toolBundle";
-import { InternetSearchTool } from "@tools/default/internet-search.tool";
 import {
   ModelServicePort,
   ToolCallResult,
@@ -17,7 +12,6 @@ import { Observable, map } from "rxjs";
 import { VectorDBPort } from "@ports/storage/vector-db.port";
 import { ToolRegistryPort } from "@ports/tool/tool-registry.port";
 import { WorkspaceConfig } from "@core/config/workspace.config";
-import { Inject } from "@nestjs/common";
 
 export class Agent {
   public readonly id: string;
@@ -36,8 +30,6 @@ export class Agent {
   private workspaceConfig?: WorkspaceConfig;
 
   constructor(
-    @Inject(InternetSearchTool)
-    private readonly internetSearchTool: InternetSearchTool,
     params: {
       id?: string;
       name: string;
@@ -85,67 +77,6 @@ export class Agent {
     this.toolRegistry = toolRegistry;
     this.workspaceConfig = workspaceConfig;
     this.knowledgeBase.setServices(modelService, vectorDB);
-    
-    // Initialize RAG tools if needed
-    await this.initializeRagTools();
-    
-    // Initialize PTY tools
-    await this.initializePtyTools();
-
-    // Initialize Process tools
-    await this.initializeProcessTools();
-
-    // Initialize Internet Search tools
-    await this.initializeInternetSearchTools();
-  }
-
-  private async initializePtyTools(): Promise<void> {
-    if (!this.workspaceConfig) {
-      throw new Error("Workspace config must be initialized");
-    }
-
-    const ptyToolBundle = new PtyToolBundle(this.workspaceConfig);
-    const { tools: ptyTools } = ptyToolBundle.getBundle();
-    
-    // Add PTY tools to agent's tools array
-    this.tools.push(...ptyTools);
-  }
-
-  private async initializeProcessTools(): Promise<void> {
-    if (!this.toolRegistry) {
-      throw new Error("Tool registry must be initialized");
-    }
-
-    // Get the process tool from the registry
-    const processTool = await this.toolRegistry.getToolByName('process_manager');
-    if (processTool) {
-      this.tools.push(processTool);
-    }
-  }
-
-  private async initializeRagTools(): Promise<void> {
-    const ragToolBundle = new RagToolBundle(this.knowledgeBase);
-    const { tools: ragTools } = ragToolBundle.getBundle();
-    
-    // Register RAG tools with the tool registry
-    for (const tool of ragTools) {
-      await this.toolRegistry?.registerTool(tool);
-    }
-    
-    // Add RAG tools to agent's tools array
-    this.tools.push(...ragTools);
-  }
-
-  private async initializeInternetSearchTools(): Promise<void> {
-    if (!this.toolRegistry) {
-      throw new Error("Tool registry must be initialized");
-    }
-
-    const internetSearchToolBundle = new InternetSearchToolBundle(this.internetSearchTool);
-    const { tools: internetSearchTools } = internetSearchToolBundle.getBundle();
-    
-    // Add Internet Search tools to agent's tools array
-    this.tools.push(...internetSearchTools);
   }
 
   public async processMessage(
