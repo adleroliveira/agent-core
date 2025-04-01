@@ -1,16 +1,16 @@
 import { Tool, ToolParameter } from "@core/domain/tool.entity";
 import * as os from "os";
 import * as pty from "node-pty";
-import { WorkspaceConfig } from "@core/config/workspace.config";
 import * as path from "path";
 import * as fs from "fs";
 import { Logger } from "@nestjs/common";
+import { WorkspaceConfig } from "@core/config/workspace.config";
+import { Agent } from "@core/domain/agent.entity";
 
 export class PtyTool extends Tool {
   private shell: string;
   private readonly DEFAULT_TIMEOUT = 30000; // 30 seconds timeout
   private readonly logger = new Logger(PtyTool.name);
-  private workspaceConfig: WorkspaceConfig;
 
   constructor() {
     const parameters: ToolParameter[] = [
@@ -64,30 +64,23 @@ You can control command output visibility using the outputLength parameter:
 - Set to a positive number to receive that many characters from the end of the output
 - Useful for commands that generate large outputs or when you only need the final result`,
       parameters,
-      handler: async (args: Record<string, any>) => {
-        return this.executeCommand(args);
+      handler: async (args: Record<string, any>, agent: Agent) => {
+        this.ensureWorkspaceExists(agent.workspaceConfig);
+        return this.executeCommand(args, agent.workspaceConfig!);
       }
     });
 
     // Determine the appropriate shell based on the OS
     this.shell = os.platform() === "win32" ? "powershell.exe" : "bash";
   }
-
-  setWorkspaceConfig(config: WorkspaceConfig) {
-    if (!config) {
-      throw new Error("Workspace config cannot be null or undefined");
-    }
-    this.workspaceConfig = config;
-    this.ensureWorkspaceExists();
-  }
   
-  private ensureWorkspaceExists(): void {
+  private ensureWorkspaceExists(workspaceConfig?: WorkspaceConfig): void {
     try {
-      if (!this.workspaceConfig) {
+      if (!workspaceConfig) {
         throw new Error("Workspace config is not set");
       }
 
-      const workspacePath = this.workspaceConfig.getWorkspacePath();
+      const workspacePath = workspaceConfig.getWorkspacePath();
       
       if (!workspacePath) {
         throw new Error("Workspace path is not configured");
@@ -105,14 +98,14 @@ You can control command output visibility using the outputLength parameter:
     }
   }
 
-  private async executeCommand(args: Record<string, any>): Promise<{ output: string; exitCode: number }> {
-    if (!this.workspaceConfig) {
+  private async executeCommand(args: Record<string, any>, workspaceConfig: WorkspaceConfig): Promise<{ output: string; exitCode: number }> {
+    if (!workspaceConfig) {
       throw new Error("Workspace config is not set. Please ensure the tool is properly initialized.");
     }
 
     return new Promise((resolve, reject) => {
       try {
-        const workspacePath = this.workspaceConfig.getWorkspacePath();
+        const workspacePath = workspaceConfig.getWorkspacePath();
         
         if (!workspacePath) {
           throw new Error("Workspace path is not configured");

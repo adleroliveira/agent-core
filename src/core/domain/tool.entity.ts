@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-
+import { Agent } from "./agent.entity";
 export interface ToolParameter {
   name: string;
   type: "string" | "number" | "boolean" | "object" | "array";
@@ -16,7 +16,7 @@ export class Tool {
   public name: string;
   public description: string;
   public parameters: ToolParameter[];
-  public handler: (args: Record<string, any>) => Promise<any>;
+  public handler: (args: Record<string, any>, agent: Agent) => Promise<any>;
   public metadata?: Record<string, any>;
   public createdAt: Date;
   public updatedAt: Date;
@@ -27,7 +27,7 @@ export class Tool {
     name: string;
     description: string;
     parameters: ToolParameter[];
-    handler: (args: Record<string, any>) => Promise<any>;
+    handler: (args: Record<string, any>, agent: Agent) => Promise<any>;
     metadata?: Record<string, any>;
     jsonSchema?: Record<string, any>;
   }) {
@@ -42,12 +42,12 @@ export class Tool {
     this.updatedAt = new Date();
   }
 
-  public async execute(args: Record<string, any>): Promise<any> {
+  public async execute(args: Record<string, any>, agent: Agent): Promise<any> {
     // Validate parameters before execution
     this.validateParameters(args);
 
     try {
-      return await this.handler(args);
+      return await this.handler(args, agent);
     } catch (error) {
       // Re-throw with additional context
       throw new Error(`Error executing tool ${this.name}: ${error.message}`);

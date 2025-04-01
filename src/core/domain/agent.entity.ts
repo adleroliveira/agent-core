@@ -27,7 +27,7 @@ export class Agent {
   private modelService?: ModelServicePort;
   private vectorDB?: VectorDBPort;
   private toolRegistry?: ToolRegistryPort;
-  private workspaceConfig?: WorkspaceConfig;
+  private _workspaceConfig: WorkspaceConfig;
 
   constructor(
     params: {
@@ -41,7 +41,7 @@ export class Agent {
       vectorDB?: VectorDBPort;
       toolRegistry?: ToolRegistryPort;
       knowledgeBase?: KnowledgeBase;
-      workspaceConfig?: WorkspaceConfig;
+      workspaceConfig: WorkspaceConfig;
     }
   ) {
     this.id = params.id || uuidv4();
@@ -53,7 +53,7 @@ export class Agent {
     this.modelService = params.modelService;
     this.vectorDB = params.vectorDB;
     this.toolRegistry = params.toolRegistry;
-    this.workspaceConfig = params.workspaceConfig;
+    this._workspaceConfig = params.workspaceConfig;
     this.state = new AgentState();
     this.knowledgeBase = params.knowledgeBase || new KnowledgeBase({
       agentId: this.id,
@@ -75,7 +75,7 @@ export class Agent {
     this.modelService = modelService;
     this.vectorDB = vectorDB;
     this.toolRegistry = toolRegistry;
-    this.workspaceConfig = workspaceConfig;
+    this._workspaceConfig = workspaceConfig;
     this.knowledgeBase.setServices(modelService, vectorDB);
   }
 
@@ -188,6 +188,10 @@ export class Agent {
     );
   }
 
+  get workspaceConfig(): WorkspaceConfig {
+    return this.workspaceConfig;
+  }
+
   private async executeToolCalls(
     assistantMessage: Message,
     toolCalls: ToolCallResult[],
@@ -211,7 +215,7 @@ export class Agent {
 
       try {
         // Execute the tool
-        const result = await tool.execute(toolCall.arguments);
+        const result = await tool.execute(toolCall.arguments, this);
 
         // Create a tool response message
         const toolResponseMessage = new Message({

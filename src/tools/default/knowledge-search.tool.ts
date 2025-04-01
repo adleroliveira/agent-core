@@ -1,8 +1,8 @@
 import { Tool, ToolParameter } from "@core/domain/tool.entity";
-import { KnowledgeBase } from "@core/domain/knowledge-base.entity";
+import { Agent } from "@core/domain/agent.entity";
 
-export class RagSearchTool extends Tool {
-  constructor(private readonly knowledgeBase: KnowledgeBase) {
+export class KnowledgeSearchTool extends Tool {
+  constructor(private toolName?: string) {
     const parameters: ToolParameter[] = [
       {
         name: "query",
@@ -19,12 +19,12 @@ export class RagSearchTool extends Tool {
     ];
 
     super({
-      id: "rag-search",
-      name: "rag_search",
+      id: "knowledge_search",
+      name: toolName || "knowledge_search",
       description: "Search the agent's knowledge base for relevant information",
       parameters,
-      handler: async (args: Record<string, any>) => {
-        const results = await this.knowledgeBase.searchKnowledge(args.query, args.topK || 5);
+      handler: async (args: Record<string, any>, agent: Agent) => {
+        const results = await agent.knowledgeBase.searchKnowledge(args.query, args.topK || 5);
         return results.map(({ entry, score }) => ({
           id: entry.id,
           content: entry.content,

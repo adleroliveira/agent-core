@@ -76,6 +76,7 @@ export class AgentService implements OnModuleInit {
       description,
       modelId: modelId || process.env.BEDROCK_MODEL_ID || "",
       systemPrompt,
+      workspaceConfig: this.workspaceConfig,
     });
 
     // Initialize services
@@ -500,7 +501,8 @@ export class AgentService implements OnModuleInit {
 
         const toolResult = await this.toolRegistry.executeToolByName(
           toolCall.toolName,
-          toolArgs
+          toolArgs,
+          agent
         );
 
         const formattedResult =
@@ -683,7 +685,8 @@ export class AgentService implements OnModuleInit {
 
         const toolResult = await this.toolRegistry.executeToolByName(
           toolCall.toolName,
-          toolArgs
+          toolArgs,
+          agent
         );
 
         const formattedResult =

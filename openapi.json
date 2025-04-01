@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/api/agents": {
+    "/agents": {
       "post": {
         "operationId": "AgentController_createAgent",
         "parameters": [],
@@ -31,7 +31,7 @@
         }
       }
     },
-    "/api/agents/{id}": {
+    "/agents/{id}": {
       "get": {
         "operationId": "AgentController_getAgent",
         "parameters": [
@@ -69,7 +69,7 @@
         }
       }
     },
-    "/api/agents/{id}/message": {
+    "/agents/{id}/message": {
       "post": {
         "operationId": "AgentController_sendMessage",
         "parameters": [
@@ -107,7 +107,7 @@
         }
       }
     },
-    "/api/agents/{id}/prompt": {
+    "/agents/{id}/prompt": {
       "put": {
         "operationId": "AgentController_updateSystemPrompt",
         "parameters": [
@@ -137,7 +137,7 @@
         }
       }
     },
-    "/api/agents/{id}/tools": {
+    "/agents/{id}/tools": {
       "post": {
         "operationId": "AgentController_addTool",
         "parameters": [
@@ -167,7 +167,7 @@
         }
       }
     },
-    "/api/agents/{id}/tools/{toolId}": {
+    "/agents/{id}/tools/{toolId}": {
       "delete": {
         "operationId": "AgentController_removeTool",
         "parameters": [
@@ -195,7 +195,7 @@
         }
       }
     },
-    "/api/agents/{id}/reset": {
+    "/agents/{id}/reset": {
       "post": {
         "operationId": "AgentController_resetState",
         "parameters": [
@@ -215,7 +215,7 @@
         }
       }
     },
-    "/api/tools": {
+    "/tools": {
       "get": {
         "operationId": "ToolsController_getAllTools",
         "summary": "Get all available tools",

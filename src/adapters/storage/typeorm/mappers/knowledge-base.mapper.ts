@@ -1,13 +1,21 @@
 import { KnowledgeBase } from '@core/domain/knowledge-base.entity';
 import { KnowledgeBaseEntity } from '../entities/knowledge-base.entity';
+import { ModelServicePort } from '@ports/model/model-service.port';
+import { VectorDBPort } from '@ports/storage/vector-db.port';
 
 export class KnowledgeBaseMapper {
-  static toDomain(entity: KnowledgeBaseEntity): KnowledgeBase {
+  static toDomain(
+    entity: KnowledgeBaseEntity,
+    modelService?: ModelServicePort,
+    vectorDB?: VectorDBPort
+  ): KnowledgeBase {
     return new KnowledgeBase({
       id: entity.id,
       agentId: entity.agentId,
       name: entity.name,
       description: entity.description,
+      modelService,
+      vectorDB,
     });
   }
 

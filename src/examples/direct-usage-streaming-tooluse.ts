@@ -1,10 +1,20 @@
 import { AgentSDK } from "../sdk";
 import { Agent } from "../sdk/agent";
+import { AnalyzeStockTool } from "@tools/examples/stock-market/AnalyzeStockTool.tool";
+import { ForecastStockTool } from "@tools/examples/stock-market/ForecastStockTool.tool";
+import { GetStockHistoryTool } from "@tools/examples/stock-market/GetStockHistoryTool.tool";
+import { GetStockPriceTool } from "@tools/examples/stock-market/GetStockPriceTool.tool";
 
 async function runStockMarketAgentStreamingExample(): Promise<void> {
   // Initialize the SDK
   const sdk = new AgentSDK();
   let agent: Agent | null = null;
+
+  
+  await sdk.registerTool(new AnalyzeStockTool().getTool());
+  await sdk.registerTool(new ForecastStockTool().getTool());
+  await sdk.registerTool(new GetStockHistoryTool().getTool());
+  await sdk.registerTool(new GetStockPriceTool().getTool());
 
   try {
     // Create a new agent with stock market tool

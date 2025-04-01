@@ -1,8 +1,8 @@
 import { Tool, ToolParameter } from "@core/domain/tool.entity";
-import { KnowledgeBase } from "@core/domain/knowledge-base.entity";
+import { Agent } from "@core/domain/agent.entity";
 
-export class RagAddTool extends Tool {
-  constructor(private readonly knowledgeBase: KnowledgeBase) {
+export class KnowledgeAddTool extends Tool {
+  constructor(private toolName?: string) {
     const parameters: ToolParameter[] = [
       {
         name: "content",
@@ -19,12 +19,12 @@ export class RagAddTool extends Tool {
     ];
 
     super({
-      id: "rag-add",
-      name: "rag_add",
+      id: "knowledge_add",
+      name: toolName || "knowledge_add",
       description: "Add content to the agent's knowledge base",
       parameters,
-      handler: async (args: Record<string, any>) => {
-        const entry = await this.knowledgeBase.addKnowledge(args.content, args.metadata);
+      handler: async (args: Record<string, any>, agent: Agent) => {
+        const entry = await agent.knowledgeBase.addKnowledge(args.content, args.metadata);
         return { id: entry.id };
       }
     });

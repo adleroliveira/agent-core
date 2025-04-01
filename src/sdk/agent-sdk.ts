@@ -27,7 +27,7 @@ export interface CreateAgentOptions {
 }
 
 export class AgentSDK {
-  private app: any; // NestJS application context
+  private static app: any; // Static NestJS application context
   private agentAdapter!: DirectAgentAdapter;
   private toolRegistry!: ToolRegistryPort;
   private modelService: ModelServicePort | undefined;
@@ -56,15 +56,17 @@ export class AgentSDK {
       }
     }
 
-    // Create NestJS context
-    this.app = await NestFactory.createApplicationContext(AppModule);
+    // Create NestJS context only if it doesn't exist
+    if (!AgentSDK.app) {
+      AgentSDK.app = await NestFactory.createApplicationContext(AppModule);
+    }
 
     // Get required adapters
-    this.agentAdapter = this.app.get(DirectAgentAdapter);
-    this.toolRegistry = this.app.get(TOOL_REGISTRY);
+    this.agentAdapter = AgentSDK.app.get(DirectAgentAdapter);
+    this.toolRegistry = AgentSDK.app.get(TOOL_REGISTRY);
 
     try {
-      this.modelService = this.app.get(MODEL_SERVICE);
+      this.modelService = AgentSDK.app.get(MODEL_SERVICE);
     } catch (error) {
       console.warn("Model service not available:", error);
       this.modelService = undefined;
@@ -253,13 +255,14 @@ export class AgentSDK {
   }
 
   /**
-   * Close and clean up resources
+   * Close the SDK and clean up resources
    */
   public async close(): Promise<void> {
-    if (this.app) {
-      await this.app.close();
-      this.initialized = false;
+    if (AgentSDK.app) {
+      await AgentSDK.app.close();
+      AgentSDK.app = null;
     }
+    this.initialized = false;
   }
 
   /**

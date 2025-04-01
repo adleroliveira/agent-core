@@ -1,4 +1,6 @@
 import { AgentSDK } from "../sdk";
+import { KnowledgeAddTool } from "@tools/default/knowledge-add.tool";
+import { KnowledgeSearchTool } from "@tools/default/knowledge-search.tool";
 
 async function runRagExample(): Promise<void> {
   // Initialize the SDK
@@ -7,13 +9,18 @@ async function runRagExample(): Promise<void> {
   try {
     // Create a new agent with RAG tools
     console.log("Creating RAG-enabled agent...");
+    
+    // Register tools with the ToolRegistryService
+    await sdk.registerTool(new KnowledgeAddTool());
+    await sdk.registerTool(new KnowledgeSearchTool());
+
     const agent = await sdk.createAgent({
       name: "Knowledge Assistant",
       description: "An agent that can learn and retrieve information from a knowledge base",
       systemPrompt: `You are a helpful knowledge assistant that can learn new information and retrieve it when needed.
       You have access to two main tools:
-      1. ragAdd: Use this to add new information to your knowledge base
-      2. ragSearch: Use this to search for relevant information in your knowledge base
+      1. knowledge_add: Use this to add new information to your knowledge base
+      2. knowledge_search: Use this to search for relevant information in your knowledge base
 
       When adding information:
       - Be precise and concise
@@ -26,6 +33,7 @@ async function runRagExample(): Promise<void> {
       - If you don't find relevant information, let the user know
 
       Always maintain a helpful and informative tone.`,
+      tools: ["knowledge_add", "knowledge_search"]
     });
 
     console.log(`RAG Agent created with ID: ${agent.id}`);

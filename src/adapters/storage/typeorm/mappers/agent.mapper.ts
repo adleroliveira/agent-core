@@ -4,9 +4,22 @@ import { AgentEntity } from '../entities/agent.entity';
 import { StateMapper } from './state.mapper';
 import { ToolMapper } from './tool.mapper';
 import { KnowledgeBaseMapper } from './knowledge-base.mapper';
+import { WorkspaceConfig } from '@core/config/workspace.config';
+import { ModelServicePort } from '@ports/model/model-service.port';
+import { VectorDBPort } from '@ports/storage/vector-db.port';
 
 export class AgentMapper {
+  constructor(
+    private readonly modelService: ModelServicePort,
+    private readonly vectorDB: VectorDBPort
+  ) {}
+
   toDomain(entity: AgentEntity): Agent {
+    const workspaceConfig = new WorkspaceConfig();
+    if (entity.workspaceConfig?.workspaceDir) {
+      workspaceConfig.setWorkspacePath(entity.workspaceConfig.workspaceDir);
+    }
+
     const agent = new Agent({
       id: entity.id,
       name: entity.name,
@@ -19,16 +32,24 @@ export class AgentMapper {
         name: entity.systemPrompt.name,
         metadata: entity.systemPrompt.metadata,
       }),
-      tools: entity.tools ? entity.tools.map(ToolMapper.toDomain) : [],
-      knowledgeBase: entity.knowledgeBase ? KnowledgeBaseMapper.toDomain(entity.knowledgeBase) : undefined,
+      workspaceConfig,
     });
 
     if (entity.state) {
       agent.state = StateMapper.toDomain(entity.state);
     }
 
-    agent.createdAt = entity.createdAt;
-    agent.updatedAt = entity.updatedAt;
+    if (entity.tools) {
+      agent.tools = entity.tools.map(tool => ToolMapper.toDomain(tool));
+    }
+
+    if (entity.knowledgeBase) {
+      agent.knowledgeBase = KnowledgeBaseMapper.toDomain(
+        entity.knowledgeBase,
+        this.modelService,
+        this.vectorDB
+      );
+    }
 
     return agent;
   }

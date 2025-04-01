@@ -3,6 +3,7 @@ import { Tool } from '@core/domain/tool.entity';
 import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
 import { WorkspaceConfig } from '@core/config/workspace.config';
 import { PtyTool } from '@tools/default/pty.tool';
+import { Agent } from '@core/domain/agent.entity';
 
 @Injectable()
 export class ToolRegistryService implements ToolRegistryPort {
@@ -19,16 +20,6 @@ export class ToolRegistryService implements ToolRegistryPort {
   async registerTool(tool: Tool): Promise<Tool> {
     if (!tool) {
       throw new Error('Tool cannot be null or undefined');
-    }
-
-    if (tool.name === 'pty_execute') {
-      const ptyTool = tool as PtyTool;
-      try {
-        ptyTool.setWorkspaceConfig(this.workspaceConfig);
-      } catch (error) {
-        this.logger.error(`Failed to set workspace config for PTY tool: ${error.message}`);
-        throw error;
-      }
     }
 
     this.tools.set(tool.id, tool);
@@ -61,7 +52,7 @@ export class ToolRegistryService implements ToolRegistryPort {
     return Array.from(this.tools.values());
   }
 
-  async executeTool(toolId: string, args: Record<string, any>): Promise<any> {
+  async executeTool(toolId: string, args: Record<string, any>, agent: Agent): Promise<any> {
     const tool = this.tools.get(toolId);
     if (!tool) {
       throw new NotFoundException(`Tool with ID ${toolId} not found`);
@@ -69,7 +60,7 @@ export class ToolRegistryService implements ToolRegistryPort {
 
     this.logger.debug(`Executing tool: ${tool.name} with args: ${JSON.stringify(args)}`);
     try {
-      const result = await tool.execute(args);
+      const result = await tool.execute(args, agent);
       this.logger.debug(`Tool execution successful: ${tool.name}`, result);
       return result;
     } catch (error) {
@@ -78,12 +69,12 @@ export class ToolRegistryService implements ToolRegistryPort {
     }
   }
 
-  async executeToolByName(name: string, args: Record<string, any>): Promise<any> {
+  async executeToolByName(name: string, args: Record<string, any>, agent: Agent): Promise<any> {
     const tool = this.toolsByName.get(name);
     if (!tool) {
       throw new NotFoundException(`Tool with name ${name} not found`);
     }
 
-    return this.executeTool(tool.id, args);
+    return this.executeTool(tool.id, args, agent);
   }
 } 

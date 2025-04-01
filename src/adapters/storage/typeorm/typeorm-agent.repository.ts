@@ -8,9 +8,13 @@ import { AgentMapper } from './mappers/agent.mapper';
 import { KnowledgeBaseEntity } from './entities/knowledge-base.entity';
 import { VectorDBPort } from '@ports/storage/vector-db.port';
 import { VECTOR_DB } from '@adapters/adapters.module';
+import { ModelServicePort } from '@ports/model/model-service.port';
+import { MODEL_SERVICE } from '@adapters/adapters.module';
 
 @Injectable()
 export class TypeOrmAgentRepository implements AgentRepositoryPort {
+  private readonly agentMapper: AgentMapper;
+
   constructor(
     @InjectRepository(AgentEntity)
     private readonly agentRepository: Repository<AgentEntity>,
@@ -18,8 +22,11 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
     private readonly knowledgeBaseRepository: Repository<KnowledgeBaseEntity>,
     @Inject(forwardRef(() => VECTOR_DB))
     private readonly vectorDB: VectorDBPort,
-    private readonly agentMapper: AgentMapper
-  ) {}
+    @Inject(forwardRef(() => MODEL_SERVICE))
+    private readonly modelService: ModelServicePort,
+  ) {
+    this.agentMapper = new AgentMapper(modelService, vectorDB);
+  }
 
   async findById(id: string): Promise<Agent | null> {
     const agentEntity = await this.agentRepository.findOne({

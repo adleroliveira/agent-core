@@ -1,3 +1,5 @@
+import { Agent } from "@core/domain/agent.entity";
+
 export type ToolInput = {
   type: "string" | "number" | "boolean" | "object" | "array";
   items?: {
@@ -35,7 +37,7 @@ export class ToolBuilder {
     return this;
   }
 
-  handle(handler: (input: any) => Promise<any>) {
+  handle(handler: (input: any, agent: Agent) => Promise<any>) {
     if (this.description === undefined) {
       throw new Error("Tool description is required");
     }

@@ -28,6 +28,9 @@ export class AgentEntity {
     updatedAt: Date;
   };
 
+  @Column('json', { default: '{"workspaceDir": "./workspace"}' })
+  workspaceConfig: { workspaceDir: string };
+
   @OneToOne(() => StateEntity, { cascade: true })
   @JoinColumn()
   state: StateEntity;

@@ -1,6 +1,8 @@
 import { AgentSDK } from "../sdk";
-import { Agent } from "../sdk/agent";
-import { Message } from "@core/domain/message.entity";
+import { AnalyzeStockTool } from "@tools/examples/stock-market/AnalyzeStockTool.tool";
+import { ForecastStockTool } from "@tools/examples/stock-market/ForecastStockTool.tool";
+import { GetStockHistoryTool } from "@tools/examples/stock-market/GetStockHistoryTool.tool";
+import { GetStockPriceTool } from "@tools/examples/stock-market/GetStockPriceTool.tool";
 
 async function runStockMarketAgentExample(): Promise<void> {
   // Initialize the SDK
@@ -9,6 +11,12 @@ async function runStockMarketAgentExample(): Promise<void> {
   try {
     // Create a new agent with stock market tool
     console.log("Creating stock market-enabled agent...");
+    
+    await sdk.registerTool(new AnalyzeStockTool().getTool());
+    await sdk.registerTool(new ForecastStockTool().getTool());
+    await sdk.registerTool(new GetStockHistoryTool().getTool());
+    await sdk.registerTool(new GetStockPriceTool().getTool());
+
     const agent = await sdk.createAgent({
       name: "Financial Advisor",
       description:
