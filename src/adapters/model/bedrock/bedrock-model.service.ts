@@ -810,10 +810,10 @@ export class BedrockModelService implements ModelServicePort {
                   // If it's an array, wrap it in an object with a results key
                   typeof toolContent === "object" && toolContent !== null
                     ? {
-                        json: Array.isArray(toolContent)
-                          ? { results: toolContent }
-                          : toolContent,
-                      }
+                      json: Array.isArray(toolContent)
+                        ? { results: toolContent }
+                        : toolContent,
+                    }
                     : { text: String(toolContent) },
                 ],
                 status: toolResult.isToolError ? "error" : "success",
@@ -882,7 +882,7 @@ export class BedrockModelService implements ModelServicePort {
         tools: uniqueTools.map((tool) => ({
           toolSpec: {
             name: tool.name,
-            description: tool.description || "",
+            description: tool.directive || tool.description || tool.name,
             inputSchema: {
               json: {
                 type: "object",
@@ -910,7 +910,6 @@ export class BedrockModelService implements ModelServicePort {
       };
     }
 
-    // this.logger.debug("RequestBody.messages", bedrockMessages);
     return requestBody;
   }
 

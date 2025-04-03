@@ -8,7 +8,7 @@ import { ForecastStockTool } from "./examples/stock-market/ForecastStockTool.too
 import { KnowledgeAddTool } from "./default/knowledge-add.tool";
 import { KnowledgeSearchTool } from "./default/knowledge-search.tool";
 import { InternetSearchTool } from "./default/internet-search.tool";
-import { PtyTool } from "./default/pty.tool";
+import { CommandTool } from "./default/exec.tool";
 import { ProcessTool } from "./default/process.tool";
 import { TOOL_REGISTRY } from "@core/constants";
 import { ToolRegistryPort } from "@ports/tool/tool-registry.port";
@@ -26,7 +26,7 @@ import { Tool } from "@core/domain/tool.entity";
     KnowledgeAddTool,
     KnowledgeSearchTool,
     InternetSearchTool,
-    PtyTool,
+    CommandTool,
     ProcessTool,
   ],
   exports: [
@@ -39,7 +39,7 @@ import { Tool } from "@core/domain/tool.entity";
     KnowledgeAddTool,
     KnowledgeSearchTool,
     InternetSearchTool,
-    PtyTool,
+    CommandTool,
     ProcessTool,
   ],
 })
@@ -54,9 +54,9 @@ export class ToolsModule implements OnModuleInit {
     private readonly knowledgeAddTool: KnowledgeAddTool,
     private readonly knowledgeSearchTool: KnowledgeSearchTool,
     private readonly internetSearchTool: InternetSearchTool,
-    private readonly ptyTool: PtyTool,
+    private readonly commandTool: CommandTool,
     private readonly processTool: ProcessTool,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     // Register stock market tools (using getTool())
@@ -71,7 +71,7 @@ export class ToolsModule implements OnModuleInit {
     // Register default tools (they extend Tool directly)
     await this.toolRegistry.registerTool(this.knowledgeAddTool as unknown as Tool);
     await this.toolRegistry.registerTool(this.knowledgeSearchTool as unknown as Tool);
-    await this.toolRegistry.registerTool(this.ptyTool as unknown as Tool);
+    await this.toolRegistry.registerTool(this.commandTool as unknown as Tool);
     await this.toolRegistry.registerTool(this.processTool as unknown as Tool);
   }
 }

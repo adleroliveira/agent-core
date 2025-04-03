@@ -35,6 +35,7 @@ export class AnalyzeStockTool {
       name: "analyzeStock",
       description:
         "Perform technical analysis on a stock using specified indicators.",
+      directive: "Perform technical analysis on a stock using specified indicators.",
       parameters,
       handler: this.analyzeStockHandler.bind(this),
     });

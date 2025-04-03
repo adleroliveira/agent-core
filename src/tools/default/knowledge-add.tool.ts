@@ -22,6 +22,8 @@ export class KnowledgeAddTool extends Tool {
       id: "knowledge_add",
       name: toolName || "knowledge_add",
       description: "Add content to the agent's knowledge base",
+      directive: `This can be used to add new information to the agent's knowledge base. 
+      The content should be a string and the metadata should be an object. The metadata is optional and can be used to associate the content with a specific topic or source.`,
       parameters,
       handler: async (args: Record<string, any>, agent: Agent) => {
         const entry = await agent.knowledgeBase.addKnowledge(args.content, args.metadata);

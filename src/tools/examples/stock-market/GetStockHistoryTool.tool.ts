@@ -28,6 +28,7 @@ export class GetStockHistoryTool {
       name: "getStockHistory",
       description:
         "Retrieve historical price data for a stock symbol over a specified number of days.",
+      directive: "Retrieve historical price data for a stock $symbol over a specified number of $days.",
       parameters,
       handler: this.getStockHistoryHandler.bind(this),
     });

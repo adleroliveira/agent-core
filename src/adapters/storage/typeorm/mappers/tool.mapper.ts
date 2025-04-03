@@ -13,6 +13,7 @@ export class ToolMapper {
       id: entity.id,
       name: entity.name,
       description: entity.description,
+      directive: entity.description,
       parameters: entity.parameters as ToolParameter[],
       handler: placeholderHandler,
       metadata: entity.metadata,
@@ -26,14 +27,14 @@ export class ToolMapper {
     entity.description = domain.description;
     entity.parameters = domain.parameters;
     entity.metadata = domain.metadata || {};
-    
+
     if (agentId) {
       entity.agentId = agentId;
     }
-    
+
     entity.createdAt = domain.createdAt;
     entity.updatedAt = domain.updatedAt;
-    
+
     return entity;
   }
 }

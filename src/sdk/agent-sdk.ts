@@ -33,7 +33,7 @@ export class AgentSDK {
   private modelService: ModelServicePort | undefined;
   private initialized = false;
 
-  constructor(private config: SDKConfig = {}) {}
+  constructor(private config: SDKConfig = {}) { }
 
   /**
    * Initialize the SDK - this is done lazily on first use
@@ -119,6 +119,7 @@ export class AgentSDK {
     return new Tool({
       name: builderOutput.name,
       description: toolSpec.toolSpec.description,
+      directive: toolSpec.toolSpec.description,
       parameters,
       handler: builderOutput.run,
       jsonSchema: toolSpec.toolSpec.inputSchema.json,
@@ -173,6 +174,7 @@ export class AgentSDK {
       // Create a new Tool instance
       const newTool = new Tool({
         name: tool.name,
+        directive: toolSpec.toolSpec.description,
         description: toolSpec.toolSpec.description,
         parameters,
         handler: tool.run,
@@ -222,7 +224,7 @@ export class AgentSDK {
    */
   public async findOrCreateAgent(options: CreateAgentOptions): Promise<Agent> {
     await this.ensureInitialized();
-    
+
     try {
       // Try to get the existing agent
       return await this.getAgent(options.name);

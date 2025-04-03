@@ -67,8 +67,8 @@ export class Agent {
   }
 
   public async setServices(
-    modelService: ModelServicePort, 
-    vectorDB: VectorDBPort, 
+    modelService: ModelServicePort,
+    vectorDB: VectorDBPort,
     toolRegistry: ToolRegistryPort,
     workspaceConfig: WorkspaceConfig
   ): Promise<void> {
@@ -189,7 +189,7 @@ export class Agent {
   }
 
   get workspaceConfig(): WorkspaceConfig {
-    return this.workspaceConfig;
+    return this._workspaceConfig;
   }
 
   private async executeToolCalls(
