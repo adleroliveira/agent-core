@@ -46,7 +46,7 @@ export class AgentService implements OnModuleInit {
     @Inject(VECTOR_DB)
     private readonly vectorDB: VectorDBPort,
     private readonly workspaceConfig: WorkspaceConfig
-  ) {}
+  ) { }
 
   onModuleInit() {
     // Clear the cache when the service starts
@@ -525,7 +525,12 @@ export class AgentService implements OnModuleInit {
           result: formattedResult,
         };
       } catch (error) {
-        const errorMessage = `Error executing tool ${toolCall.toolName}: ${error.message}`;
+        let errorMessage: string;
+        if (error.message.includes("Maximum call stack size exceeded")) {
+          errorMessage = `Tool execution failed: ${toolCall.toolName} encountered an internal error. Please try a different command.`;
+        } else {
+          errorMessage = `Error executing tool ${toolCall.toolName}: ${error.message}`;
+        }
         this.logger.error(errorMessage);
 
         responseSubject.next({
@@ -658,8 +663,21 @@ export class AgentService implements OnModuleInit {
     options?: {
       temperature?: number;
       maxTokens?: number;
-    }
+    },
+    recursionDepth: number = 0
   ): Promise<Message | null> {
+    const MAX_RECURSION_DEPTH = 3;  // Or whatever number makes sense for your use case
+    if (recursionDepth >= MAX_RECURSION_DEPTH) {
+      this.logger.warn(`Maximum tool call recursion depth (${MAX_RECURSION_DEPTH}) reached`);
+      const maxRecursionResponse = new Message({
+        role: "assistant",
+        content: "I've reached the maximum number of tool call iterations. If you're still not seeing the information you need, please try a different approach.",
+        conversationId,
+      });
+      agent.state.addToConversation(maxRecursionResponse);
+      return maxRecursionResponse;
+    }
+
     const toolResponses: Message[] = [];
 
     this.logger.debug(`Executing ${toolCalls.length} tool calls`);
@@ -707,7 +725,12 @@ export class AgentService implements OnModuleInit {
           result: formattedResult,
         };
       } catch (error) {
-        const errorMessage = `Error executing tool ${toolCall.toolName}: ${error.message}`;
+        let errorMessage: string;
+        if (error.message.includes("Maximum call stack size exceeded")) {
+          errorMessage = `Tool execution failed: ${toolCall.toolName} encountered an internal error. Please try a different command.`;
+        } else {
+          errorMessage = `Error executing tool ${toolCall.toolName}: ${error.message}`;
+        }
         this.logger.error(errorMessage);
 
         return {
@@ -782,7 +805,8 @@ export class AgentService implements OnModuleInit {
             finalResponseData.toolCalls,
             conversationId,
             previousMessages, // Not strictly needed since we use full history
-            options
+            options,
+            recursionDepth + 1
           );
         }
 

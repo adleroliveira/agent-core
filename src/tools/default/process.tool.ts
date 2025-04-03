@@ -39,19 +39,27 @@ export class ProcessTool extends Tool {
         type: 'object',
         description: 'Environment variables to set for the process',
         required: false
+      },
+      {
+        name: 'timeout',
+        type: 'number',
+        description: 'Timeout in milliseconds for the process (optional, if not set, process runs until cancelled)',
+        required: false
       }
     ];
 
     super({
       id: 'process-manager',
       name: 'process_manager',
-      description: `Manages long-running processes in the background. Use this tool when you need to:
+      description: `Manages long-running processes in the background.`,
+      directive: `Manages long-running processes in the background. Use this tool when you need to:
 - Start and monitor background services (e.g., development servers, databases)
 - Run time-consuming operations that shouldn't block the conversation (e.g., npm install, build processes)
 - Execute commands that need to maintain state or run continuously
 - Manage multiple concurrent processes with proper lifecycle control
 
-The tool provides process lifecycle management (start/status/cancel) and environment configuration capabilities.`,
+The tool provides process lifecycle management (start/status/cancel) and environment configuration capabilities.
+For long-running processes like servers, omit the timeout parameter to let them run indefinitely until cancelled.`,
       parameters,
       handler: async (args: Record<string, any>) => {
         return this.handleProcessCommand(args);
@@ -73,9 +81,14 @@ The tool provides process lifecycle management (start/status/cancel) and environ
         if (!args.command) {
           throw new Error('Command is required for starting a process');
         }
-        // Generate a name if not provided
         const processName = args.name || `process-${uuidv4().slice(0, 8)}`;
-        return this.processManager.startProcess(processName, args.command, args.env);
+        return this.processManager.startProcess(
+          processName,
+          args.command,
+          { env: args.env }, // Pass env as metadata
+          args.env,
+          args.timeout // Pass optional timeout
+        );
 
       case 'status':
         if (!args.id) {
@@ -93,4 +106,4 @@ The tool provides process lifecycle management (start/status/cancel) and environ
         throw new Error(`Unknown action: ${args.action}`);
     }
   }
-} 
+}

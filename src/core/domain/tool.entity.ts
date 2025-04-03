@@ -15,6 +15,7 @@ export class Tool {
   public readonly id: string;
   public name: string;
   public description: string;
+  public directive: string;
   public parameters: ToolParameter[];
   public handler: (args: Record<string, any>, agent: Agent) => Promise<any>;
   public metadata?: Record<string, any>;
@@ -26,6 +27,7 @@ export class Tool {
     id?: string;
     name: string;
     description: string;
+    directive: string;
     parameters: ToolParameter[];
     handler: (args: Record<string, any>, agent: Agent) => Promise<any>;
     metadata?: Record<string, any>;
@@ -34,6 +36,7 @@ export class Tool {
     this.id = params.id || uuidv4();
     this.name = params.name;
     this.description = params.description;
+    this.directive = params.directive;
     this.parameters = params.parameters;
     this.handler = params.handler;
     this.metadata = params.metadata;
@@ -50,6 +53,7 @@ export class Tool {
       return await this.handler(args, agent);
     } catch (error) {
       // Re-throw with additional context
+      console.error(error)
       throw new Error(`Error executing tool ${this.name}: ${error.message}`);
     }
   }
@@ -129,38 +133,5 @@ export class Tool {
         args[param.name] = param.default;
       }
     }
-  }
-
-  public toJsonSchema(): Record<string, any> {
-    if (this.jsonSchema) {
-      return {
-        json: this.jsonSchema,
-      };
-    }
-
-    // Generate schema based on parameters
-    const properties: Record<string, any> = {};
-    const required: string[] = [];
-
-    for (const param of this.parameters) {
-      properties[param.name] = {
-        type: param.type,
-        description: param.description || "",
-      };
-
-      if (param.enum) {
-        properties[param.name].enum = param.enum;
-      }
-
-      if (param.required) {
-        required.push(param.name);
-      }
-    }
-
-    return {
-      type: "object",
-      properties,
-      required: required.length > 0 ? required : undefined,
-    };
   }
 }

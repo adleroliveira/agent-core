@@ -2,7 +2,6 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Tool } from '@core/domain/tool.entity';
 import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
 import { WorkspaceConfig } from '@core/config/workspace.config';
-import { PtyTool } from '@tools/default/pty.tool';
 import { Agent } from '@core/domain/agent.entity';
 
 @Injectable()

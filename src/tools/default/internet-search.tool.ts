@@ -32,7 +32,8 @@ export class InternetSearchTool {
     return new Tool({
       id: uuidv4(),
       name: "internet_search",
-      description: "Search the internet for information using DuckDuckGo. This tool can help find current information, facts, and general knowledge that may not be in the agent's knowledge base.",
+      directive: `Search the internet for information using DuckDuckGo. This tool can help find current information, facts, and general knowledge that may not be in the agent's knowledge base.`,
+      description: "Search the internet for information using DuckDuckGo.",
       parameters,
       handler: this.searchHandler.bind(this),
     });

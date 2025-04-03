@@ -21,6 +21,8 @@ export class KnowledgeSearchTool extends Tool {
     super({
       id: "knowledge_search",
       name: toolName || "knowledge_search",
+      directive: `Use this tool to search the agent's knowledge base for relevant information. 
+      The query should be a string and the topK parameter is optional and specifies the maximum number of results to return.`,
       description: "Search the agent's knowledge base for relevant information",
       parameters,
       handler: async (args: Record<string, any>, agent: Agent) => {

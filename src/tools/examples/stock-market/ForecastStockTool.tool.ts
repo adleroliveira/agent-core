@@ -28,6 +28,7 @@ export class ForecastStockTool {
       name: "forecastStock",
       description:
         "Generate a price forecast for a stock based on historical trends.",
+      directive: `Forecast the stock price for $symbol for the next $forecastDays days.`,
       parameters,
       handler: this.forecastStockHandler.bind(this),
     });

@@ -19,6 +19,7 @@ export class GetStockPriceTool {
     return new Tool({
       id: uuidv4(),
       name: "getStockPrice",
+      directive: "Retrieve the current price and basic data for a stock $symbol.",
       description:
         "Retrieve the current price and basic data for a stock symbol.",
       parameters,
