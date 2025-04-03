@@ -38,7 +38,10 @@ export class AgentEntity {
   @OneToMany(() => ToolEntity, tool => tool.agent, { cascade: true })
   tools: ToolEntity[];
 
-  @OneToOne(() => KnowledgeBaseEntity, knowledgeBase => knowledgeBase.agent, { nullable: true })
+  @OneToOne(() => KnowledgeBaseEntity, knowledgeBase => knowledgeBase.agent, { 
+    nullable: true, 
+    cascade: true
+  })
   knowledgeBase: KnowledgeBaseEntity | null;
 
   @CreateDateColumn()

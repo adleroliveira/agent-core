@@ -10,10 +10,12 @@ import { VectorDBPort } from '@ports/storage/vector-db.port';
 import { VECTOR_DB } from '@adapters/adapters.module';
 import { ModelServicePort } from '@ports/model/model-service.port';
 import { MODEL_SERVICE } from '@adapters/adapters.module';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class TypeOrmAgentRepository implements AgentRepositoryPort {
   private readonly agentMapper: AgentMapper;
+  private readonly logger: Logger;
 
   constructor(
     @InjectRepository(AgentEntity)
@@ -26,6 +28,7 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
     private readonly modelService: ModelServicePort,
   ) {
     this.agentMapper = new AgentMapper(modelService, vectorDB);
+    this.logger = new Logger(TypeOrmAgentRepository.name);
   }
 
   async findById(id: string): Promise<Agent | null> {
@@ -50,26 +53,66 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
   }
 
   async save(agent: Agent): Promise<Agent> {
-    const agentEntity = this.agentMapper.toPersistence(agent);
-    
-    // Save the agent first without the knowledge base
-    const knowledgeBase: KnowledgeBaseEntity | null = agentEntity.knowledgeBase;
-    agentEntity.knowledgeBase = null;
-    const savedAgentEntity = await this.agentRepository.save(agentEntity);
-    
-    // If there's a knowledge base, save it after the agent
-    if (knowledgeBase) {
-      knowledgeBase.agentId = savedAgentEntity.id;
-      await this.knowledgeBaseRepository.save(knowledgeBase);
-    }
-    
-    // Reload the agent with all relations
-    const reloadedAgent = await this.findById(savedAgentEntity.id);
-    if (!reloadedAgent) {
-      throw new Error('Failed to reload agent after save');
-    }
-    
-    return reloadedAgent;
+    // Use a transaction to ensure data consistency
+    return this.agentRepository.manager.transaction(async (manager) => {
+      // First, save the agent without the knowledge base
+      const agentEntity = this.agentMapper.toPersistence(agent);
+      const knowledgeBase = agentEntity.knowledgeBase;
+      
+      // Create a new agent entity without the knowledge base relationship
+      const agentToSave = new AgentEntity();
+      Object.assign(agentToSave, {
+        id: agentEntity.id,
+        name: agentEntity.name,
+        description: agentEntity.description,
+        modelId: agentEntity.modelId,
+        systemPrompt: agentEntity.systemPrompt,
+        workspaceConfig: agentEntity.workspaceConfig,
+        createdAt: agentEntity.createdAt,
+        updatedAt: agentEntity.updatedAt,
+        state: agentEntity.state,
+        tools: agentEntity.tools
+      });
+      
+      const savedAgentEntity = await manager.save(AgentEntity, agentToSave);
+      
+      // If there's a knowledge base, save it separately
+      if (knowledgeBase) {
+        
+        // Create a new knowledge base entity
+        const knowledgeBaseEntity = new KnowledgeBaseEntity();
+        knowledgeBaseEntity.id = knowledgeBase.id;
+        knowledgeBaseEntity.agentId = savedAgentEntity.id; // Set the agentId to the saved agent's ID
+        knowledgeBaseEntity.name = knowledgeBase.name;
+        knowledgeBaseEntity.description = knowledgeBase.description;
+        knowledgeBaseEntity.createdAt = knowledgeBase.createdAt;
+        knowledgeBaseEntity.updatedAt = knowledgeBase.updatedAt;
+        
+        try {
+          // Use a completely different approach - create a new repository instance
+          const knowledgeBaseRepo = manager.getRepository(KnowledgeBaseEntity);
+          
+          // Save the knowledge base using the new repository
+          const savedKnowledgeBase = await knowledgeBaseRepo.save(knowledgeBaseEntity);
+
+          // Update the agent's knowledge base reference
+          savedAgentEntity.knowledgeBase = savedKnowledgeBase;
+          await manager.save(AgentEntity, savedAgentEntity);
+        } catch (error) {
+          this.logger.error(`Error saving knowledge base: ${error.message}`);
+          this.logger.error(`Error details: ${JSON.stringify(error)}`);
+          throw error;
+        }
+      }
+      
+      // Reload the agent with all relations
+      const reloadedAgent = await this.findById(savedAgentEntity.id);
+      if (!reloadedAgent) {
+        throw new Error('Failed to reload agent after save');
+      }
+      
+      return reloadedAgent;
+    });
   }
 
   async delete(id: string): Promise<boolean> {

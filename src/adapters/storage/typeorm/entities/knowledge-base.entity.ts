@@ -6,7 +6,7 @@ export class KnowledgeBaseEntity {
   @PrimaryColumn('uuid')
   id: string;
 
-  @Column()
+  @Column('uuid', { name: 'agent_id' })
   agentId: string;
 
   @Column()
@@ -16,7 +16,7 @@ export class KnowledgeBaseEntity {
   description: string;
 
   @OneToOne(() => AgentEntity, agent => agent.knowledgeBase)
-  @JoinColumn({ name: 'agentId' })
+  @JoinColumn({ name: 'agent_id' })
   agent: AgentEntity;
 
   @CreateDateColumn()
