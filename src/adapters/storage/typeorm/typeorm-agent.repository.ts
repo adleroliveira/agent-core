@@ -10,7 +10,12 @@ import { VectorDBPort } from '@ports/storage/vector-db.port';
 import { VECTOR_DB } from '@adapters/adapters.module';
 import { ModelServicePort } from '@ports/model/model-service.port';
 import { MODEL_SERVICE } from '@adapters/adapters.module';
+import { TOOL_REGISTRY } from '@core/constants';
+import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
 import { Logger } from '@nestjs/common';
+import { StateEntity } from './entities/state.entity';
+import { MessageEntity } from './entities/message.entity';
+import { ToolEntity } from './entities/tool.entity';
 
 @Injectable()
 export class TypeOrmAgentRepository implements AgentRepositoryPort {
@@ -26,15 +31,17 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
     private readonly vectorDB: VectorDBPort,
     @Inject(forwardRef(() => MODEL_SERVICE))
     private readonly modelService: ModelServicePort,
+    @Inject(TOOL_REGISTRY)
+    private readonly toolRegistry: ToolRegistryPort
   ) {
-    this.agentMapper = new AgentMapper(modelService, vectorDB);
+    this.agentMapper = new AgentMapper(modelService, vectorDB, toolRegistry);
     this.logger = new Logger(TypeOrmAgentRepository.name);
   }
 
   async findById(id: string): Promise<Agent | null> {
     const agentEntity = await this.agentRepository.findOne({
       where: { id },
-      relations: ['state', 'tools', 'knowledgeBase'],
+      relations: ['states', 'tools', 'knowledgeBase'],
     });
     
     if (!agentEntity) {
@@ -46,7 +53,7 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
 
   async findAll(): Promise<Agent[]> {
     const agentEntities = await this.agentRepository.find({
-      relations: ['state', 'tools', 'knowledgeBase'],
+      relations: ['states', 'tools', 'knowledgeBase'],
     });
     
     return agentEntities.map(entity => this.agentMapper.toDomain(entity));
@@ -70,15 +77,16 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
         workspaceConfig: agentEntity.workspaceConfig,
         createdAt: agentEntity.createdAt,
         updatedAt: agentEntity.updatedAt,
-        state: agentEntity.state,
         tools: agentEntity.tools
       });
+
+      // Initialize states as an empty array if it doesn't exist
+      agentToSave.states = agentEntity.states || [];
       
       const savedAgentEntity = await manager.save(AgentEntity, agentToSave);
       
       // If there's a knowledge base, save it separately
       if (knowledgeBase) {
-        
         // Create a new knowledge base entity
         const knowledgeBaseEntity = new KnowledgeBaseEntity();
         knowledgeBaseEntity.id = knowledgeBase.id;
@@ -118,22 +126,47 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
   async delete(id: string): Promise<boolean> {
     // Start a transaction
     await this.agentRepository.manager.transaction(async (manager) => {
-      // 1. Find the agent with its knowledge base
+      // 1. Find the agent with all its relations
       const agent = await manager.findOne(AgentEntity, {
         where: { id },
-        relations: ['knowledgeBase'],
+        relations: ['knowledgeBase', 'states', 'states.messages', 'tools'],
       });
 
       if (agent) {
-        // 2. Delete the knowledge base if it exists
-        if (agent.knowledgeBase) {
-          // Delete the vector index file
-          await this.vectorDB.deleteKnowledgeBase(agent.knowledgeBase.id);
-          // Delete the database reference
-          await manager.delete(KnowledgeBaseEntity, { id: agent.knowledgeBase.id });
+        // 2. Delete all messages first (they reference states)
+        if (agent.states) {
+          for (const state of agent.states) {
+            if (state.messages) {
+              await manager.delete(MessageEntity, { stateId: state.id });
+            }
+          }
         }
 
-        // 3. Now delete the agent
+        // 3. Delete all states
+        if (agent.states) {
+          await manager.delete(StateEntity, { agentId: id });
+        }
+
+        // 4. Delete all tools
+        if (agent.tools) {
+          await manager.delete(ToolEntity, { agentId: id });
+        }
+
+        // 5. Handle knowledge base
+        const knowledgeBase = agent.knowledgeBase;
+        if (knowledgeBase) {
+          // First, remove the reference from the agent to the knowledge base
+          agent.knowledgeBase = null;
+          await manager.save(AgentEntity, agent);
+
+          // Then delete the vector index file
+          await this.vectorDB.deleteKnowledgeBase(knowledgeBase.id);
+
+          // Finally delete the knowledge base
+          await manager.delete(KnowledgeBaseEntity, { id: knowledgeBase.id });
+        }
+
+        // 6. Finally delete the agent
         await manager.delete(AgentEntity, { id });
       }
     });

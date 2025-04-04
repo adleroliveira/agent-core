@@ -42,6 +42,7 @@ export class Agent {
       toolRegistry?: ToolRegistryPort;
       knowledgeBase?: KnowledgeBase;
       workspaceConfig: WorkspaceConfig;
+      conversationId?: string;
     }
   ) {
     this.id = params.id || uuidv4();
@@ -54,7 +55,11 @@ export class Agent {
     this.vectorDB = params.vectorDB;
     this.toolRegistry = params.toolRegistry;
     this._workspaceConfig = params.workspaceConfig;
-    this.state = new AgentState();
+    this.state = new AgentState({ 
+      agentId: this.id,
+      conversationId: params.conversationId,
+    });
+
     this.knowledgeBase = params.knowledgeBase || new KnowledgeBase({
       agentId: this.id,
       name: `${this.name}'s Knowledge Base`,
@@ -258,7 +263,10 @@ export class Agent {
   }
 
   public resetState(): void {
-    this.state = new AgentState();
+    this.state = new AgentState({
+      agentId: this.id,
+      conversationId: uuidv4(),
+    });
     this.updatedAt = new Date();
   }
 }

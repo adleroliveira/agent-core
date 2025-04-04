@@ -12,10 +12,19 @@ async function runStockMarketAgentExample(): Promise<void> {
     // Create a new agent with stock market tool
     console.log("Creating stock market-enabled agent...");
     
-    await sdk.registerTool(new AnalyzeStockTool().getTool());
-    await sdk.registerTool(new ForecastStockTool().getTool());
-    await sdk.registerTool(new GetStockHistoryTool().getTool());
-    await sdk.registerTool(new GetStockPriceTool().getTool());
+    // Create tool instances
+    const analyzeStockTool = new AnalyzeStockTool();
+    const forecastStockTool = new ForecastStockTool();
+    const getStockHistoryTool = new GetStockHistoryTool();
+    const getStockPriceTool = new GetStockPriceTool();
+    
+    // Register the tools with their handlers
+    await sdk.registerTool(analyzeStockTool.getTool());
+    await sdk.registerTool(forecastStockTool.getTool());
+    await sdk.registerTool(getStockHistoryTool.getTool());
+    await sdk.registerTool(getStockPriceTool.getTool());
+
+    const conversationId = "test-conversation-1";
 
     const agent = await sdk.createAgent({
       name: "Financial Advisor",
@@ -44,7 +53,7 @@ async function runStockMarketAgentExample(): Promise<void> {
     // Process messages sequentially using async/await
     async function processMessage(message: string) {
       console.log(`\nUser: ${message}`);
-      const response = await agent.ask(message);
+      const response = await agent.ask(message, { conversationId });
       console.log("\nAgent response:");
       console.log(`${response.content}`);
       return response;

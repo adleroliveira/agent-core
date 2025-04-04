@@ -5,6 +5,7 @@ export class AgentState {
   public readonly id: string;
   public conversationHistory: Message[];
   public conversationId: string;
+  public agentId: string;
   public memory: Record<string, any>;
   public ttl?: number;
   public createdAt: Date;
@@ -13,12 +14,16 @@ export class AgentState {
   constructor(
     params: {
       id?: string;
+      agentId?: string;
+      conversationId?: string;
       conversationHistory?: Message[];
       memory?: Record<string, any>;
       ttl?: number;
     } = {}
   ) {
     this.id = params.id || uuidv4();
+    this.agentId = params.agentId || "";
+    this.conversationId = params.conversationId || "";
     this.conversationHistory = params.conversationHistory || [];
     this.memory = params.memory || {};
     this.ttl = params.ttl;

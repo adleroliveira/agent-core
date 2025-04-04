@@ -17,13 +17,17 @@ async function runStreamingExample(): Promise<void> {
 
     console.log(`Agent created with ID: ${agent.id}`);
 
+    // Start a conversation with a specific ID
+    const conversationId = "test-conversation-1";
+    console.log(`\nStarting conversation with ID: ${conversationId}`);
+
     // First message
     const firstMessage = "Explain how neural networks work in detail.";
     console.log("\nSending first message:");
     console.log(`User: ${firstMessage}`);
 
     // Process first message using a Promise-based approach
-    const firstResponse = await processStreamingMessage(agent, firstMessage);
+    const firstResponse = await processStreamingMessage(agent, firstMessage, conversationId);
     console.log("\nFirst response completed. Length:", firstResponse.length);
 
     // Second message
@@ -33,7 +37,7 @@ async function runStreamingExample(): Promise<void> {
     console.log(`User: ${secondMessage}`);
 
     // Process second message
-    const secondResponse = await processStreamingMessage(agent, secondMessage);
+    const secondResponse = await processStreamingMessage(agent, secondMessage, conversationId);
     console.log("\nSecond response completed. Length:", secondResponse.length);
   } catch (error) {
     console.error("Error:", error);
@@ -57,7 +61,8 @@ async function runStreamingExample(): Promise<void> {
 // Helper function to process streaming messages and return a Promise
 function processStreamingMessage(
   agent: Agent,
-  message: string
+  message: string,
+  conversationId: string
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     let fullContent = "";
@@ -85,7 +90,7 @@ function processStreamingMessage(
         console.error("\nStreaming error:", error);
         reject(error);
       },
-    });
+    }, { conversationId });
   });
 }
 

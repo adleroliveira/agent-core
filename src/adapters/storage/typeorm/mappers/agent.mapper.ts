@@ -7,12 +7,21 @@ import { KnowledgeBaseMapper } from './knowledge-base.mapper';
 import { WorkspaceConfig } from '@core/config/workspace.config';
 import { ModelServicePort } from '@ports/model/model-service.port';
 import { VectorDBPort } from '@ports/storage/vector-db.port';
+import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
+import { AgentState } from "@core/domain/agent-state.entity";
+import { Tool } from "@core/domain/tool.entity";
+import { KnowledgeBase } from "@core/domain/knowledge-base.entity";
 
 export class AgentMapper {
+  private stateMapper: StateMapper;
+
   constructor(
     private readonly modelService: ModelServicePort,
-    private readonly vectorDB: VectorDBPort
-  ) {}
+    private readonly vectorDB: VectorDBPort,
+    private readonly toolRegistry: ToolRegistryPort
+  ) {
+    this.stateMapper = new StateMapper();
+  }
 
   toDomain(entity: AgentEntity): Agent {
     const workspaceConfig = new WorkspaceConfig();
@@ -32,11 +41,18 @@ export class AgentMapper {
         name: entity.systemPrompt.name,
         metadata: entity.systemPrompt.metadata,
       }),
+      tools: entity.tools.map(tool => ToolMapper.toDomain(tool)),
       workspaceConfig,
+      knowledgeBase: entity.knowledgeBase ? KnowledgeBaseMapper.toDomain(entity.knowledgeBase) : undefined,
     });
 
-    if (entity.state) {
-      agent.state = StateMapper.toDomain(entity.state);
+    if (entity.states && entity.states.length > 0) {
+      const mostRecentState = entity.states.reduce((prev, current) => {
+        return prev.updatedAt > current.updatedAt ? prev : current;
+      });
+      const state = StateMapper.toDomain(mostRecentState);
+      state.agentId = entity.id;
+      agent.state = state;
     }
 
     if (entity.tools) {
@@ -51,37 +67,47 @@ export class AgentMapper {
       );
     }
 
+    // Initialize services
+    agent.setServices(
+      this.modelService,
+      this.vectorDB,
+      this.toolRegistry,
+      workspaceConfig
+    );
+
     return agent;
   }
 
-  toPersistence(domain: Agent): AgentEntity {
+  toPersistence(agent: Agent): AgentEntity {
     const entity = new AgentEntity();
-    entity.id = domain.id;
-    entity.name = domain.name;
-    entity.description = domain.description || '';
-    entity.modelId = domain.modelId;
+    entity.id = agent.id;
+    entity.name = agent.name;
+    entity.description = agent.description || '';
+    entity.modelId = agent.modelId;
     entity.systemPrompt = {
-      id: domain.systemPrompt.id,
-      content: domain.systemPrompt.content,
-      type: domain.systemPrompt.type,
-      name: domain.systemPrompt.name,
-      metadata: domain.systemPrompt.metadata,
-      createdAt: domain.systemPrompt.createdAt,
-      updatedAt: domain.systemPrompt.updatedAt,
+      id: agent.systemPrompt.id,
+      content: agent.systemPrompt.content,
+      type: agent.systemPrompt.type,
+      name: agent.systemPrompt.name,
+      metadata: agent.systemPrompt.metadata,
+      createdAt: agent.systemPrompt.createdAt,
+      updatedAt: agent.systemPrompt.updatedAt,
     };
-    entity.createdAt = domain.createdAt;
-    entity.updatedAt = domain.updatedAt;
+    entity.workspaceConfig = { workspaceDir: agent.workspaceConfig.getWorkspacePath() };
+    entity.createdAt = agent.createdAt;
+    entity.updatedAt = agent.updatedAt;
 
-    if (domain.state) {
-      entity.state = StateMapper.toPersistence(domain.state, domain.id);
+    if (agent.state) {
+      const stateEntity = StateMapper.toPersistence(agent.state, agent.id);
+      entity.states = [stateEntity];
     }
 
-    if (domain.tools) {
-      entity.tools = domain.tools.map(tool => ToolMapper.toPersistence(tool, domain.id));
+    if (agent.tools) {
+      entity.tools = agent.tools.map(tool => ToolMapper.toPersistence(tool, agent.id));
     }
 
-    if (domain.knowledgeBase) {
-      entity.knowledgeBase = KnowledgeBaseMapper.toPersistence(domain.knowledgeBase, domain.id);
+    if (agent.knowledgeBase) {
+      entity.knowledgeBase = KnowledgeBaseMapper.toPersistence(agent.knowledgeBase, agent.id);
     }
 
     return entity;

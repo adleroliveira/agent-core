@@ -93,10 +93,10 @@ export const AGENT_SERVICE = "AGENT_SERVICE";
     // Direct API adapter
     {
       provide: DirectAgentAdapter,
-      useFactory: (agentService: AgentService) => {
-        return new DirectAgentAdapter(agentService);
+      useFactory: (agentService: AgentService, stateRepository: StateRepositoryPort) => {
+        return new DirectAgentAdapter(agentService, stateRepository);
       },
-      inject: [AGENT_SERVICE],
+      inject: [AGENT_SERVICE, STATE_REPOSITORY],
     },
   ],
   exports: [

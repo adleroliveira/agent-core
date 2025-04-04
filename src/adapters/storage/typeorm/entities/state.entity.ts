@@ -5,7 +5,8 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
-  OneToOne,
+  ManyToOne,
+  JoinColumn,
 } from "typeorm";
 import { AgentEntity } from "./agent.entity";
 import { MessageEntity } from "./message.entity";
@@ -15,13 +16,14 @@ export class StateEntity {
   @PrimaryColumn("uuid")
   id: string;
 
-  @Column({ nullable: true })
+  @Column()
   agentId: string;
 
-  @Column({ nullable: true })
+  @Column()
   conversationId: string;
 
-  @OneToOne(() => AgentEntity, (agent) => agent.state)
+  @ManyToOne(() => AgentEntity, (agent) => agent.states, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: "agentId" })
   agent: AgentEntity;
 
   @OneToMany(() => MessageEntity, (message) => message.state, { cascade: true })

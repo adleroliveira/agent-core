@@ -15,12 +15,10 @@ export interface MessageOptions {
    * Defaults to the value of AGENT_MEMORY_SIZE environment variable or 10.
    */
   memorySize?: number;
-  conversationHistory?: Message[];
 }
 
 export class Agent {
   private _memorySize?: number;
-  private _conversationHistory?: Message[];
 
   constructor(
     private entity: AgentEntity,
@@ -64,25 +62,20 @@ export class Agent {
   }
 
   /**
-   * Set the conversation history for future messages
-   */
-  setConversationHistory(history: Message[]): void {
-    this._conversationHistory = history;
-  }
-
-  /**
    * Send a message to the agent and get a response
    * @returns The full Message entity from the agent's response
    */
-  public async ask(message: string, options?: MessageOptions): Promise<Message> {
+  public async ask(
+    message: string, 
+    options?: MessageOptions & { conversationId?: string }
+  ): Promise<Message> {
     const response = await this.adapter.sendMessageSync(
       this.id,
       message,
-      options?.conversationHistory?.[0]?.conversationId || this.entity.state?.conversationId,
+      options?.conversationId,
       {
         ...options,
-        memorySize: options?.memorySize || this._memorySize,
-        conversationHistory: options?.conversationHistory || this._conversationHistory
+        memorySize: options?.memorySize || this._memorySize
       }
     );
 
@@ -93,7 +86,10 @@ export class Agent {
    * Send a message and get just the text content
    * Convenience method if you just want the text
    */
-  public async askForText(message: string, options?: MessageOptions): Promise<string> {
+  public async askForText(
+    message: string, 
+    options?: MessageOptions & { conversationId?: string }
+  ): Promise<string> {
     const response = await this.ask(message, options);
     return response.getTextContent();
   }
@@ -104,16 +100,15 @@ export class Agent {
   public async askStream(
     message: string,
     callbacks: StreamCallbacks,
-    options?: MessageOptions
+    options?: MessageOptions & { conversationId?: string }
   ): Promise<void> {
     const observable = await this.adapter.sendMessageStream(
       this.id,
       message,
-      options?.conversationHistory?.[0]?.conversationId || this.entity.state?.conversationId,
+      options?.conversationId,
       {
         ...options,
-        memorySize: options?.memorySize || this._memorySize,
-        conversationHistory: options?.conversationHistory || this._conversationHistory
+        memorySize: options?.memorySize || this._memorySize
       }
     );
 
@@ -154,8 +149,8 @@ export class Agent {
   /**
    * Get the current conversation ID
    */
-  public getConversationId(): string | undefined {
-    return this.entity.state?.conversationId;
+  public async getConversationId(): Promise<string | undefined> {
+    return this.adapter.getCurrentConversationId(this.id);
   }
 
   /**
@@ -165,6 +160,13 @@ export class Agent {
    */
   public async getConversationHistory(conversationId?: string): Promise<Message[]> {
     return this.adapter.getConversationHistory(this.id, conversationId);
+  }
+
+  /**
+   * Get all available conversation IDs for this agent
+   */
+  public async getConversationIds(): Promise<string[]> {
+    return this.adapter.getConversationIds(this.id);
   }
 
   /**

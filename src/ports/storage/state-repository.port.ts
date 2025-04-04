@@ -1,11 +1,11 @@
 import { AgentState } from "@core/domain/agent-state.entity";
 
 export interface StateRepositoryPort {
-  findById(id: string): Promise<AgentState | null>;
+  save(state: AgentState): Promise<void>;
   findByAgentId(agentId: string): Promise<AgentState | null>;
   findByConversationId(conversationId: string): Promise<AgentState | null>;
-  save(state: AgentState, agentId: string): Promise<AgentState>;
-  delete(id: string): Promise<boolean>;
+  findByAgentIdAndConversationId(agentId: string, conversationId: string): Promise<AgentState | null>;
   deleteByAgentId(agentId: string): Promise<void>;
+  findAllByAgentId(agentId: string): Promise<AgentState[]>;
   clearExpiredStates(): Promise<number>;
 }

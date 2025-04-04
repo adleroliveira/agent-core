@@ -31,9 +31,8 @@ export class AgentEntity {
   @Column('json', { default: '{"workspaceDir": "./workspace"}' })
   workspaceConfig: { workspaceDir: string };
 
-  @OneToOne(() => StateEntity, { cascade: true })
-  @JoinColumn()
-  state: StateEntity;
+  @OneToMany(() => StateEntity, state => state.agent, { cascade: true })
+  states: StateEntity[];
 
   @OneToMany(() => ToolEntity, tool => tool.agent, { cascade: true })
   tools: ToolEntity[];
@@ -42,6 +41,7 @@ export class AgentEntity {
     nullable: true, 
     cascade: true
   })
+  @JoinColumn()
   knowledgeBase: KnowledgeBaseEntity | null;
 
   @CreateDateColumn()

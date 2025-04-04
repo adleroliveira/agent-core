@@ -4,13 +4,12 @@ import { DirectAgentAdapter } from "../adapters/api/direct/direct-agent.adapter"
 import { ToolRegistryPort } from "@ports/tool/tool-registry.port";
 import { TOOL_REGISTRY } from "@core/constants";
 import { Agent } from "./agent";
-import { AgentOptions, SDKConfig } from "./types";
+import { SDKConfig } from "./types";
 import { Tool, ToolParameter } from "@core/domain/tool.entity"; // Import your Tool entity
 import { ToolBuilder } from "./tool-builder";
 import { ModelServicePort } from "@ports/model/model-service.port";
 import { MODEL_SERVICE } from "@adapters/adapters.module";
 import { NotFoundException } from "@nestjs/common";
-import { Message } from '@core/domain/message.entity';
 
 interface PropertySchema {
   type: string;
@@ -24,6 +23,8 @@ export interface CreateAgentOptions {
   description?: string;
   systemPrompt?: string;
   tools?: string[]; // Array of tool names to register with the agent
+  memorySize?: number; // Number of past interactions to include in context
+  conversationId?: string; // Optional conversation ID to use for initial state
 }
 
 export class AgentSDK {
@@ -203,7 +204,14 @@ export class AgentSDK {
       options.tools
     );
 
-    return new Agent(agentEntity, this.agentAdapter);
+    const agent = new Agent(agentEntity, this.agentAdapter);
+    
+    // Set memory size if provided
+    if (options.memorySize !== undefined) {
+      agent.setMemorySize(options.memorySize);
+    }
+
+    return agent;
   }
 
   /**
@@ -308,32 +316,5 @@ export class AgentSDK {
       throw new Error("Model service not initialized");
     }
     return this.modelService.generateEmbeddings(texts, options);
-  }
-
-  /**
-   * Create a new agent with custom memory size
-   * @param options Agent creation options plus memory size
-   * @param options.memorySize Number of past interactions (message pairs) to include in the context.
-   *                          For example, a value of 5 means the last 5 user-assistant message pairs will be included.
-   */
-  async createAgentWithMemory(
-    options: CreateAgentOptions & { memorySize?: number }
-  ): Promise<Agent> {
-    const agent = await this.createAgent(options);
-    // Set the memory size for future messages
-    agent.setMemorySize(options.memorySize);
-    return agent;
-  }
-
-  /**
-   * Create a new agent with conversation history
-   */
-  async createAgentWithHistory(
-    options: CreateAgentOptions & { conversationHistory: Message[] }
-  ): Promise<Agent> {
-    const agent = await this.createAgent(options);
-    // Set the conversation history for future messages
-    agent.setConversationHistory(options.conversationHistory);
-    return agent;
   }
 }

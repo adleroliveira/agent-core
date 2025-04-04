@@ -7,11 +7,12 @@ async function runSimpleExample() {
   try {
     // Create a new agent
     console.log("Creating agent...");
+    const conversationId = "test-conversation-1";
     const agent = await sdk.createAgent({
       name: "Simple Conversation Agent",
       description: "A basic agent for testing conversation flow",
       systemPrompt: "You are a helpful AI assistant that provides concise answers to user questions. Keep your responses brief and to the point.",
-      // No tools specified
+      conversationId
     });
 
     console.log(`Agent created with ID: ${agent.id}`);
@@ -21,33 +22,56 @@ async function runSimpleExample() {
     console.log("\nSending first message:");
     console.log(`User: ${firstMessage}`);
 
-    const firstResponse = await agent.ask(firstMessage);
+    const firstResponse = await agent.ask(firstMessage, { conversationId });
 
     console.log("\nAgent response:");
     console.log(`${firstResponse.getTextContent()}`);
 
-    // Second interaction
+    // Second interaction - same conversation
     const secondMessage = "Tell me about the benefits of AI assistants.";
     console.log("\nSending second message:");
     console.log(`User: ${secondMessage}`);
 
-    // The conversation ID is automatically managed by the agent
-    const secondResponse = await agent.ask(secondMessage);
+    const secondResponse = await agent.ask(secondMessage, { conversationId });
 
     console.log("\nAgent response:");
     console.log(`${secondResponse.getTextContent()}`);
 
-    // Third interaction
+    // Third interaction - same conversation
     const thirdMessage = "What are some limitations I should be aware of?";
     console.log("\nSending third message:");
     console.log(`User: ${thirdMessage}`);
 
-    const thirdResponse = await agent.ask(thirdMessage);
+    const thirdResponse = await agent.ask(thirdMessage, { conversationId });
 
     console.log("\nAgent response:");
     console.log(`${thirdResponse.getTextContent()}`);
 
-    // Clean up
+    // Get the conversation history
+    console.log("\nGetting conversation history...");
+    const history = await agent.getConversationHistory(conversationId);
+    console.log(JSON.stringify(history, null, 2));
+    console.log(`Conversation has ${history.length} messages`);
+
+    // Start a new conversation
+    const newConversationId = "test-conversation-2";
+    console.log(`\nStarting new conversation with ID: ${newConversationId}`);
+
+    const newMessage = "Hello, this is a new conversation";
+    console.log("\nSending message in new conversation:");
+    console.log(`User: ${newMessage}`);
+
+    const newResponse = await agent.ask(newMessage, { conversationId: newConversationId });
+
+    console.log("\nAgent response:");
+    console.log(`${newResponse.getTextContent()}`);
+
+    // List all conversations
+    console.log("\nListing all conversations...");
+    const conversations = await agent.getConversationIds();
+    console.log("Available conversations:", conversations);
+
+    // // Clean up
     console.log("Deleting agent...");
     await sdk.deleteAgent(agent.id);
     console.log("Agent deleted successfully");

@@ -6,6 +6,8 @@ import { Tool } from '@core/domain/tool.entity';
 import { Prompt } from '@core/domain/prompt.entity';
 import { Observable } from 'rxjs';
 import { NotFoundException } from '@nestjs/common';
+import { StateRepositoryPort } from '@ports/storage/state-repository.port';
+import { AgentState } from '@core/domain/agent-state.entity';
 
 export interface MessageOptions {
   temperature?: number;
@@ -26,7 +28,10 @@ export interface MessageOptions {
  */
 @Injectable()
 export class DirectAgentAdapter {
-  constructor(private readonly agentService: AgentService) {}
+  constructor(
+    private readonly agentService: AgentService,
+    private readonly stateRepository: StateRepositoryPort
+  ) {}
 
   async createAgent(
     name: string,
@@ -171,5 +176,21 @@ export class DirectAgentAdapter {
 
   async resetAgentState(agentId: string): Promise<void> {
     await this.agentService.resetAgentState(agentId);
+  }
+
+  /**
+   * Get the current conversation ID for an agent
+   */
+  async getCurrentConversationId(agentId: string): Promise<string | undefined> {
+    const state = await this.stateRepository.findByAgentId(agentId);
+    return state?.conversationId;
+  }
+
+  /**
+   * Get all conversation IDs for an agent
+   */
+  async getConversationIds(agentId: string): Promise<string[]> {
+    const states = await this.stateRepository.findAllByAgentId(agentId);
+    return states.map((state: AgentState) => state.conversationId).filter(Boolean) as string[];
   }
 }
