@@ -15,7 +15,6 @@ import { AgentRepositoryPort } from "@ports/storage/agent-repository.port";
 import { StateRepositoryPort } from "@ports/storage/state-repository.port";
 import {
   ModelServicePort,
-  ToolCallResult,
 } from "@ports/model/model-service.port";
 import { ToolRegistryPort } from "@ports/tool/tool-registry.port";
 import { VectorDBPort } from "@ports/storage/vector-db.port";
@@ -28,7 +27,6 @@ import {
 import { TOOL_REGISTRY } from "@core/constants";
 import { DEFAULT_SYSTEM_PROMPT } from "@config/prompts.config";
 import { WorkspaceConfig } from "@core/config/workspace.config";
-import { AgentState } from "@core/domain/agent-state.entity";
 
 @Injectable()
 export class AgentService implements OnModuleInit {
@@ -84,7 +82,6 @@ export class AgentService implements OnModuleInit {
     await agent.setServices(
       this.modelService,
       this.vectorDB,
-      this.toolRegistry,
       this.workspaceConfig
     );
 
@@ -136,7 +133,6 @@ export class AgentService implements OnModuleInit {
     await agent.setServices(
       this.modelService,
       this.vectorDB,
-      this.toolRegistry,
       this.workspaceConfig
     );
 
@@ -169,43 +165,14 @@ export class AgentService implements OnModuleInit {
       maxTokens?: number;
       stream?: boolean;
       memorySize?: number;
-      conversationHistory?: Message[];
     }
   ): Promise<Message | Observable<Partial<Message>>> {
+    // Find the agent
     const agent = await this.findAgentById(agentId);
 
     // Create conversation ID if not provided
     if (!conversationId) {
       conversationId = uuidv4();
-    }
-
-    // Try to load the state for this agent and conversation
-    const existingState = await this.stateRepository.findByAgentIdAndConversationId(
-      agentId,
-      conversationId
-    );
-
-    if (existingState) {
-      // Filter the conversation history to only include messages from this conversation
-      existingState.conversationHistory = existingState.conversationHistory.filter(
-        (message: Message) => message.conversationId === conversationId
-      );
-      agent.state = existingState;
-    } else {
-      // If no state exists for this conversation yet, create a new one
-      agent.state = new AgentState({
-        agentId,
-        conversationId,
-      });
-    }
-
-    // If conversation history is provided, inject it
-    if (options?.conversationHistory) {
-      // Filter the provided history to only include messages from this conversation
-      const filteredHistory = options.conversationHistory.filter(
-        (message: Message) => message.conversationId === conversationId
-      );
-      agent.state.conversationHistory = filteredHistory;
     }
 
     // Create the message
@@ -215,614 +182,44 @@ export class AgentService implements OnModuleInit {
       conversationId,
     });
 
-    // Process the message
+    // Process the message and let the agent handle its state
     const response = await agent.processMessage(message, {
       temperature: options?.temperature,
       maxTokens: options?.maxTokens,
       stream: options?.stream,
     });
 
-    // Save the state after processing
-    await this.stateRepository.save(agent.state);
-
-    return response;
+    if (options?.stream) {
+      // For streaming responses, we need to wrap the observable to save state when complete
+      const observable = response as Observable<Partial<Message>>;
+      return new Observable<Partial<Message>>((subscriber) => {
+        observable.subscribe({
+          next: (value) => {
+            subscriber.next(value);
+          },
+          error: (error) => {
+            console.error("Error in AgentService stream:", error);
+            subscriber.error(error);
+          },
+          complete: async () => {
+            console.log("Stream complete in AgentService, saving state...");
+            try {
+              // Save the final state after stream completes
+              await this.stateRepository.save(agent.state);
+              subscriber.complete();
+            } catch (error) {
+              console.error("Error saving state:", error);
+              subscriber.error(error);
+            }
+          },
+        });
+      });
+    } else {
+      // For non-streaming responses, save state immediately
+      await this.stateRepository.save(agent.state);
+      return response as Message;
+    }
   }
-
-  // private async processStandardMessage(
-  //   agent: Agent,
-  //   conversationHistory: Message[],
-  //   conversationId: string,
-  //   options?: {
-  //     temperature?: number;
-  //     maxTokens?: number;
-  //   }
-  // ): Promise<Message> {
-  //   if (
-  //     conversationHistory.length > 0 &&
-  //     conversationHistory[0].role !== "user"
-  //   ) {
-  //     throw new Error("Conversation must start with a user message");
-  //   }
-
-  //   this.logger.debug("ConversationHistory", conversationHistory);
-
-  //   // Call the model service to generate a response
-  //   const modelResponse = await this.modelService.generateResponse(
-  //     conversationHistory,
-  //     agent.systemPrompt,
-  //     agent.tools,
-  //     options
-  //   );
-
-  //   // Create assistant message from model response
-  //   let responseMessage = new Message({
-  //     role: "assistant",
-  //     content: modelResponse.message.content,
-  //     conversationId,
-  //     toolCalls: modelResponse.toolCalls?.map((tc) => ({
-  //       id: tc.toolId,
-  //       name: tc.toolName,
-  //       arguments: tc.arguments,
-  //     })),
-  //   });
-
-  //   // Add initial response to conversation
-  //   agent.state.addToConversation(responseMessage);
-
-  //   // Handle tool calls if present
-  //   if (modelResponse.toolCalls && modelResponse.toolCalls.length > 0) {
-  //     // Execute tools and get the final response
-  //     const finalResponse = await this.executeToolCalls(
-  //       agent,
-  //       responseMessage,
-  //       modelResponse.toolCalls,
-  //       conversationId,
-  //       conversationHistory,
-  //       options
-  //     );
-
-  //     // For synchronous execution, return the final response after tool use
-  //     // instead of the intermediate response
-  //     if (finalResponse) {
-  //       responseMessage = finalResponse;
-  //     }
-  //   }
-
-  //   return responseMessage;
-  // }
-
-  // private processStreamingMessage(
-  //   agent: Agent,
-  //   conversationHistory: Message[],
-  //   conversationId: string,
-  //   options?: {
-  //     temperature?: number;
-  //     maxTokens?: number;
-  //   }
-  // ): Observable<Partial<Message>> {
-  //   // Create a placeholder streaming message
-  //   const streamingMessage = new Message({
-  //     role: "assistant",
-  //     content: "",
-  //     conversationId,
-  //     isStreaming: true,
-  //   });
-
-  //   // Add the placeholder to conversation history
-  //   agent.state.addToConversation(streamingMessage);
-
-  //   // Track collected tool calls for later execution
-  //   const collectedToolCalls: ToolCallResult[] = [];
-
-  //   // Create a subject to handle the streaming
-  //   const responseSubject = new Subject<Partial<Message>>();
-
-  //   if (
-  //     conversationHistory.length > 0 &&
-  //     conversationHistory[0].role !== "user"
-  //   ) {
-  //     throw new Error("Conversation must start with a user message");
-  //   }
-
-  //   // Get the streaming response
-  //   const streamingObs = this.modelService.generateStreamingResponse(
-  //     conversationHistory,
-  //     agent.systemPrompt,
-  //     agent.tools,
-  //     options
-  //   );
-
-  //   // Set up a subscription to update the placeholder message
-  //   streamingObs.subscribe({
-  //     next: (responseChunk) => {
-  //       // Update content if present
-  //       if (responseChunk.message?.content) {
-  //         const content =
-  //           typeof responseChunk.message.content === "string"
-  //             ? responseChunk.message.content
-  //             : responseChunk.message.content.toString();
-
-  //         streamingMessage.appendContent(content);
-
-  //         // Pass along the content chunk to our client
-  //         responseSubject.next({ content });
-  //       }
-
-  //       // Update tool calls if present and collect them
-  //       if (responseChunk.toolCalls) {
-  //         streamingMessage.toolCalls = responseChunk.toolCalls.map((tc) => ({
-  //           id: tc.toolId,
-  //           name: tc.toolName,
-  //           arguments: tc.arguments,
-  //         }));
-
-  //         // Pass along the tool calls to our client
-  //         responseSubject.next({
-  //           toolCalls: streamingMessage.toolCalls,
-  //         });
-
-  //         // Collect tool calls for later execution
-  //         responseChunk.toolCalls.forEach((tc) => {
-  //           if (
-  //             !collectedToolCalls.some(
-  //               (collected) => collected.toolId === tc.toolId
-  //             )
-  //           ) {
-  //             collectedToolCalls.push(tc);
-  //           }
-  //         });
-  //       }
-
-  //       // Pass along any usage information
-  //       if (responseChunk.usage) {
-  //         responseSubject.next({
-  //           metadata: { usage: responseChunk.usage },
-  //         });
-  //       }
-  //     },
-  //     complete: async () => {
-  //       // Mark streaming as complete
-  //       streamingMessage.isStreaming = false;
-
-  //       // Execute any collected tool calls after streaming completes
-  //       if (collectedToolCalls.length > 0) {
-  //         try {
-  //           this.logger.debug(
-  //             `Executing ${collectedToolCalls.length} tool calls from streaming response`
-  //           );
-
-  //           // We'll use our existing executeToolCalls method to handle the tool calls
-  //           const toolExecutionResult = await this.executeToolCallsForStreaming(
-  //             agent,
-  //             streamingMessage,
-  //             collectedToolCalls,
-  //             conversationId,
-  //             [...conversationHistory, streamingMessage],
-  //             responseSubject,
-  //             options
-  //           );
-
-  //           // Save the final state after all tool executions
-  //           await this.stateRepository.save(agent.state);
-
-  //           // Complete the stream after all tool executions are done
-  //           responseSubject.complete();
-  //         } catch (error) {
-  //           this.logger.error(
-  //             `Error executing tool calls from streaming response: ${error.message}`,
-  //             error.stack
-  //           );
-
-  //           // Report the error to the client
-  //           responseSubject.next({
-  //             content: `\nError executing tools: ${error.message}`,
-  //           });
-  //           responseSubject.complete();
-  //         }
-  //       } else {
-  //         // No tool calls, so just save the state and complete
-  //         await this.stateRepository.save(agent.state);
-  //         responseSubject.complete();
-  //       }
-  //     },
-  //     error: (error) => {
-  //       this.logger.error(
-  //         `Error in streaming response: ${error.message}`,
-  //         error.stack
-  //       );
-  //       streamingMessage.isStreaming = false;
-  //       streamingMessage.metadata = {
-  //         ...streamingMessage.metadata,
-  //         error: error.message,
-  //       };
-
-  //       // Report the error to the client
-  //       responseSubject.next({
-  //         content: `\nError in streaming response: ${error.message}`,
-  //         metadata: { error: error.message },
-  //       });
-  //       responseSubject.complete();
-  //     },
-  //   });
-
-  //   // Return our subject as an observable
-  //   return responseSubject.asObservable();
-  // }
-
-  // private async executeToolCallsForStreaming(
-  //   agent: Agent,
-  //   responseMessage: Message,
-  //   toolCalls: ToolCallResult[],
-  //   conversationId: string,
-  //   previousMessages: Message[],
-  //   responseSubject: Subject<Partial<Message>>,
-  //   options?: {
-  //     temperature?: number;
-  //     maxTokens?: number;
-  //   }
-  // ): Promise<void> {
-  //   const toolResponses: Message[] = [];
-
-  //   // Execute all tool calls in parallel for better performance
-  //   const toolCallPromises = toolCalls.map(async (toolCall) => {
-  //     try {
-  //       this.logger.debug(
-  //         `Executing tool: ${toolCall.toolName} with args: ${JSON.stringify(
-  //           toolCall.arguments
-  //         )}`
-  //       );
-
-  //       let toolArgs = toolCall.arguments;
-  //       if (typeof toolArgs === "string") {
-  //         try {
-  //           toolArgs = JSON.parse(toolArgs);
-  //         } catch (e) {
-  //           this.logger.warn(
-  //             `Could not parse tool arguments as JSON: ${toolArgs}`
-  //           );
-  //         }
-  //       }
-
-  //       responseSubject.next({
-  //         content: `\nExecuting ${toolCall.toolName}...`,
-  //       });
-
-  //       const toolResult = await this.toolRegistry.executeToolByName(
-  //         toolCall.toolName,
-  //         toolArgs,
-  //         agent
-  //       );
-
-  //       const formattedResult =
-  //         typeof toolResult === "string"
-  //           ? toolResult
-  //           : JSON.stringify(toolResult);
-
-  //       const truncatedResult =
-  //         formattedResult.length > 100
-  //           ? formattedResult.substring(0, 100) + "..."
-  //           : formattedResult;
-
-  //       responseSubject.next({
-  //         content: `\nTool ${toolCall.toolName} result: ${truncatedResult}`,
-  //       });
-
-  //       return {
-  //         success: true,
-  //         toolCall,
-  //         result: formattedResult,
-  //       };
-  //     } catch (error) {
-  //       let errorMessage: string;
-  //       if (error.message.includes("Maximum call stack size exceeded")) {
-  //         errorMessage = `Tool execution failed: ${toolCall.toolName} encountered an internal error. Please try a different command.`;
-  //       } else {
-  //         errorMessage = `Error executing tool ${toolCall.toolName}: ${error.message}`;
-  //       }
-  //       this.logger.error(errorMessage);
-
-  //       responseSubject.next({
-  //         content: `\n${errorMessage}`,
-  //       });
-
-  //       return {
-  //         success: false,
-  //         toolCall,
-  //         result: errorMessage,
-  //       };
-  //     }
-  //   });
-
-  //   // Wait for all tool executions to complete
-  //   const results = await Promise.all(toolCallPromises);
-
-  //   // Process all tool results and add to conversation history
-  //   for (const result of results) {
-  //     const toolResponseMessage = new Message({
-  //       role: "tool",
-  //       content: result.result,
-  //       conversationId,
-  //       toolCallId: result.toolCall.toolId,
-  //       toolName: result.toolCall.toolName,
-  //       isToolError: !result.success,
-  //     });
-
-  //     agent.state.addToConversation(toolResponseMessage);
-  //     toolResponses.push(toolResponseMessage);
-  //   }
-
-  //   if (toolResponses.length > 0) {
-  //     try {
-  //       this.logger.debug("Generating final response after tool execution");
-  //       responseSubject.next({
-  //         content: "\nProcessing results...",
-  //       });
-
-  //       // Use the full conversation history
-  //       const fullConversationHistory = agent.state.conversationHistory;
-
-  //       const finalResponseData = await this.modelService.generateResponse(
-  //         fullConversationHistory,
-  //         agent.systemPrompt,
-  //         agent.tools,
-  //         options
-  //       );
-
-  //       const finalResponse = new Message({
-  //         role: "assistant",
-  //         content: finalResponseData.message.content,
-  //         conversationId,
-  //         metadata: {
-  //           isToolResponseSummary: true,
-  //           ...finalResponseData.metadata,
-  //         },
-  //         toolCalls: finalResponseData.toolCalls?.map((tc) => ({
-  //           id: tc.toolId,
-  //           name: tc.toolName,
-  //           arguments: tc.arguments,
-  //         })),
-  //       });
-
-  //       agent.state.addToConversation(finalResponse);
-
-  //       responseSubject.next({
-  //         content: `\n\n${finalResponseData.message.content}`,
-  //       });
-
-  //       if (
-  //         finalResponseData.toolCalls &&
-  //         finalResponseData.toolCalls.length > 0
-  //       ) {
-  //         this.logger.debug(
-  //           `Final response contains ${finalResponseData.toolCalls.length} more tool calls, processing recursively`
-  //         );
-
-  //         // Recursive call with updated full history via agent.state.conversation
-  //         const updatedPreviousMessages = [
-  //           ...previousMessages,
-  //           responseMessage,
-  //           ...toolResponses,
-  //           finalResponse,
-  //         ];
-
-  //         await this.executeToolCallsForStreaming(
-  //           agent,
-  //           finalResponse,
-  //           finalResponseData.toolCalls,
-  //           conversationId,
-  //           updatedPreviousMessages,
-  //           responseSubject,
-  //           options
-  //         );
-  //       }
-  //     } catch (error) {
-  //       this.logger.error(
-  //         `Error generating final response after tool execution: ${error.message}`,
-  //         error.stack
-  //       );
-
-  //       const errorFinalResponse = new Message({
-  //         role: "assistant",
-  //         content: `I encountered an error processing the tool results: ${error.message}`,
-  //         conversationId,
-  //         metadata: {
-  //           isToolResponseSummary: true,
-  //           error: error.message,
-  //         },
-  //         isToolError: true,
-  //       });
-
-  //       agent.state.addToConversation(errorFinalResponse);
-
-  //       responseSubject.next({
-  //         content: `\n\nError: ${error.message}`,
-  //         metadata: { error: error.message },
-  //       });
-  //     }
-  //   }
-  // }
-
-  // private async executeToolCalls(
-  //   agent: Agent,
-  //   responseMessage: Message,
-  //   toolCalls: ToolCallResult[],
-  //   conversationId: string,
-  //   previousMessages: Message[],
-  //   options?: {
-  //     temperature?: number;
-  //     maxTokens?: number;
-  //   },
-  //   recursionDepth: number = 0
-  // ): Promise<Message | null> {
-  //   const MAX_RECURSION_DEPTH = 3;  // Or whatever number makes sense for your use case
-  //   if (recursionDepth >= MAX_RECURSION_DEPTH) {
-  //     this.logger.warn(`Maximum tool call recursion depth (${MAX_RECURSION_DEPTH}) reached`);
-  //     const maxRecursionResponse = new Message({
-  //       role: "assistant",
-  //       content: "I've reached the maximum number of tool call iterations. If you're still not seeing the information you need, please try a different approach.",
-  //       conversationId,
-  //     });
-  //     agent.state.addToConversation(maxRecursionResponse);
-  //     return maxRecursionResponse;
-  //   }
-
-  //   const toolResponses: Message[] = [];
-
-  //   this.logger.debug(`Executing ${toolCalls.length} tool calls`);
-
-  //   const toolCallPromises = toolCalls.map(async (toolCall) => {
-  //     try {
-  //       this.logger.debug(
-  //         `Executing tool: ${toolCall.toolName} with args: ${JSON.stringify(
-  //           toolCall.arguments
-  //         )}`
-  //       );
-
-  //       let toolArgs = toolCall.arguments;
-  //       if (typeof toolArgs === "string") {
-  //         try {
-  //           toolArgs = JSON.parse(toolArgs);
-  //         } catch (e) {
-  //           this.logger.warn(
-  //             `Could not parse tool arguments as JSON: ${toolArgs}`
-  //           );
-  //         }
-  //       }
-
-  //       const toolResult = await this.toolRegistry.executeToolByName(
-  //         toolCall.toolName,
-  //         toolArgs,
-  //         agent
-  //       );
-
-  //       const formattedResult =
-  //         typeof toolResult === "string"
-  //           ? toolResult
-  //           : JSON.stringify(toolResult);
-
-  //       this.logger.debug(
-  //         `Tool ${toolCall.toolName} result: ${formattedResult.substring(
-  //           0,
-  //           100
-  //         )}...`
-  //       );
-
-  //       return {
-  //         success: true,
-  //         toolCall,
-  //         result: formattedResult,
-  //       };
-  //     } catch (error) {
-  //       let errorMessage: string;
-  //       if (error.message.includes("Maximum call stack size exceeded")) {
-  //         errorMessage = `Tool execution failed: ${toolCall.toolName} encountered an internal error. Please try a different command.`;
-  //       } else {
-  //         errorMessage = `Error executing tool ${toolCall.toolName}: ${error.message}`;
-  //       }
-  //       this.logger.error(errorMessage);
-
-  //       return {
-  //         success: false,
-  //         toolCall,
-  //         result: errorMessage,
-  //       };
-  //     }
-  //   });
-
-  //   // Wait for all tool executions to complete
-  //   const results = await Promise.all(toolCallPromises);
-
-  //   // Create and add all tool response messages to the conversation history
-  //   for (const result of results) {
-  //     const toolResponseMessage = new Message({
-  //       role: "tool",
-  //       content: result.result,
-  //       conversationId,
-  //       toolCallId: result.toolCall.toolId,
-  //       toolName: result.toolCall.toolName,
-  //       isToolError: !result.success,
-  //     });
-
-  //     agent.state.addToConversation(toolResponseMessage);
-  //     toolResponses.push(toolResponseMessage);
-  //   }
-
-  //   if (toolResponses.length > 0) {
-  //     try {
-  //       this.logger.debug("Generating final response after tool execution");
-
-  //       // Use the full conversation history
-  //       const fullConversationHistory = agent.state.conversationHistory;
-
-  //       const finalResponseData = await this.modelService.generateResponse(
-  //         fullConversationHistory,
-  //         agent.systemPrompt,
-  //         agent.tools,
-  //         options
-  //       );
-
-  //       const finalResponse = new Message({
-  //         role: "assistant",
-  //         content: finalResponseData.message.content,
-  //         conversationId,
-  //         metadata: {
-  //           isToolResponseSummary: true,
-  //           ...finalResponseData.metadata,
-  //         },
-  //         toolCalls: finalResponseData.toolCalls?.map((tc) => ({
-  //           id: tc.toolId,
-  //           name: tc.toolName,
-  //           arguments: tc.arguments,
-  //         })),
-  //       });
-
-  //       agent.state.addToConversation(finalResponse);
-
-  //       if (
-  //         finalResponseData.toolCalls &&
-  //         finalResponseData.toolCalls.length > 0
-  //       ) {
-  //         this.logger.debug(
-  //           `Final response contains ${finalResponseData.toolCalls.length} more tool calls, processing recursively`
-  //         );
-
-  //         // Recursive call uses the updated full history via agent.state.conversation
-  //         return this.executeToolCalls(
-  //           agent,
-  //           finalResponse,
-  //           finalResponseData.toolCalls,
-  //           conversationId,
-  //           previousMessages, // Not strictly needed since we use full history
-  //           options,
-  //           recursionDepth + 1
-  //         );
-  //       }
-
-  //       return finalResponse;
-  //     } catch (error) {
-  //       this.logger.error(
-  //         `Error generating final response after tool execution: ${error.message}`,
-  //         error.stack
-  //       );
-
-  //       const errorFinalResponse = new Message({
-  //         role: "assistant",
-  //         content: `I encountered an error processing the tool results: ${error.message}`,
-  //         conversationId,
-  //         metadata: {
-  //           isToolResponseSummary: true,
-  //           error: error.message,
-  //         },
-  //         isToolError: true,
-  //       });
-
-  //       agent.state.addToConversation(errorFinalResponse);
-  //       return errorFinalResponse;
-  //     }
-  //   }
-
-  //   return null;
-  // }
 
   async addToolToAgent(agentId: string, toolName: string): Promise<Agent> {
     const agent = await this.findAgentById(agentId);

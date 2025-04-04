@@ -8,12 +8,23 @@ import {
   ModelServicePort,
   ToolCallResult,
 } from "@ports/model/model-service.port";
-import { Observable, map } from "rxjs";
+import { Observable, map, Subject } from "rxjs";
 import { VectorDBPort } from "@ports/storage/vector-db.port";
-import { ToolRegistryPort } from "@ports/tool/tool-registry.port";
 import { WorkspaceConfig } from "@core/config/workspace.config";
 
-const DEFAULT_MAX_HISTORY_SIZE_FOR_TOOL_CALLS = 20;
+// Message history and interaction constants
+const DEFAULT_MAX_HISTORY_SIZE_FOR_TOOL_CALLS = 15;
+const DEFAULT_MAX_INTERACTIONS_FOR_FOLLOW_UP = 20;
+
+// Tool execution constants
+const MAX_RECURSION_DEPTH_ON_ERRORS = 3;
+const DEFAULT_TOOL_EXECUTION_TEMPERATURE = 0.7;
+
+// Error messages
+const TOOL_NOT_FOUND_ERROR = "Error: Tool '%s' not found";
+const TOOL_EXECUTION_ERROR = "Error executing tool: %s";
+const MAX_RECURSION_ERROR = "I've encountered multiple errors while trying to execute tools. Please try a different approach or check if the tools are working correctly.";
+const TOOL_RESULTS_PROCESSING_ERROR = "I encountered an error processing the tool results: %s";
 
 export class Agent {
   public readonly id: string;
@@ -28,7 +39,6 @@ export class Agent {
   public updatedAt: Date;
   private modelService?: ModelServicePort;
   private vectorDB?: VectorDBPort;
-  private toolRegistry?: ToolRegistryPort;
   private _workspaceConfig: WorkspaceConfig;
 
   constructor(
@@ -41,7 +51,6 @@ export class Agent {
       tools?: Tool[];
       modelService?: ModelServicePort;
       vectorDB?: VectorDBPort;
-      toolRegistry?: ToolRegistryPort;
       knowledgeBase?: KnowledgeBase;
       workspaceConfig: WorkspaceConfig;
       conversationId?: string;
@@ -55,7 +64,6 @@ export class Agent {
     this.tools = params.tools || [];
     this.modelService = params.modelService;
     this.vectorDB = params.vectorDB;
-    this.toolRegistry = params.toolRegistry;
     this._workspaceConfig = params.workspaceConfig;
     this.state = new AgentState({ 
       agentId: this.id,
@@ -76,12 +84,10 @@ export class Agent {
   public async setServices(
     modelService: ModelServicePort,
     vectorDB: VectorDBPort,
-    toolRegistry: ToolRegistryPort,
     workspaceConfig: WorkspaceConfig
   ): Promise<void> {
     this.modelService = modelService;
     this.vectorDB = vectorDB;
-    this.toolRegistry = toolRegistry;
     this._workspaceConfig = workspaceConfig;
     this.knowledgeBase.setServices(modelService, vectorDB);
   }
@@ -96,6 +102,14 @@ export class Agent {
   ): Promise<Message | Observable<Partial<Message>>> {
     if (!this.modelService) {
       throw new Error("Model service not initialized");
+    }
+
+    // Initialize or update state if needed
+    if (!this.state || this.state.conversationId !== message.conversationId) {
+      this.state = new AgentState({
+        agentId: this.id,
+        conversationId: message.conversationId,
+      });
     }
 
     // Record the incoming message in conversation history
@@ -120,7 +134,7 @@ export class Agent {
     options: any
   ): Promise<Message> {
     const response = await this.modelService!.generateResponse(
-      this.state.getLastNMessages(DEFAULT_MAX_HISTORY_SIZE_FOR_TOOL_CALLS),
+      this.state.conversationHistory,
       this.systemPrompt,
       this.tools,
       options
@@ -155,44 +169,198 @@ export class Agent {
 
   private processStreamingMessage(
     message: Message,
-    options: any
+    options: any,
+    responseSubject?: Subject<Partial<Message>>
   ): Observable<Partial<Message>> {
-    // Get the streaming response from the model service
+
+    // If no subject provided, we're at the root level
+    const subject = responseSubject || new Subject<Partial<Message>>();
+    const collectedToolCalls: ToolCallResult[] = [];
+    let streamingContent = "";
+
     const streamingObs = this.modelService!.generateStreamingResponse(
-      this.state.getLastNMessages(20),
+      this.state.conversationHistory,
       this.systemPrompt,
-      undefined, // Don't pass tools since they are already registered in the registry
+      this.tools,
       options
     );
 
-    // Transform the ModelResponse chunks to Message chunks
-    return streamingObs.pipe(
-      map((responseChunk) => {
-        // Create a partial message from the response chunk
-        const messageChunk: Partial<Message> = {};
+    // Create a promise to track the completion of the streaming process
+    const streamingPromise = new Promise<void>((resolve, reject) => {
+      streamingObs.subscribe({
+        next: (responseChunk) => {
+          const messageChunk: Partial<Message> = {};
 
-        // Handle content updates
-        if (responseChunk.message?.content) {
-          messageChunk.content = responseChunk.message.content;
-        }
+          if (responseChunk.message?.content) {
+            streamingContent += responseChunk.message.content;
+            messageChunk.content = responseChunk.message.content;
+          }
 
-        // Transform tool calls if present
-        if (responseChunk.toolCalls) {
-          messageChunk.toolCalls = responseChunk.toolCalls.map((tc) => ({
-            id: tc.toolId,
-            name: tc.toolName,
-            arguments: tc.arguments,
-          }));
-        }
+          if (responseChunk.toolCalls) {
+            messageChunk.toolCalls = responseChunk.toolCalls.map((tc) => ({
+              id: tc.toolId,
+              name: tc.toolName,
+              arguments: tc.arguments,
+            }));
 
-        // Include metadata if present
-        if (responseChunk.metadata) {
-          messageChunk.metadata = responseChunk.metadata;
-        }
+            responseChunk.toolCalls.forEach((tc) => {
+              if (!collectedToolCalls.some((collected) => collected.toolId === tc.toolId)) {
+                collectedToolCalls.push(tc);
+              }
+            });
+          }
 
-        return messageChunk;
-      })
+          if (responseChunk.metadata) {
+            messageChunk.metadata = responseChunk.metadata;
+          }
+
+          subject.next(messageChunk);
+        },
+        complete: async () => {
+          const streamingMessage = new Message({
+            role: "assistant",
+            content: streamingContent,
+            conversationId: message.conversationId,
+            toolCalls: collectedToolCalls.map((tc) => ({
+              id: tc.toolId,
+              name: tc.toolName,
+              arguments: tc.arguments,
+            })),
+          });
+
+          this.state.addToConversation(streamingMessage);
+
+          if (collectedToolCalls.length > 0) {
+            try {
+              await this.executeToolCallsForStreaming(
+                streamingMessage,
+                collectedToolCalls,
+                message.conversationId,
+                subject
+              );
+            } catch (error) {
+              console.error("Error in tool calls execution:", error);
+              subject.next({
+                content: `Error processing tool calls: ${error.message}`,
+                metadata: { error: error.message },
+              });
+            }
+          }
+
+          // Complete the subject regardless of whether it's a root or nested stream
+          subject.complete();
+          resolve();
+        },
+        error: (error) => {
+          console.error("Streaming error:", error);
+          subject.next({
+            content: `Error in streaming response: ${error.message}`,
+            metadata: { error: error.message },
+          });
+          if (!responseSubject) {
+            subject.complete();
+          }
+          reject(error);
+        },
+      });
+    });
+
+    // If this is a recursive call, wait for the streaming to complete
+    if (responseSubject) {
+      streamingPromise.catch(error => {
+        console.error("Error in recursive streaming:", error);
+      });
+    } else {
+      // For root level, ensure we wait for all streaming to complete
+      streamingPromise.then(() => {}).catch(error => {
+        console.error("Error in root streaming:", error);
+      });
+    }
+
+    return subject.asObservable();
+  }
+
+  private async executeToolCallsForStreaming(
+    assistantMessage: Message,
+    toolCalls: ToolCallResult[],
+    conversationId: string,
+    responseSubject: Subject<Partial<Message>>,
+    recursionDepth: number = 0
+  ): Promise<void> {
+    const toolResults = [];
+    let hasErrors = false;
+
+    for (const toolCall of toolCalls) {
+      const tool = this.tools.find((t) => t.name === toolCall.toolName);
+
+      if (!tool) {
+        toolResults.push({
+          toolId: toolCall.toolId,
+          result: TOOL_NOT_FOUND_ERROR.replace("%s", toolCall.toolName),
+          isError: true
+        });
+        hasErrors = true;
+        continue;
+      }
+
+      try {
+        const result = await tool.execute(toolCall.arguments, this);
+        toolResults.push({
+          toolId: toolCall.toolId,
+          result: result,
+          isError: false
+        });
+      } catch (error) {
+        console.error("Tool execution error:", error);
+        toolResults.push({
+          toolId: toolCall.toolId,
+          result: TOOL_EXECUTION_ERROR.replace("%s", error.message),
+          isError: true
+        });
+        hasErrors = true;
+      }
+    }
+
+    // Create a single message with all tool results
+    const toolResponseMessage = new Message({
+      role: "tool",
+      content: JSON.stringify(toolResults),
+      conversationId: conversationId,
+      toolCallId: toolCalls[0].toolId, // Use the first tool call ID as reference
+      toolName: toolCalls[0].toolName, // Use the first tool name as reference
+      isToolError: hasErrors
+    });
+
+    this.state.addToConversation(toolResponseMessage);
+
+    if (hasErrors && recursionDepth >= MAX_RECURSION_DEPTH_ON_ERRORS) {
+      responseSubject.next({
+        content: MAX_RECURSION_ERROR,
+      });
+      return;
+    }
+
+    // Recursively process the next streaming response with the same subject
+    const recursiveStream = this.processStreamingMessage(
+      assistantMessage,
+      { temperature: DEFAULT_TOOL_EXECUTION_TEMPERATURE },
+      responseSubject
     );
+
+    // Subscribe to the recursive stream to ensure it runs
+    await new Promise<void>((resolve, reject) => {
+      const subscription = recursiveStream.subscribe({
+        complete: () => {
+          subscription.unsubscribe();
+          resolve();
+        },
+        error: (error) => {
+          console.error("Recursive stream error:", error);
+          subscription.unsubscribe();
+          reject(error);
+        }
+      });
+    });
   }
 
   get workspaceConfig(): WorkspaceConfig {
@@ -205,75 +373,57 @@ export class Agent {
     conversationId: string,
     recursionDepth: number = 0
   ): Promise<Message> {
-    const MAX_RECURSION_DEPTH = 3;
-    if (recursionDepth >= MAX_RECURSION_DEPTH) {
-      return new Message({
-        role: "assistant",
-        content: "I've reached the maximum number of tool call iterations. If you're still not seeing the information you need, please try a different approach.",
-        conversationId,
-      });
-    }
-
-    const toolResponses: Message[] = [];
+    const toolResults = [];
+    let hasErrors = false;
 
     for (const toolCall of toolCalls) {
-      // Find the tool
       const tool = this.tools.find((t) => t.name === toolCall.toolName);
 
       if (!tool) {
-        const errorMessage = new Message({
-          role: "tool",
-          content: `Error: Tool '${toolCall.toolName}' not found`,
-          conversationId: conversationId,
-          toolCallId: toolCall.toolId,
-          toolName: toolCall.toolName,
+        toolResults.push({
+          toolId: toolCall.toolId,
+          result: TOOL_NOT_FOUND_ERROR.replace("%s", toolCall.toolName),
+          isError: true
         });
-        this.state.addToConversation(errorMessage);
-        toolResponses.push(errorMessage);
+        hasErrors = true;
         continue;
       }
 
       try {
-        // Execute the tool
-        console.log(`Executing tool ${toolCall.toolName} with arguments ${JSON.stringify(toolCall.arguments, null, 2)}`);
         const result = await tool.execute(toolCall.arguments, this);
-        console.log(`Tool ${toolCall.toolName} executed with result ${JSON.stringify(result, null, 2)}`);
-        
-        // Create a tool response message
-        const toolResponseMessage = new Message({
-          role: "tool",
-          content: JSON.stringify(result),
-          conversationId: conversationId,
-          toolCallId: toolCall.toolId,
-          toolName: toolCall.toolName,
+        toolResults.push({
+          toolId: toolCall.toolId,
+          result: result,
+          isError: false
         });
-
-        // Add to conversation history
-        this.state.addToConversation(toolResponseMessage);
-        toolResponses.push(toolResponseMessage);
       } catch (error) {
-        // Handle tool execution error
-        const errorMessage = new Message({
-          role: "tool",
-          content: `Error executing tool: ${error.message}`,
-          conversationId: conversationId,
-          toolCallId: toolCall.toolId,
-          toolName: toolCall.toolName,
+        toolResults.push({
+          toolId: toolCall.toolId,
+          result: TOOL_EXECUTION_ERROR.replace("%s", error.message),
+          isError: true
         });
-        this.state.addToConversation(errorMessage);
-        toolResponses.push(errorMessage);
+        hasErrors = true;
       }
     }
 
-    // If we have tool responses, process them to get the agent's follow-up
-    if (toolResponses.length > 0) {
+    const toolResponseMessage = new Message({
+      role: "tool",
+      content: JSON.stringify(toolResults),
+      conversationId: conversationId,
+      toolCallId: toolCalls[0].toolId,
+      toolName: toolCalls[0].toolName,
+      isToolError: hasErrors
+    });
+
+    this.state.addToConversation(toolResponseMessage);
+
+    if (toolResults.length > 0) {
       try {
-        // Get the agent's response to the tool results
         const followUpResponse = await this.modelService!.generateResponse(
-          this.state.getLastNInteractions(30),
+          this.state.conversationHistory,
           this.systemPrompt,
           this.tools,
-          { temperature: 0.7 }
+          { temperature: DEFAULT_TOOL_EXECUTION_TEMPERATURE }
         );
 
         const followUpMessage = new Message({
@@ -287,16 +437,24 @@ export class Agent {
           })),
         });
 
-        // Add the follow-up to conversation history
         this.state.addToConversation(followUpMessage);
 
-        // If the follow-up contains more tool calls, process them recursively
         if (followUpResponse.toolCalls && followUpResponse.toolCalls.length > 0) {
+          const nextRecursionDepth = hasErrors ? recursionDepth + 1 : recursionDepth;
+          
+          if (hasErrors && nextRecursionDepth >= MAX_RECURSION_DEPTH_ON_ERRORS) {
+            return new Message({
+              role: "assistant",
+              content: MAX_RECURSION_ERROR,
+              conversationId,
+            });
+          }
+
           return this.executeToolCalls(
             followUpMessage,
             followUpResponse.toolCalls,
             conversationId,
-            recursionDepth + 1
+            nextRecursionDepth
           );
         }
 
@@ -304,7 +462,7 @@ export class Agent {
       } catch (error) {
         const errorMessage = new Message({
           role: "assistant",
-          content: `I encountered an error processing the tool results: ${error.message}`,
+          content: TOOL_RESULTS_PROCESSING_ERROR.replace("%s", error.message),
           conversationId,
         });
         this.state.addToConversation(errorMessage);

@@ -10,7 +10,6 @@ import { VectorDBPort } from '@ports/storage/vector-db.port';
 import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
 
 export class AgentMapper {
-  private stateMapper: StateMapper;
   private toolMapper: ToolMapper;
 
   constructor(
@@ -18,7 +17,6 @@ export class AgentMapper {
     private readonly vectorDB: VectorDBPort,
     private readonly toolRegistry: ToolRegistryPort
   ) {
-    this.stateMapper = new StateMapper();
     this.toolMapper = new ToolMapper(toolRegistry);
   }
 
@@ -71,7 +69,6 @@ export class AgentMapper {
     agent.setServices(
       this.modelService,
       this.vectorDB,
-      this.toolRegistry,
       workspaceConfig
     );
 

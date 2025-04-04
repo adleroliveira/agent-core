@@ -1,39 +1,36 @@
+import { Observable } from "rxjs";
 import { Message } from "@core/domain/message.entity";
 import { Prompt } from "@core/domain/prompt.entity";
 import { Tool } from "@core/domain/tool.entity";
-import { Observable } from "rxjs";
 
 export interface ModelRequestOptions {
-  temperature?: number;
   maxTokens?: number;
+  temperature?: number;
   topP?: number;
   topK?: number;
   stopSequences?: string[];
-  [key: string]: any; // For provider-specific options
-}
-
-export interface ToolCallResult {
-  toolName: string;
-  toolId: string;
-  arguments: Record<string, any>;
-  result?: any;
-  isError?: boolean; // Add this field to explicitly indicate error state
-  errorMessage?: string; // Optional field to store error message
+  toolChoice?: any;
 }
 
 export interface ModelResponse {
   message: Message;
   toolCalls?: ToolCallResult[];
   usage?: {
-    promptTokens?: number;
-    completionTokens?: number;
-    totalTokens?: number;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
   };
-  metadata?: Record<string, any>; // For provider-specific response data
+  metadata?: Record<string, any>;
+}
+
+export interface ToolCallResult {
+  toolName: string;
+  toolId: string;
+  arguments: any;
 }
 
 export interface ModelServicePort {
-  // Standard request-response
+  // Core model interaction methods
   generateResponse(
     messages: Message[],
     systemPrompt: Prompt,
@@ -41,7 +38,6 @@ export interface ModelServicePort {
     options?: ModelRequestOptions
   ): Promise<ModelResponse>;
 
-  // Streaming response
   generateStreamingResponse(
     messages: Message[],
     systemPrompt: Prompt,
@@ -49,19 +45,12 @@ export interface ModelServicePort {
     options?: ModelRequestOptions
   ): Observable<Partial<ModelResponse>>;
 
-  // For tools that require runtime execution/feedback
-  handleToolExecution?(
-    response: ModelResponse,
-    toolExecutor: (toolCall: ToolCallResult) => Promise<any>
-  ): Promise<ModelResponse>;
-
-  // Embeddings
+  // Embedding generation
   generateEmbedding(
     text: string,
     options?: Record<string, any>
   ): Promise<number[]>;
 
-  // Optional method for batch embeddings for efficiency
   generateEmbeddings(
     texts: string[],
     options?: Record<string, any>
