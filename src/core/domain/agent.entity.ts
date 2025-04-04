@@ -13,6 +13,8 @@ import { VectorDBPort } from "@ports/storage/vector-db.port";
 import { ToolRegistryPort } from "@ports/tool/tool-registry.port";
 import { WorkspaceConfig } from "@core/config/workspace.config";
 
+const DEFAULT_MAX_HISTORY_SIZE_FOR_TOOL_CALLS = 20;
+
 export class Agent {
   public readonly id: string;
   public name: string;
@@ -118,7 +120,7 @@ export class Agent {
     options: any
   ): Promise<Message> {
     const response = await this.modelService!.generateResponse(
-      this.state.getLastNMessages(20), // Get a reasonable number of recent messages
+      this.state.getLastNMessages(DEFAULT_MAX_HISTORY_SIZE_FOR_TOOL_CALLS),
       this.systemPrompt,
       this.tools,
       options
@@ -136,17 +138,17 @@ export class Agent {
       })),
     });
 
-    // Handle any tool calls
+    // Add the initial response to conversation history
+    this.state.addToConversation(responseMessage);
+
+    // Handle any tool calls and get the final response
     if (response.toolCalls && response.toolCalls.length > 0) {
-      await this.executeToolCalls(
+      return this.executeToolCalls(
         responseMessage,
         response.toolCalls,
         message.conversationId
       );
     }
-
-    // Add the response to the conversation history
-    this.state.addToConversation(responseMessage);
 
     return responseMessage;
   }
@@ -200,8 +202,20 @@ export class Agent {
   private async executeToolCalls(
     assistantMessage: Message,
     toolCalls: ToolCallResult[],
-    conversationId: string
-  ): Promise<void> {
+    conversationId: string,
+    recursionDepth: number = 0
+  ): Promise<Message> {
+    const MAX_RECURSION_DEPTH = 3;
+    if (recursionDepth >= MAX_RECURSION_DEPTH) {
+      return new Message({
+        role: "assistant",
+        content: "I've reached the maximum number of tool call iterations. If you're still not seeing the information you need, please try a different approach.",
+        conversationId,
+      });
+    }
+
+    const toolResponses: Message[] = [];
+
     for (const toolCall of toolCalls) {
       // Find the tool
       const tool = this.tools.find((t) => t.name === toolCall.toolName);
@@ -215,13 +229,16 @@ export class Agent {
           toolName: toolCall.toolName,
         });
         this.state.addToConversation(errorMessage);
+        toolResponses.push(errorMessage);
         continue;
       }
 
       try {
         // Execute the tool
+        console.log(`Executing tool ${toolCall.toolName} with arguments ${JSON.stringify(toolCall.arguments, null, 2)}`);
         const result = await tool.execute(toolCall.arguments, this);
-
+        console.log(`Tool ${toolCall.toolName} executed with result ${JSON.stringify(result, null, 2)}`);
+        
         // Create a tool response message
         const toolResponseMessage = new Message({
           role: "tool",
@@ -233,6 +250,7 @@ export class Agent {
 
         // Add to conversation history
         this.state.addToConversation(toolResponseMessage);
+        toolResponses.push(toolResponseMessage);
       } catch (error) {
         // Handle tool execution error
         const errorMessage = new Message({
@@ -243,8 +261,58 @@ export class Agent {
           toolName: toolCall.toolName,
         });
         this.state.addToConversation(errorMessage);
+        toolResponses.push(errorMessage);
       }
     }
+
+    // If we have tool responses, process them to get the agent's follow-up
+    if (toolResponses.length > 0) {
+      try {
+        // Get the agent's response to the tool results
+        const followUpResponse = await this.modelService!.generateResponse(
+          this.state.getLastNInteractions(30),
+          this.systemPrompt,
+          this.tools,
+          { temperature: 0.7 }
+        );
+
+        const followUpMessage = new Message({
+          role: "assistant",
+          content: followUpResponse.message.content,
+          conversationId,
+          toolCalls: followUpResponse.toolCalls?.map((tc) => ({
+            id: tc.toolId,
+            name: tc.toolName,
+            arguments: tc.arguments,
+          })),
+        });
+
+        // Add the follow-up to conversation history
+        this.state.addToConversation(followUpMessage);
+
+        // If the follow-up contains more tool calls, process them recursively
+        if (followUpResponse.toolCalls && followUpResponse.toolCalls.length > 0) {
+          return this.executeToolCalls(
+            followUpMessage,
+            followUpResponse.toolCalls,
+            conversationId,
+            recursionDepth + 1
+          );
+        }
+
+        return followUpMessage;
+      } catch (error) {
+        const errorMessage = new Message({
+          role: "assistant",
+          content: `I encountered an error processing the tool results: ${error.message}`,
+          conversationId,
+        });
+        this.state.addToConversation(errorMessage);
+        return errorMessage;
+      }
+    }
+
+    return assistantMessage;
   }
 
   public registerTool(tool: Tool): void {
