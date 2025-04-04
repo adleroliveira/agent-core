@@ -8,12 +8,10 @@ import { WorkspaceConfig } from '@core/config/workspace.config';
 import { ModelServicePort } from '@ports/model/model-service.port';
 import { VectorDBPort } from '@ports/storage/vector-db.port';
 import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
-import { AgentState } from "@core/domain/agent-state.entity";
-import { Tool } from "@core/domain/tool.entity";
-import { KnowledgeBase } from "@core/domain/knowledge-base.entity";
 
 export class AgentMapper {
   private stateMapper: StateMapper;
+  private toolMapper: ToolMapper;
 
   constructor(
     private readonly modelService: ModelServicePort,
@@ -21,13 +19,19 @@ export class AgentMapper {
     private readonly toolRegistry: ToolRegistryPort
   ) {
     this.stateMapper = new StateMapper();
+    this.toolMapper = new ToolMapper(toolRegistry);
   }
 
-  toDomain(entity: AgentEntity): Agent {
+  async toDomain(entity: AgentEntity): Promise<Agent> {
     const workspaceConfig = new WorkspaceConfig();
     if (entity.workspaceConfig?.workspaceDir) {
       workspaceConfig.setWorkspacePath(entity.workspaceConfig.workspaceDir);
     }
+
+    // Map tools asynchronously
+    const tools = await Promise.all(
+      entity.tools.map(tool => this.toolMapper.toDomain(tool))
+    );
 
     const agent = new Agent({
       id: entity.id,
@@ -41,7 +45,7 @@ export class AgentMapper {
         name: entity.systemPrompt.name,
         metadata: entity.systemPrompt.metadata,
       }),
-      tools: entity.tools.map(tool => ToolMapper.toDomain(tool)),
+      tools,
       workspaceConfig,
       knowledgeBase: entity.knowledgeBase ? KnowledgeBaseMapper.toDomain(entity.knowledgeBase) : undefined,
     });
@@ -53,10 +57,6 @@ export class AgentMapper {
       const state = StateMapper.toDomain(mostRecentState);
       state.agentId = entity.id;
       agent.state = state;
-    }
-
-    if (entity.tools) {
-      agent.tools = entity.tools.map(tool => ToolMapper.toDomain(tool));
     }
 
     if (entity.knowledgeBase) {

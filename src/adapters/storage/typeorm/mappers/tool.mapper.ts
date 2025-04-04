@@ -1,12 +1,30 @@
 import { Tool, ToolParameter } from '@core/domain/tool.entity';
 import { ToolEntity } from '../entities/tool.entity';
+import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
 
 export class ToolMapper {
-  static toDomain(entity: ToolEntity): Tool {
-    // Create a placeholder handler function since we can't store functions in the database
-    // The actual handler will be provided by the ToolRegistry when the tool is registered
+  constructor(private readonly toolRegistry: ToolRegistryPort) {}
+
+  async toDomain(entity: ToolEntity): Promise<Tool> {
+    // Try to get the actual tool from the registry
+    const registeredTool = await this.toolRegistry.getTool(entity.id);
+    
+    if (registeredTool) {
+      // If the tool is registered, use its handler
+      return new Tool({
+        id: entity.id,
+        name: entity.name,
+        description: entity.description,
+        directive: entity.description,
+        parameters: entity.parameters as ToolParameter[],
+        handler: registeredTool.handler,
+        metadata: entity.metadata,
+      });
+    }
+
+    // If tool is not registered, create a placeholder handler
     const placeholderHandler = async (): Promise<any> => {
-      throw new Error(`Tool handler for ${entity.name} not implemented`);
+      throw new Error(`Tool handler for ${entity.name} not found in registry`);
     };
 
     return new Tool({

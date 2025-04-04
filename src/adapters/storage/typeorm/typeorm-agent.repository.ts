@@ -48,7 +48,7 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
       return null;
     }
     
-    return this.agentMapper.toDomain(agentEntity);
+    return await this.agentMapper.toDomain(agentEntity);
   }
 
   async findAll(): Promise<Agent[]> {
@@ -56,7 +56,7 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
       relations: ['states', 'tools', 'knowledgeBase'],
     });
     
-    return agentEntities.map(entity => this.agentMapper.toDomain(entity));
+    return await Promise.all(agentEntities.map(entity => this.agentMapper.toDomain(entity)));
   }
 
   async save(agent: Agent): Promise<Agent> {
