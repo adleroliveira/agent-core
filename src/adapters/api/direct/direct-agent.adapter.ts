@@ -35,7 +35,7 @@ export class DirectAgentAdapter {
 
   async createAgent(
     name: string,
-    description?: string,
+    description: string,
     systemPrompt?: string,
     tools?: string[]
   ): Promise<Agent> {

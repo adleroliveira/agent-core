@@ -16,7 +16,7 @@ import { WorkspaceConfig } from "@core/config/workspace.config";
 export class Agent {
   public readonly id: string;
   public name: string;
-  public description?: string;
+  public description: string;
   public modelId: string;
   public state: AgentState;
   public systemPrompt: Prompt;
@@ -33,7 +33,7 @@ export class Agent {
     params: {
       id?: string;
       name: string;
-      description?: string;
+      description: string;
       modelId: string;
       systemPrompt: Prompt;
       tools?: Tool[];

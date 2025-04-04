@@ -56,7 +56,7 @@ export class AgentService implements OnModuleInit {
 
   async createAgent(params: {
     name: string;
-    description?: string;
+    description: string;
     modelId?: string;
     systemPromptContent: string;
     tools?: string[];

@@ -6,8 +6,7 @@ export class CreateAgentDto {
   name: string;
 
   @IsString()
-  @IsOptional()
-  description?: string;
+  description: string;
 
   @IsString()
   @IsOptional()

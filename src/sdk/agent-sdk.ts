@@ -20,7 +20,7 @@ interface PropertySchema {
 
 export interface CreateAgentOptions {
   name: string;
-  description?: string;
+  description: string;
   systemPrompt?: string;
   tools?: string[]; // Array of tool names to register with the agent
   memorySize?: number; // Number of past interactions to include in context
