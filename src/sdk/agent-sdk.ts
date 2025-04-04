@@ -201,7 +201,8 @@ export class AgentSDK {
       options.name,
       options.description,
       options.systemPrompt,
-      options.tools
+      options.tools,
+      options.conversationId
     );
 
     const agent = new Agent(agentEntity, this.agentAdapter);

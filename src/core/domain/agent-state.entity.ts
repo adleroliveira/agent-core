@@ -23,7 +23,7 @@ export class AgentState {
   ) {
     this.id = params.id || uuidv4();
     this.agentId = params.agentId || "";
-    this.conversationId = params.conversationId || "";
+    this.conversationId = params.conversationId || "new-conversation";
     this.conversationHistory = params.conversationHistory || [];
     this.memory = params.memory || {};
     this.ttl = params.ttl;

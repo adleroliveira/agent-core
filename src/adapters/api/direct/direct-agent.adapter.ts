@@ -37,13 +37,15 @@ export class DirectAgentAdapter {
     name: string,
     description: string,
     systemPrompt?: string,
-    tools?: string[]
+    tools?: string[],
+    conversationId?: string
   ): Promise<Agent> {
     return this.agentService.createAgent({
       name,
       description,
       systemPromptContent: systemPrompt || "",
-      tools
+      tools,
+      conversationId
     });
   }
 

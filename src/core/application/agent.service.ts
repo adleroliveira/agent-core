@@ -58,8 +58,9 @@ export class AgentService implements OnModuleInit {
     modelId?: string;
     systemPromptContent: string;
     tools?: string[];
+    conversationId?: string;
   }): Promise<Agent> {
-    const { name, description, modelId, systemPromptContent, tools } = params;
+    const { name, description, modelId, systemPromptContent, tools, conversationId } = params;
 
     // Combine default prompt with user's prompt
     const combinedPromptContent = `${DEFAULT_SYSTEM_PROMPT}\n\n${systemPromptContent}`;
@@ -76,6 +77,7 @@ export class AgentService implements OnModuleInit {
       modelId: modelId || process.env.BEDROCK_MODEL_ID || "",
       systemPrompt,
       workspaceConfig: this.workspaceConfig,
+      conversationId
     });
 
     // Initialize services
