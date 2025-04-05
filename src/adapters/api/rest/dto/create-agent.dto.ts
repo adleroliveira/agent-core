@@ -19,4 +19,8 @@ export class CreateAgentDto {
   @IsArray()
   @IsOptional()
   tools?: string[];
+
+  @IsString()
+  @IsOptional()
+  conversationId?: string;
 }

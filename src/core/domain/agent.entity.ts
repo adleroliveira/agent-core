@@ -210,7 +210,9 @@ export class Agent {
             messageChunk.metadata = responseChunk.metadata;
           }
 
-          subject.next(messageChunk);
+          if (messageChunk.content) {
+            subject.next(messageChunk);
+          }
         },
         complete: async () => {
           const streamingMessage = new Message({

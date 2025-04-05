@@ -1,5 +1,6 @@
 import { DefaultService } from '../api-client/services/DefaultService';
 import type { SendMessageDto } from '../api-client/models/SendMessageDto';
+import { SessionService } from './session.service';
 
 export interface ToolCall {
   id: string;
@@ -23,14 +24,21 @@ export interface Message {
 
 export class ChatService {
   private agentId: string;
+  private sessionService: SessionService;
 
   constructor(agentId: string) {
     this.agentId = agentId;
+    this.sessionService = new SessionService();
+  }
+
+  public getSessionId(): string {
+    return this.sessionService.getSessionId();
   }
 
   async sendMessage(content: string, stream: boolean = true): Promise<Message> {
     const messageDto: SendMessageDto = {
       content,
+      conversationId: this.sessionService.getSessionId()
     };
 
     try {
@@ -58,6 +66,7 @@ export class ChatService {
   ): Promise<void> {
     const messageDto: SendMessageDto = {
       content,
+      conversationId: this.sessionService.getSessionId()
     };
 
     try {
@@ -105,5 +114,9 @@ export class ChatService {
       console.error('Error in streaming message:', error);
       onError(error);
     }
+  }
+
+  public resetConversation(): void {
+    this.sessionService.resetSession();
   }
 } 

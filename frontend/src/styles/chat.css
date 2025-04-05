@@ -491,14 +491,77 @@ input:checked + .toggle-slider:before {
 .configurations-panel {
   width: 300px;
   background: white;
-  padding: 2rem;
+  padding: 1.5rem;
   border-left: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .configurations-panel h2 {
   color: #1a365d;
-  font-size: 1.5rem;
-  margin: 0 0 1.5rem 0;
+  font-size: 1.25rem;
+  margin: 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.config-section {
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.config-section h3 {
+  color: #1a365d;
+  font-size: 1rem;
+  margin: 0 0 1rem 0;
+}
+
+.session-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.session-label {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.session-id {
+  font-family: monospace;
+  background-color: white;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.reset-button {
+  width: 100%;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+  font-weight: 500;
+}
+
+.reset-button:hover {
+  background-color: #d32f2f;
+}
+
+.reset-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
 }
 
 .config-placeholder {
@@ -507,6 +570,7 @@ input:checked + .toggle-slider:before {
   padding: 2rem;
   text-align: center;
   color: #64748b;
+  font-size: 0.9rem;
 }
 
 .tools-section {
@@ -658,4 +722,11 @@ input:checked + .toggle-slider:before {
 .tool-message .tool-icon {
   font-size: 1.1rem;
   opacity: 0.8;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
 } 

@@ -28,6 +28,8 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lexerRef = useRef<GenAIStreamLexer | null>(null);
   const currentBlockType = useRef<'normal' | 'thinking' | 'tool' | null>(null); // Track current block
+  const [sessionId, setSessionId] = useState<string>('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (agentId) {
@@ -39,6 +41,11 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           console.error('Error fetching agent details:', error);
           setAgentName('Agent');
         });
+
+      // Get initial session ID
+      if (chatService.current) {
+        setSessionId(chatService.current.getSessionId());
+      }
     }
   }, [agentId]);
 
@@ -47,6 +54,13 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   }, [messages, isUsingTool]);
+
+  useEffect(() => {
+    // Focus input when loading state changes from true to false
+    if (!isLoading && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isLoading]);
 
   const processToken = (token: Token) => {
     setMessages(prev => {
@@ -202,7 +216,6 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           (chunk) => {
             if (lexerRef.current) {
               for (const token of lexerRef.current.processChunk(chunk)) {
-                console.log(token);
                 processToken(token);
               }
             }
@@ -237,6 +250,14 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
       gfm: true
     });
     return marked.parse(content) as string;
+  };
+
+  const handleResetConversation = () => {
+    if (chatService.current) {
+      chatService.current.resetConversation();
+      setSessionId(chatService.current.getSessionId());
+      setMessages([]);
+    }
   };
 
   return (
@@ -310,6 +331,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
 
         <form class="chat-input-form" onSubmit={handleSendMessage}>
           <input
+            ref={inputRef}
             type="text"
             value={inputMessage}
             onInput={(e) => setInputMessage((e.target as HTMLInputElement).value)}
@@ -325,6 +347,19 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
 
       <div class="configurations-panel">
         <h2>Configurations</h2>
+        <div class="config-section">
+          <div class="session-info">
+            <span class="session-label">Session ID:</span>
+            <span class="session-id">{sessionId}</span>
+          </div>
+          <button
+            class="reset-button"
+            onClick={handleResetConversation}
+            disabled={isLoading}
+          >
+            New Conversation
+          </button>
+        </div>
         <div class="config-placeholder">
           <p>Configuration options will appear here</p>
         </div>

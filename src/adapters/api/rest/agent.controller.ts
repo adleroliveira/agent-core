@@ -24,7 +24,6 @@ import { Message } from "@core/domain/message.entity";
 import { AGENT_SERVICE } from "@adapters/adapters.module";
 import { ToolRegistryService } from "@core/services/tool-registry.service";
 import { TOOL_REGISTRY } from "@core/constants";
-import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 
 @Controller("agents")
 export class AgentController {
