@@ -45,7 +45,8 @@ async function runStockMarketAgentExample(): Promise<void> {
         "forecastStock",
         "getStockHistory",
         "getStockPrice",
-      ], // Specify the stock market tool
+      ],
+      conversationId
     });
 
     console.log(`Stock Market Agent created with ID: ${agent.id}`);
@@ -53,7 +54,7 @@ async function runStockMarketAgentExample(): Promise<void> {
     // Process messages sequentially using async/await
     async function processMessage(message: string) {
       console.log(`\nUser: ${message}`);
-      const response = await agent.ask(message, { conversationId });
+      const response = await agent.ask(message);
       console.log("\nAgent response:");
       console.log(`${response.content}`);
       return response;

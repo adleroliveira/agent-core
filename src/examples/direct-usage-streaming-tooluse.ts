@@ -40,6 +40,7 @@ async function runStockMarketAgentStreamingExample(): Promise<void> {
         "getStockHistory",
         "getStockPrice",
       ], // Specify the stock market tool
+      conversationId
     });
 
     console.log(`Stock Market Agent created with ID: ${agent.id}`);
@@ -49,7 +50,7 @@ async function runStockMarketAgentStreamingExample(): Promise<void> {
     console.log("\nSending first query:");
     console.log(`User: ${firstMessage}`);
 
-    const firstResponse = await processStreamingMessage(agent, firstMessage, conversationId);
+    const firstResponse = await processStreamingMessage(agent, firstMessage);
     console.log("\nFirst response completed. Length:", firstResponse.length);
 
     // Second message - get historical data
@@ -58,7 +59,7 @@ async function runStockMarketAgentStreamingExample(): Promise<void> {
     console.log("\nSending second query:");
     console.log(`User: ${secondMessage}`);
 
-    const secondResponse = await processStreamingMessage(agent, secondMessage, conversationId);
+    const secondResponse = await processStreamingMessage(agent, secondMessage);
     console.log("\nSecond response completed. Length:", secondResponse.length);
 
     // Third message - perform technical analysis
@@ -66,7 +67,7 @@ async function runStockMarketAgentStreamingExample(): Promise<void> {
     console.log("\nSending third query:");
     console.log(`User: ${thirdMessage}`);
 
-    const thirdResponse = await processStreamingMessage(agent, thirdMessage, conversationId);
+    const thirdResponse = await processStreamingMessage(agent, thirdMessage);
     console.log("\nThird response completed. Length:", thirdResponse.length);
 
     // Fourth message - generate forecast
@@ -75,7 +76,7 @@ async function runStockMarketAgentStreamingExample(): Promise<void> {
     console.log("\nSending fourth query:");
     console.log(`User: ${fourthMessage}`);
 
-    const fourthResponse = await processStreamingMessage(agent, fourthMessage, conversationId);
+    const fourthResponse = await processStreamingMessage(agent, fourthMessage);
     console.log("\nFourth response completed. Length:", fourthResponse.length);
 
     // Fifth message - compare with another stock
@@ -84,7 +85,7 @@ async function runStockMarketAgentStreamingExample(): Promise<void> {
     console.log("\nSending fifth query:");
     console.log(`User: ${fifthMessage}`);
 
-    const fifthResponse = await processStreamingMessage(agent, fifthMessage, conversationId);
+    const fifthResponse = await processStreamingMessage(agent, fifthMessage);
     console.log("\nFifth response completed. Length:", fifthResponse.length);
   } catch (error) {
     console.error("Error:", error);
@@ -109,8 +110,7 @@ async function runStockMarketAgentStreamingExample(): Promise<void> {
 // Helper function to process streaming messages and return a Promise
 function processStreamingMessage(
   agent: Agent,
-  message: string,
-  conversationId: string
+  message: string
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     let fullContent = "";
@@ -138,7 +138,7 @@ function processStreamingMessage(
         console.error("\nStreaming error:", error);
         reject(error);
       },
-    }, { conversationId });
+    });
   });
 }
 

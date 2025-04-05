@@ -8,13 +8,9 @@ import {
   ModelServicePort,
   ToolCallResult,
 } from "@ports/model/model-service.port";
-import { Observable, map, Subject } from "rxjs";
+import { Observable, Subject } from "rxjs";
 import { VectorDBPort } from "@ports/storage/vector-db.port";
 import { WorkspaceConfig } from "@core/config/workspace.config";
-
-// Message history and interaction constants
-const DEFAULT_MAX_HISTORY_SIZE_FOR_TOOL_CALLS = 15;
-const DEFAULT_MAX_INTERACTIONS_FOR_FOLLOW_UP = 20;
 
 // Tool execution constants
 const MAX_RECURSION_DEPTH_ON_ERRORS = 3;
@@ -494,5 +490,9 @@ export class Agent {
       conversationId: uuidv4(),
     });
     this.updatedAt = new Date();
+  }
+
+  public getConversationId(): string {
+    return this.state.conversationId;
   }
 }

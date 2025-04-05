@@ -19,11 +19,14 @@ export interface MessageOptions {
 
 export class Agent {
   private _memorySize?: number;
+  private _conversationId?: string;
 
   constructor(
     private entity: AgentEntity,
     private adapter: DirectAgentAdapter
-  ) { }
+  ) {
+    this._conversationId = entity.getConversationId();
+  }
 
   /**
    * Get agent ID
@@ -72,7 +75,7 @@ export class Agent {
     const response = await this.adapter.sendMessageSync(
       this.id,
       message,
-      options?.conversationId,
+      options?.conversationId || this._conversationId,
       {
         ...options,
         memorySize: options?.memorySize || this._memorySize
@@ -90,7 +93,7 @@ export class Agent {
     message: string, 
     options?: MessageOptions & { conversationId?: string }
   ): Promise<string> {
-    const response = await this.ask(message, options);
+    const response = await this.ask(message, { ...options, conversationId: this._conversationId ? this._conversationId : options?.conversationId });
     return response.getTextContent();
   }
 
@@ -105,7 +108,7 @@ export class Agent {
     const observable = await this.adapter.sendMessageStream(
       this.id,
       message,
-      options?.conversationId,
+      options?.conversationId || this._conversationId,
       {
         ...options,
         memorySize: options?.memorySize || this._memorySize
@@ -146,11 +149,15 @@ export class Agent {
     });
   }
 
+  public setConversationId(conversationId: string): void {
+    this._conversationId = conversationId;
+  }
+
   /**
    * Get the current conversation ID
    */
   public async getConversationId(): Promise<string | undefined> {
-    return this.adapter.getCurrentConversationId(this.id);
+    return this._conversationId;
   }
 
   /**

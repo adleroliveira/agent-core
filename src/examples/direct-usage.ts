@@ -22,7 +22,7 @@ async function runSimpleExample() {
     console.log("\nSending first message:");
     console.log(`User: ${firstMessage}`);
 
-    const firstResponse = await agent.ask(firstMessage, { conversationId });
+    const firstResponse = await agent.ask(firstMessage);
 
     console.log("\nAgent response:");
     console.log(`${firstResponse.getTextContent()}`);
@@ -32,7 +32,7 @@ async function runSimpleExample() {
     console.log("\nSending second message:");
     console.log(`User: ${secondMessage}`);
 
-    const secondResponse = await agent.ask(secondMessage, { conversationId });
+    const secondResponse = await agent.ask(secondMessage);
 
     console.log("\nAgent response:");
     console.log(`${secondResponse.getTextContent()}`);
@@ -42,7 +42,7 @@ async function runSimpleExample() {
     console.log("\nSending third message:");
     console.log(`User: ${thirdMessage}`);
 
-    const thirdResponse = await agent.ask(thirdMessage, { conversationId });
+    const thirdResponse = await agent.ask(thirdMessage);
 
     console.log("\nAgent response:");
     console.log(`${thirdResponse.getTextContent()}`);
@@ -50,18 +50,19 @@ async function runSimpleExample() {
     // Get the conversation history
     console.log("\nGetting conversation history...");
     const history = await agent.getConversationHistory(conversationId);
-    console.log(JSON.stringify(history, null, 2));
     console.log(`Conversation has ${history.length} messages`);
 
     // Start a new conversation
     const newConversationId = "test-conversation-2";
     console.log(`\nStarting new conversation with ID: ${newConversationId}`);
 
+    agent.setConversationId(newConversationId);
+
     const newMessage = "Hello, this is a new conversation";
     console.log("\nSending message in new conversation:");
     console.log(`User: ${newMessage}`);
 
-    const newResponse = await agent.ask(newMessage, { conversationId: newConversationId });
+    const newResponse = await agent.ask(newMessage);
 
     console.log("\nAgent response:");
     console.log(`${newResponse.getTextContent()}`);

@@ -8,6 +8,8 @@ export class StateMapper {
       id: entity.id,
       memory: entity.memory,
       ttl: entity.ttl,
+      conversationId: entity.conversationId,
+      agentId: entity.agentId
     });
 
     if (entity.messages) {

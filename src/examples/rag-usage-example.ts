@@ -14,6 +14,8 @@ async function runRagExample(): Promise<void> {
     await sdk.registerTool(new KnowledgeAddTool());
     await sdk.registerTool(new KnowledgeSearchTool());
 
+    const conversationId = "test-conversation-1";
+
     const agent = await sdk.createAgent({
       name: "Knowledge Assistant",
       description: "An agent that can learn and retrieve information from a knowledge base",
@@ -33,7 +35,8 @@ async function runRagExample(): Promise<void> {
       - If you don't find relevant information, let the user know
 
       Always maintain a helpful and informative tone.`,
-      tools: ["knowledge_add", "knowledge_search"]
+      tools: ["knowledge_add", "knowledge_search"],
+      conversationId
     });
 
     console.log(`RAG Agent created with ID: ${agent.id}`);
