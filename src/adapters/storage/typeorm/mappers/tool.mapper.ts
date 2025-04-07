@@ -6,8 +6,8 @@ export class ToolMapper {
   constructor(private readonly toolRegistry: ToolRegistryPort) {}
 
   async toDomain(entity: ToolEntity): Promise<Tool> {
-    // Try to get the actual tool from the registry
-    const registeredTool = await this.toolRegistry.getTool(entity.id);
+    // Try to get the actual tool from the registry by name
+    const registeredTool = await this.toolRegistry.getToolByName(entity.name);
     
     if (registeredTool) {
       // If the tool is registered, use its handler
