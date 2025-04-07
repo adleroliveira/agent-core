@@ -11,6 +11,7 @@ import {
 import { Observable, Subject } from "rxjs";
 import { VectorDBPort } from "@ports/storage/vector-db.port";
 import { WorkspaceConfig } from "@core/config/workspace.config";
+import { Logger } from "@nestjs/common";
 
 // Tool execution constants
 const MAX_RECURSION_DEPTH_ON_ERRORS = 3;
@@ -23,6 +24,7 @@ const MAX_RECURSION_ERROR = "I've encountered multiple errors while trying to ex
 const TOOL_RESULTS_PROCESSING_ERROR = "I encountered an error processing the tool results: %s";
 
 export class Agent {
+  private readonly logger = new Logger(Agent.name);
   public readonly id: string;
   public name: string;
   public description: string;
@@ -75,6 +77,8 @@ export class Agent {
     });
     this.createdAt = new Date();
     this.updatedAt = new Date();
+
+    this.logger.debug(`Agent initialized: ${this.name} (${this.id}) with ${this.tools.length} tools. Model: ${this.modelId}, Description: ${this.description}`);
   }
 
   public async setServices(
@@ -82,6 +86,7 @@ export class Agent {
     vectorDB: VectorDBPort,
     workspaceConfig: WorkspaceConfig
   ): Promise<void> {
+    this.logger.debug(`Setting services for agent ${this.id}. Model service: ${modelService ? 'available' : 'not set'}, Vector DB: ${vectorDB ? 'available' : 'not set'}, Workspace path: ${workspaceConfig.getWorkspacePath()}`);
     this.modelService = modelService;
     this.vectorDB = vectorDB;
     this._workspaceConfig = workspaceConfig;
@@ -100,8 +105,11 @@ export class Agent {
       throw new Error("Model service not initialized");
     }
 
+    this.logger.debug(`Processing message for agent ${this.id}. Content: "${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}", Role: ${message.role}, Conversation ID: ${message.conversationId}`);
+
     // Initialize or update state if needed
     if (!this.state || this.state.conversationId !== message.conversationId) {
+      this.logger.debug(`Initializing new conversation state for agent ${this.id}. Previous conversation ID: ${this.state?.conversationId || 'none'}, New conversation ID: ${message.conversationId}`);
       this.state = new AgentState({
         agentId: this.id,
         conversationId: message.conversationId,
@@ -117,10 +125,10 @@ export class Agent {
     };
 
     if (options?.stream) {
-      // Handle streaming response
+      this.logger.debug(`Processing message with streaming for agent ${this.id}. Options: ${JSON.stringify(requestOptions)}`);
       return this.processStreamingMessage(message, requestOptions);
     } else {
-      // Handle standard response
+      this.logger.debug(`Processing message without streaming for agent ${this.id}. Options: ${JSON.stringify(requestOptions)}`);
       return this.processStandardMessage(message, requestOptions);
     }
   }
@@ -129,6 +137,7 @@ export class Agent {
     message: Message,
     options: any
   ): Promise<Message> {
+    this.logger.debug(`Generating standard response for agent ${this.id}. Conversation history length: ${this.state.conversationHistory.length}, Available tools: ${this.tools.map(t => t.name).join(', ')}`);
     const response = await this.modelService!.generateResponse(
       this.state.conversationHistory,
       this.systemPrompt,
@@ -148,11 +157,14 @@ export class Agent {
       })),
     });
 
+    this.logger.debug(`Generated response for agent ${this.id}. Content length: ${response.message.content.length}, Tool calls: ${response.toolCalls?.length || 0} (${response.toolCalls?.map(tc => tc.toolName).join(', ') || 'none'})`);
+
     // Add the initial response to conversation history
     this.state.addToConversation(responseMessage);
 
     // Handle any tool calls and get the final response
     if (response.toolCalls && response.toolCalls.length > 0) {
+      this.logger.debug(`Executing ${response.toolCalls.length} tool calls for agent ${this.id}. Tools: ${response.toolCalls.map(tc => `${tc.toolName}(${JSON.stringify(tc.arguments)})`).join(', ')}`);
       return this.executeToolCalls(
         responseMessage,
         response.toolCalls,
@@ -168,7 +180,7 @@ export class Agent {
     options: any,
     responseSubject?: Subject<Partial<Message>>
   ): Observable<Partial<Message>> {
-
+    this.logger.debug(`Starting streaming response for agent ${this.id}. Options: ${JSON.stringify(options)}, Recursive call: ${!!responseSubject}`);
     // If no subject provided, we're at the root level
     const subject = responseSubject || new Subject<Partial<Message>>();
     const collectedToolCalls: ToolCallResult[] = [];
@@ -226,6 +238,8 @@ export class Agent {
             })),
           });
 
+          this.logger.debug(`Streaming response completed for agent ${this.id}. Content length: ${streamingContent.length}, Tool calls: ${collectedToolCalls.length} (${collectedToolCalls.map(tc => tc.toolName).join(', ') || 'none'})`);
+
           this.state.addToConversation(streamingMessage);
 
           if (collectedToolCalls.length > 0) {
@@ -237,7 +251,7 @@ export class Agent {
                 subject
               );
             } catch (error) {
-              console.error("Error in tool calls execution:", error);
+              this.logger.error(`Error in tool calls execution for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Tool calls: ${collectedToolCalls.map(tc => tc.toolName).join(', ')}`);
               subject.next({
                 content: `Error processing tool calls: ${error.message}`,
                 metadata: { error: error.message },
@@ -250,7 +264,7 @@ export class Agent {
           resolve();
         },
         error: (error) => {
-          console.error("Streaming error:", error);
+          this.logger.error(`Streaming error for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Content so far: "${streamingContent.substring(0, 100)}${streamingContent.length > 100 ? '...' : ''}"`);
           subject.next({
             content: `Error in streaming response: ${error.message}`,
             metadata: { error: error.message },
@@ -266,12 +280,12 @@ export class Agent {
     // If this is a recursive call, wait for the streaming to complete
     if (responseSubject) {
       streamingPromise.catch(error => {
-        console.error("Error in recursive streaming:", error);
+        this.logger.error(`Error in recursive streaming for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Parent conversation ID: ${message.conversationId}`);
       });
     } else {
       // For root level, ensure we wait for all streaming to complete
       streamingPromise.then(() => {}).catch(error => {
-        console.error("Error in root streaming:", error);
+        this.logger.error(`Error in root streaming for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Conversation ID: ${message.conversationId}`);
       });
     }
 
@@ -285,6 +299,7 @@ export class Agent {
     responseSubject: Subject<Partial<Message>>,
     recursionDepth: number = 0
   ): Promise<void> {
+    this.logger.debug(`Executing ${toolCalls.length} tool calls for streaming response for agent ${this.id}. Tools: ${toolCalls.map(tc => `${tc.toolName}(${JSON.stringify(tc.arguments)})`).join(', ')}, Recursion depth: ${recursionDepth}`);
     const toolResults = [];
     let hasErrors = false;
 
@@ -292,6 +307,7 @@ export class Agent {
       const tool = this.tools.find((t) => t.name === toolCall.toolName);
 
       if (!tool) {
+        this.logger.warn(`Tool not found: ${toolCall.toolName} for agent ${this.id}. Available tools: ${this.tools.map(t => t.name).join(', ')}`);
         toolResults.push({
           toolId: toolCall.toolId,
           result: TOOL_NOT_FOUND_ERROR.replace("%s", toolCall.toolName),
@@ -302,14 +318,16 @@ export class Agent {
       }
 
       try {
+        this.logger.debug(`Executing tool ${toolCall.toolName} for agent ${this.id}. Arguments: ${JSON.stringify(toolCall.arguments)}`);
         const result = await tool.execute(toolCall.arguments, this);
         toolResults.push({
           toolId: toolCall.toolId,
           result: result,
           isError: false
         });
+        this.logger.debug(`Tool ${toolCall.toolName} executed successfully for agent ${this.id}. Result type: ${typeof result}, Result length: ${typeof result === 'string' ? result.length : 'N/A'}`);
       } catch (error) {
-        console.error("Tool execution error:", error);
+        this.logger.error(`Tool execution failed for ${toolCall.toolName} on agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Arguments: ${JSON.stringify(toolCall.arguments)}`);
         toolResults.push({
           toolId: toolCall.toolId,
           result: TOOL_EXECUTION_ERROR.replace("%s", error.message),
@@ -332,6 +350,7 @@ export class Agent {
     this.state.addToConversation(toolResponseMessage);
 
     if (hasErrors && recursionDepth >= MAX_RECURSION_DEPTH_ON_ERRORS) {
+      this.logger.warn(`Max recursion depth reached for agent ${this.id}. Depth: ${recursionDepth}, Errors: ${toolResults.filter(r => r.isError).map(r => r.toolId).join(', ')}`);
       responseSubject.next({
         content: MAX_RECURSION_ERROR,
       });
@@ -339,6 +358,7 @@ export class Agent {
     }
 
     // Recursively process the next streaming response with the same subject
+    this.logger.debug(`Processing recursive streaming response for agent ${this.id}. Previous content length: ${assistantMessage.content.length}, Tool results: ${toolResults.length}`);
     const recursiveStream = this.processStreamingMessage(
       assistantMessage,
       { temperature: DEFAULT_TOOL_EXECUTION_TEMPERATURE },
@@ -353,7 +373,7 @@ export class Agent {
           resolve();
         },
         error: (error) => {
-          console.error("Recursive stream error:", error);
+          this.logger.error(`Recursive stream error for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Previous content: "${assistantMessage.content.substring(0, 100)}${assistantMessage.content.length > 100 ? '...' : ''}"`);
           subscription.unsubscribe();
           reject(error);
         }
@@ -371,6 +391,7 @@ export class Agent {
     conversationId: string,
     recursionDepth: number = 0
   ): Promise<Message> {
+    this.logger.debug(`Executing ${toolCalls.length} tool calls for agent ${this.id}. Tools: ${toolCalls.map(tc => `${tc.toolName}(${JSON.stringify(tc.arguments)})`).join(', ')}, Recursion depth: ${recursionDepth}`);
     const toolResults = [];
     let hasErrors = false;
 
@@ -378,6 +399,7 @@ export class Agent {
       const tool = this.tools.find((t) => t.name === toolCall.toolName);
 
       if (!tool) {
+        this.logger.warn(`Tool not found: ${toolCall.toolName} for agent ${this.id}. Available tools: ${this.tools.map(t => t.name).join(', ')}`);
         toolResults.push({
           toolId: toolCall.toolId,
           result: TOOL_NOT_FOUND_ERROR.replace("%s", toolCall.toolName),
@@ -388,13 +410,16 @@ export class Agent {
       }
 
       try {
+        this.logger.debug(`Executing tool ${toolCall.toolName} for agent ${this.id}. Arguments: ${JSON.stringify(toolCall.arguments)}`);
         const result = await tool.execute(toolCall.arguments, this);
         toolResults.push({
           toolId: toolCall.toolId,
           result: result,
           isError: false
         });
+        this.logger.debug(`Tool ${toolCall.toolName} executed successfully for agent ${this.id}. Result type: ${typeof result}, Result length: ${typeof result === 'string' ? result.length : 'N/A'}`);
       } catch (error) {
+        this.logger.error(`Tool execution failed for ${toolCall.toolName} on agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Arguments: ${JSON.stringify(toolCall.arguments)}`);
         toolResults.push({
           toolId: toolCall.toolId,
           result: TOOL_EXECUTION_ERROR.replace("%s", error.message),
@@ -417,6 +442,7 @@ export class Agent {
 
     if (toolResults.length > 0) {
       try {
+        this.logger.debug(`Generating follow-up response for agent ${this.id}. Previous content length: ${assistantMessage.content.length}, Tool results: ${toolResults.length}, Has errors: ${hasErrors}`);
         const followUpResponse = await this.modelService!.generateResponse(
           this.state.conversationHistory,
           this.systemPrompt,
@@ -435,12 +461,15 @@ export class Agent {
           })),
         });
 
+        this.logger.debug(`Generated follow-up response for agent ${this.id}. Content length: ${followUpResponse.message.content.length}, Tool calls: ${followUpResponse.toolCalls?.length || 0} (${followUpResponse.toolCalls?.map(tc => tc.toolName).join(', ') || 'none'})`);
+
         this.state.addToConversation(followUpMessage);
 
         if (followUpResponse.toolCalls && followUpResponse.toolCalls.length > 0) {
           const nextRecursionDepth = hasErrors ? recursionDepth + 1 : recursionDepth;
           
           if (hasErrors && nextRecursionDepth >= MAX_RECURSION_DEPTH_ON_ERRORS) {
+            this.logger.warn(`Max recursion depth reached for agent ${this.id}. Depth: ${nextRecursionDepth}, Previous errors: ${toolResults.filter(r => r.isError).map(r => r.toolId).join(', ')}`);
             return new Message({
               role: "assistant",
               content: MAX_RECURSION_ERROR,
@@ -458,6 +487,7 @@ export class Agent {
 
         return followUpMessage;
       } catch (error) {
+        this.logger.error(`Error processing tool results for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Tool results: ${toolResults.length}, Has errors: ${hasErrors}`);
         const errorMessage = new Message({
           role: "assistant",
           content: TOOL_RESULTS_PROCESSING_ERROR.replace("%s", error.message),
@@ -472,21 +502,28 @@ export class Agent {
   }
 
   public registerTool(tool: Tool): void {
+    this.logger.debug(`Registering tool ${tool.name} for agent ${this.id}. Tool ID: ${tool.id}, Parameters: ${JSON.stringify(tool.parameters)}`);
     this.tools.push(tool);
     this.updatedAt = new Date();
   }
 
   public deregisterTool(toolId: string): void {
-    this.tools = this.tools.filter((tool) => tool.id !== toolId);
-    this.updatedAt = new Date();
+    const tool = this.tools.find(t => t.id === toolId);
+    if (tool) {
+      this.logger.debug(`Deregistering tool ${tool.name} for agent ${this.id}. Tool ID: ${toolId}, Parameters: ${JSON.stringify(tool.parameters)}`);
+      this.tools = this.tools.filter((tool) => tool.id !== toolId);
+      this.updatedAt = new Date();
+    }
   }
 
   public updateSystemPrompt(prompt: Prompt): void {
+    this.logger.debug(`Updating system prompt for agent ${this.id}. Previous prompt length: ${this.systemPrompt.content.length}, New prompt length: ${prompt.content.length}`);
     this.systemPrompt = prompt;
     this.updatedAt = new Date();
   }
 
   public resetState(): void {
+    this.logger.debug(`Resetting state for agent ${this.id}. Previous conversation ID: ${this.state.conversationId}, Previous history length: ${this.state.conversationHistory.length}`);
     this.state = new AgentState({
       agentId: this.id,
       conversationId: uuidv4(),
