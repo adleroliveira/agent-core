@@ -80,30 +80,6 @@ export class ToolBuilder {
       };
     }
     
-    // Convert ToolInput to ToolParameter format
-    const parameters: ToolParameter[] = Object.entries(this.inputs).map(([name, input]) => {
-      // Helper function to convert nested ToolInput to ToolParameter
-      const convertToToolParameter = (input: ToolInput, paramName: string): ToolParameter => {
-        return {
-          name: paramName,
-          type: input.type,
-          description: input.description,
-          required: input.required,
-          enum: input.enum,
-          default: input.default,
-          properties: input.properties ? 
-            Object.entries(input.properties).reduce((acc, [propName, propValue]) => {
-              acc[propName] = convertToToolParameter(propValue, propName);
-              return acc;
-            }, {} as Record<string, ToolParameter>) : 
-            undefined,
-          items: input.items ? convertToToolParameter(input.items, `${paramName}_item`) : undefined
-        };
-      };
-      
-      return convertToToolParameter(input, name);
-    });
-    
     return {
       spec: () => ({
         toolSpec: {

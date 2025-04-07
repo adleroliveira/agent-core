@@ -448,7 +448,7 @@ export class BedrockModelService implements ModelServicePort {
             name: tool.name,
             description: tool.directive || tool.description || tool.name,
             inputSchema: {
-              json: {
+              json: tool.jsonSchema || {
                 type: "object",
                 properties: tool.parameters.reduce(
                   (acc: Record<string, any>, param) => {

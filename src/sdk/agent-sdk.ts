@@ -96,23 +96,35 @@ export class AgentSDK {
       const props = toolSpec.toolSpec.inputSchema.json.properties;
       const required = toolSpec.toolSpec.inputSchema.json.required || [];
 
-      // Convert properties to ToolParameter[]
-      for (const [name, prop] of Object.entries(props) as [
-        string,
-        PropertySchema
-      ][]) {
-        parameters.push({
+      // Helper function to convert nested properties
+      const convertProperty = (name: string, prop: PropertySchema, isRequired: boolean): ToolParameter => {
+        const parameter: ToolParameter = {
           name,
-          type: prop.type as
-            | "string"
-            | "number"
-            | "boolean"
-            | "object"
-            | "array",
+          type: prop.type as "string" | "number" | "boolean" | "object" | "array",
           description: prop.description,
-          required: required.includes(name),
+          required: isRequired,
           enum: prop.enum,
-        });
+        };
+
+        // Handle nested properties for objects
+        if (prop.type === 'object' && prop.properties) {
+          parameter.properties = Object.entries(prop.properties).reduce((acc, [nestedName, nestedProp]) => {
+            acc[nestedName] = convertProperty(nestedName, nestedProp as PropertySchema, prop.required?.includes(nestedName) || false);
+            return acc;
+          }, {} as Record<string, ToolParameter>);
+        }
+
+        // Handle array items
+        if (prop.type === 'array' && prop.items) {
+          parameter.items = convertProperty(`${name}_item`, prop.items as PropertySchema, false);
+        }
+
+        return parameter;
+      };
+
+      // Convert properties to ToolParameter[]
+      for (const [name, prop] of Object.entries(props) as [string, PropertySchema][]) {
+        parameters.push(convertProperty(name, prop, required.includes(name)));
       }
     }
 
