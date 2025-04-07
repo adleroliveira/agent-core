@@ -215,6 +215,26 @@
         }
       }
     },
+    "/api/agents/{id}/conversations": {
+      "get": {
+        "operationId": "AgentController_getConversations",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/tools": {
       "get": {
         "operationId": "ToolsController_getAllTools",

@@ -1,12 +1,14 @@
 .chat-page {
   display: flex;
-  height: 100%;
+  height: 100vh;
+  width: 100%;
   max-width: 1600px;
   margin: 0 auto;
   padding: 0;
   overflow: hidden;
   flex: 1;
   min-width: 0;
+  justify-content: center;
 }
 
 .chat-container {
@@ -14,27 +16,31 @@
   display: flex;
   flex-direction: column;
   background: white;
-  border-right: 1px solid #e2e8f0;
+  border-right: 1px solid #e0e0e0;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   min-height: 100%;
   width: 800px;
   max-width: 800px;
+  margin: 0 8px;
 }
 
 .chat-header {
+  padding: 0.75rem 1rem;
   background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%);
   color: white;
-  padding: 0.75rem 1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-shrink: 0;
+  gap: 1rem;
 }
 
 .chat-header h1 {
-  font-size: 1.25rem;
   margin: 0;
+  font-size: 1.25rem;
+  color: white;
   font-weight: 600;
+  flex: 1;
 }
 
 .chat-description {
@@ -490,20 +496,31 @@ input:checked + .toggle-slider:before {
 
 .configurations-panel {
   width: 300px;
-  background: white;
-  padding: 1.5rem;
-  border-left: 1px solid #e2e8f0;
+  background-color: #ffffff;
+  border-left: 1px solid #e0e0e0;
+  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  padding: 0;
+  margin-left: 8px;
 }
 
-.configurations-panel h2 {
-  color: #1a365d;
-  font-size: 1.25rem;
+.configurations-header {
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.configurations-header h2 {
   margin: 0;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #e2e8f0;
+  font-size: 1.25rem;
+  color: white;
+  font-weight: 600;
+  flex: 1;
 }
 
 .config-section {
@@ -566,11 +583,11 @@ input:checked + .toggle-slider:before {
 
 .config-placeholder {
   background: #f8fafc;
-  border-radius: 8px;
-  padding: 2rem;
+  padding: 1rem;
   text-align: center;
   color: #64748b;
   font-size: 0.9rem;
+  margin: 0;
 }
 
 .tools-section {
@@ -729,4 +746,125 @@ input:checked + .toggle-slider:before {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.5rem;
+}
+
+.conversations-sidebar {
+  width: 300px;
+  background-color: #ffffff;
+  border-right: 1px solid #e0e0e0;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  margin-right: 8px;
+  height: 100%;
+}
+
+.conversations-header {
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.conversations-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: white;
+  font-weight: 600;
+  flex: 1;
+}
+
+.conversation-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+  overflow-y: auto;
+  background-color: #ffffff;
+  height: 100%;
+}
+
+.conversation-item {
+  padding: 15px 20px;
+  margin: 0;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.conversation-item:hover {
+  background-color: #f8f9fa;
+}
+
+.conversation-item.active {
+  background-color: #e3f2fd;
+  border-left: 4px solid #2c5282;
+}
+
+.conversation-item .conversation-title {
+  font-weight: 500;
+  color: #1a365d;
+  margin-bottom: 4px;
+}
+
+.conversation-item .conversation-date {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.conversation-item .conversation-message-count {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.new-conversation-button {
+  padding: 0.5rem 1rem;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.new-conversation-button:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.new-conversation-button:disabled {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  cursor: not-allowed;
+}
+
+.configurations-panel h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: white;
+  font-weight: 600;
+  flex: 1;
+}
+
+.config-section {
+  margin-bottom: 20px;
+}
+
+.config-placeholder {
+  color: #666;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 20px;
 } 

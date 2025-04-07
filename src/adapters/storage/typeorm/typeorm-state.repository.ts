@@ -72,6 +72,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
     const states = await this.stateRepository.find({
       where: { agentId },
       relations: ["messages"],
+      order: { updatedAt: "DESC" }
     });
 
     return states.map((state) => {

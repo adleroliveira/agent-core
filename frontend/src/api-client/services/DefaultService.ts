@@ -168,6 +168,22 @@ export class DefaultService {
         });
     }
     /**
+     * @param id
+     * @returns any
+     * @throws ApiError
+     */
+    public static agentControllerGetConversations(
+        id: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/agents/{id}/conversations',
+            path: {
+                'id': id,
+            },
+        });
+    }
+    /**
      * Get all available tools
      * @returns any List of all available tools
      * @throws ApiError

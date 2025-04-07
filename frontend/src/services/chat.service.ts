@@ -103,10 +103,44 @@ export class ChatService {
               onChunk('[DONE]');
               onComplete();
             } else {
-              onChunk(data);
+              try {
+                // Parse the JSON data
+                const parsedData = JSON.parse(data);
+                
+                // Handle tool calls
+                if (parsedData.toolCalls && Array.isArray(parsedData.toolCalls)) {
+                  for (const toolCall of parsedData.toolCalls) {
+                    // Emit a tool call token
+                    onChunk(JSON.stringify({
+                      type: 'TOOL_CALL',
+                      toolInfo: {
+                        name: toolCall.name,
+                        id: toolCall.id,
+                        arguments: toolCall.arguments
+                      }
+                    }));
+                  }
+                }
+                
+                // Handle tool results
+                if (parsedData.content && typeof parsedData.content === 'string' && 
+                    parsedData.content.includes('Tool') && parsedData.content.includes('result:')) {
+                  onChunk(JSON.stringify({
+                    type: 'TOOL_RESULT',
+                    value: parsedData.content
+                  }));
+                }
+                
+                // Handle regular content
+                if (parsedData.content && typeof parsedData.content === 'string') {
+                  onChunk(parsedData.content);
+                }
+              } catch (error) {
+                console.warn('Error parsing chunk:', error);
+                // If parsing fails, pass the raw data
+                onChunk(data);
+              }
             }
-          } else {
-            // console.warn('Unexpected line:', line);
           }
         }
       }

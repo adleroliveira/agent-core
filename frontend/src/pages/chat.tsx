@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'preact/hooks';
 import type { ComponentType } from 'preact';
 import '../styles/chat.css';
 import { ChatService, Message } from '../services/chat.service';
-import { DefaultService } from '../api-client';
+import { AgentService } from '../services/agent.service';
 import { GenAIStreamLexer, TokenType, Token } from '../utils/StreamLexer';
 import { marked } from 'marked';
 
@@ -16,6 +16,14 @@ interface ExtendedMessage extends Message {
   toolName?: string;
 }
 
+interface Conversation {
+  id: string;
+  conversationId: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+}
+
 export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   const [messages, setMessages] = useState<ExtendedMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -24,18 +32,29 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   const [isUsingTool, setIsUsingTool] = useState(false);
   const [showThinkingBubbles, setShowThinkingBubbles] = useState(true);
   const [agentName, setAgentName] = useState<string>('');
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string>('');
   const chatService = useRef<ChatService | null>(null);
+  const agentService = useRef<AgentService | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lexerRef = useRef<GenAIStreamLexer | null>(null);
   const currentBlockType = useRef<'normal' | 'thinking' | 'tool' | null>(null); // Track current block
-  const [sessionId, setSessionId] = useState<string>('');
+  const [_sessionId, setSessionId] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const [_conversationTitle, setConversationTitle] = useState<string>("New Conversation");
+  const [_conversationId, setConversationId] = useState<string | null>(null);
+  const [_conversationHistory, setConversationHistory] = useState<ExtendedMessage[]>([]);
+  const [_conversationMemory, setConversationMemory] = useState<Record<string, any>>({});
+  const [_conversationTtl, setConversationTtl] = useState<number>(0);
 
   useEffect(() => {
     if (agentId) {
       chatService.current = new ChatService(agentId);
+      agentService.current = new AgentService();
       lexerRef.current = new GenAIStreamLexer();
-      DefaultService.agentControllerGetAgent(agentId)
+
+      // Get agent details
+      agentService.current.getAgentDetails(agentId)
         .then(agent => setAgentName(agent.name))
         .catch(error => {
           console.error('Error fetching agent details:', error);
@@ -46,8 +65,36 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
       if (chatService.current) {
         setSessionId(chatService.current.getSessionId());
       }
+
+      // Load conversations
+      loadConversations();
     }
   }, [agentId]);
+
+  const loadConversations = async () => {
+    if (!agentId || !agentService.current) return;
+    try {
+      const response = await agentService.current.getConversations(agentId);
+      // Sort conversations by date in descending order (newest first)
+      const sortedConversations = [...response].sort((a, b) => {
+        const dateA = new Date(a.createdAt);
+        const dateB = new Date(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      console.log('Sorted conversations:', sortedConversations.map(c => ({
+        id: c.id,
+        date: c.createdAt,
+        messageCount: c.messageCount
+      })));
+
+      setConversations(sortedConversations);
+      return sortedConversations;
+    } catch (error) {
+      console.error('Error loading conversations:', error);
+      return [];
+    }
+  };
 
   useEffect(() => {
     if (messagesContainerRef.current) {
@@ -66,7 +113,6 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     setMessages(prev => {
       const newMessages = [...prev];
       const lastMessage = newMessages[newMessages.length - 1];
-
       switch (token.type) {
         case TokenType.TEXT:
           if (!token.value) return newMessages;
@@ -138,13 +184,9 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           break;
 
         case TokenType.TOOL_RESULT:
-          if (
-            lastMessage?.role === 'assistant' &&
-            lastMessage.blockType === 'tool' &&
-            !lastMessage.isComplete
-          ) {
+          if (lastMessage?.role === 'assistant' && lastMessage.blockType === 'tool' && !lastMessage.isComplete) {
             lastMessage.content = (lastMessage.content || '') + (token.value || '');
-            lastMessage.isComplete = true; // Mark tool message as complete after result
+            lastMessage.isComplete = true;
           } else {
             newMessages.push({
               role: 'assistant',
@@ -154,7 +196,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
               toolName: token.toolInfo?.name
             });
           }
-          setIsUsingTool(true);
+          setIsUsingTool(false);
           break;
 
         case TokenType.DONE:
@@ -168,11 +210,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
 
         case TokenType.UNPARSEABLE:
           console.warn('Unparseable content:', token.value);
-          if (
-            lastMessage?.role === 'assistant' &&
-            lastMessage.blockType === (currentBlockType.current || 'normal') &&
-            !lastMessage.isComplete
-          ) {
+          if (lastMessage?.role === 'assistant' && lastMessage.blockType === (currentBlockType.current || 'normal') && !lastMessage.isComplete) {
             if (currentBlockType.current === 'thinking') {
               lastMessage.thinking = (lastMessage.thinking || '') + (token.value || '');
             } else {
@@ -223,6 +261,8 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           () => {
             setIsLoading(false);
             setIsUsingTool(false);
+            // Reload conversations after message is complete
+            loadConversations();
           },
           (error) => {
             console.error('Error in streaming:', error);
@@ -237,6 +277,8 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           { ...response, blockType: 'normal', isComplete: true }
         ]);
         setIsLoading(false);
+        // Reload conversations after message is complete
+        loadConversations();
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -252,16 +294,67 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     return marked.parse(content) as string;
   };
 
-  const handleResetConversation = () => {
-    if (chatService.current) {
-      chatService.current.resetConversation();
-      setSessionId(chatService.current.getSessionId());
+  const handleResetConversation = async () => {
+    if (!agentId || !agentService.current) return;
+
+    try {
+      // Reset the conversation state
       setMessages([]);
+      setActiveConversationId('');
+      setConversationTitle("New Conversation");
+      setConversationId(null);
+      setConversationHistory([]);
+      setConversationMemory({});
+      setConversationTtl(0);
+
+      // Reset the agent state
+      await agentService.current.resetAgentState(agentId);
+
+      // Reload conversations to update the list
+      const updatedConversations = await loadConversations();
+
+      // Set the active conversation to the newest one (first in the sorted list)
+      if (updatedConversations && updatedConversations.length > 0) {
+        setActiveConversationId(updatedConversations[0].conversationId);
+      }
+    } catch (error) {
+      console.error("Error resetting conversation:", error);
     }
   };
 
   return (
     <div class="chat-page">
+      <div class="conversations-sidebar">
+        <div class="conversations-header">
+          <h2>Conversations</h2>
+          <button
+            class="new-conversation-button"
+            onClick={handleResetConversation}
+            disabled={isLoading}
+          >
+            <span>+</span> New
+          </button>
+        </div>
+        <ul class="conversation-list">
+          {conversations.map((conversation) => (
+            <li
+              key={conversation.id}
+              class={`conversation-item ${conversation.conversationId === activeConversationId ? 'active' : ''}`}
+              onClick={() => setActiveConversationId(conversation.conversationId)}
+            >
+              <div class="conversation-title">
+                Conversation {conversation.id.slice(0, 8)}...
+              </div>
+              <div class="conversation-date">
+                {new Date(conversation.createdAt).toLocaleDateString()}
+              </div>
+              <div class="conversation-message-count">
+                {conversation.messageCount} messages
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
       <div class="chat-container">
         <div class="chat-header">
           <h1>{agentName}</h1>
@@ -346,19 +439,8 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
       </div>
 
       <div class="configurations-panel">
-        <h2>Configurations</h2>
-        <div class="config-section">
-          <div class="session-info">
-            <span class="session-label">Session ID:</span>
-            <span class="session-id">{sessionId}</span>
-          </div>
-          <button
-            class="reset-button"
-            onClick={handleResetConversation}
-            disabled={isLoading}
-          >
-            New Conversation
-          </button>
+        <div class="configurations-header">
+          <h2>Configurations</h2>
         </div>
         <div class="config-placeholder">
           <p>Configuration options will appear here</p>

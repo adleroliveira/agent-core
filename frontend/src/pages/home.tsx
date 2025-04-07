@@ -68,12 +68,10 @@ export const Home: ComponentType = () => {
   return (
     <div class="home">
       <div class="page-header">
-        <div class="header-content">
-          <h1>Agents</h1>
-          <button class="create-agent-button" onClick={handleCreateAgent}>
-            Create Agent
-          </button>
-        </div>
+        <h1>Agents</h1>
+        <button class="create-agent-button" onClick={handleCreateAgent}>
+          <span>+</span> New Agent
+        </button>
       </div>
 
       <div class="agents-section">
@@ -88,55 +86,67 @@ export const Home: ComponentType = () => {
               <div class="agent-card" key={agent.id}>
                 <div class="agent-card-header">
                   <h4>{agent.name}</h4>
-                  <span class="status active">Active</span>
-                </div>
-                <p class="agent-description">{agent.description}</p>
-                <div class="agent-info">
-                  <div class="info-item">
-                    <span class="info-label">Model ID:</span>
-                    <span class="info-value">{agent.modelId}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="info-label">Created:</span>
-                    <span class="info-value">{new Date(agent.createdAt).toLocaleDateString()}</span>
-                  </div>
-                </div>
-                <div class="agent-actions">
-                  <button class="talk-to-agent-button" onClick={() => route(`/chat/${agent.id}`)}>
-                    Talk to Agent
-                  </button>
-                  {deleteConfirmId === agent.id ? (
-                    <div class="delete-confirmation">
-                      <p>Are you sure?</p>
-                      <div class="confirmation-buttons">
-                        <button
-                          class="confirm-delete-button"
-                          onClick={() => handleDeleteAgent(agent.id)}
-                        >
-                          Delete
-                        </button>
-                        <button
-                          class="cancel-delete-button"
-                          onClick={() => setDeleteConfirmId(null)}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
+                  <div class="header-actions">
                     <button
                       class="delete-agent-button"
                       onClick={() => setDeleteConfirmId(agent.id)}
+                      title="Delete agent"
                     >
-                      Delete Agent
+                      🗑️
                     </button>
-                  )}
+                  </div>
+                </div>
+                <div class="agent-card-content">
+                  <div class="agent-card-main">
+                    <p class="agent-description">{agent.description}</p>
+                    <div class="agent-info">
+                      <div class="info-item">
+                        <span class="info-label">Model ID</span>
+                        <span class="info-value">{agent.modelId}</span>
+                      </div>
+                      <div class="info-item">
+                        <span class="info-label">Created</span>
+                        <span class="info-value">{new Date(agent.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="agent-card-bottom">
+                    <div class="agent-tools">
+                      <span class="tools-label">Tools:</span>
+                      {agent.tools?.map((tool: { id: string; name: string; description: string }) => (
+                        <span class="tool-tag" key={tool.id}>
+                          {tool.name}
+                        </span>
+                      ))}
+                    </div>
+                    <div class="agent-actions">
+                      <button class="talk-to-agent-button" onClick={() => route(`/chat/${agent.id}`)}>
+                        Talk to Agent
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+      {deleteConfirmId && (
+        <div class="modal-overlay">
+          <div class="delete-modal">
+            <h3>Delete Agent</h3>
+            <p>Are you sure you want to delete this agent? This action cannot be undone.</p>
+            <div class="modal-actions">
+              <button class="cancel-delete-button" onClick={() => setDeleteConfirmId(null)}>
+                Cancel
+              </button>
+              <button class="confirm-delete-button" onClick={() => handleDeleteAgent(deleteConfirmId)}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-} 
+}; 

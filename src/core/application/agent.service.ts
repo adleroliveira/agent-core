@@ -27,6 +27,7 @@ import {
 import { TOOL_REGISTRY } from "@core/constants";
 import { DEFAULT_SYSTEM_PROMPT } from "@config/prompts.config";
 import { WorkspaceConfig } from "@core/config/workspace.config";
+import { AgentState } from "@core/domain/agent-state.entity";
 
 @Injectable()
 export class AgentService implements OnModuleInit {
@@ -264,5 +265,11 @@ export class AgentService implements OnModuleInit {
     const agent = await this.findAgentById(agentId);
     agent.resetState();
     return this.agentRepository.save(agent);
+  }
+
+  async getConversations(agentId: string): Promise<AgentState[]> {
+    const states = await this.stateRepository.findAllByAgentId(agentId);
+    // Sort states by updatedAt in descending order (newest first)
+    return states.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   }
 }

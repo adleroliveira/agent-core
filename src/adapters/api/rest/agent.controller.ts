@@ -70,6 +70,11 @@ export class AgentController {
         description: agent.description,
         modelId: agent.modelId,
         createdAt: agent.createdAt,
+        tools: agent.tools.map((tool) => ({
+          id: tool.id,
+          name: tool.name,
+          description: tool.description,
+        })),
       }));
     } catch (error) {
       throw new HttpException(
@@ -290,6 +295,25 @@ export class AgentController {
     } catch (error) {
       throw new HttpException(
         `Failed to reset state: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Get(":id/conversations")
+  async getConversations(@Param("id") id: string) {
+    try {
+      const conversations = await this.agentService.getConversations(id);
+      return conversations.map((conversation) => ({
+        id: conversation.id,
+        conversationId: conversation.conversationId,
+        createdAt: conversation.createdAt,
+        updatedAt: conversation.updatedAt,
+        messageCount: conversation.conversationHistory?.length || 0,
+      }));
+    } catch (error) {
+      throw new HttpException(
+        `Failed to retrieve conversations: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
