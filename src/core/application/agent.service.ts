@@ -268,8 +268,20 @@ export class AgentService implements OnModuleInit {
   }
 
   async getConversations(agentId: string): Promise<AgentState[]> {
-    const states = await this.stateRepository.findAllByAgentId(agentId);
-    // Sort states by updatedAt in descending order (newest first)
-    return states.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    return await this.stateRepository.findAllByAgentId(agentId);
+  }
+
+  async getConversationHistory(
+    agentId: string,
+    conversationId: string,
+    options: {
+      limit?: number;
+      beforeTimestamp?: Date;
+    } = {}
+  ): Promise<{
+    messages: Message[];
+    hasMore: boolean;
+  }> {
+    return this.stateRepository.getConversationMessages(agentId, conversationId, options);
   }
 }

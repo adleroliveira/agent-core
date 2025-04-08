@@ -210,7 +210,8 @@ export class BedrockModelService implements ModelServicePort {
       } catch (error) {
         this.logger.error(
           `Error in streaming response: ${error.message}`,
-          error.stack
+          error.stack,
+          command
         );
         subject.error(
           new Error(`Failed to generate streaming response: ${error.message}`)

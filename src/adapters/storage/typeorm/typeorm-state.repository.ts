@@ -11,6 +11,7 @@ import { VectorDBPort } from "@ports/storage/vector-db.port";
 import { VECTOR_DB } from "@adapters/adapters.module";
 import { Logger } from "@nestjs/common";
 import { Message, MessageRole } from "@core/domain/message.entity";
+import { MessageMapper } from "./mappers/message.mapper";
 
 @Injectable()
 export class TypeOrmStateRepository implements StateRepositoryPort {
@@ -44,7 +45,10 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
     const stateEntity = await this.stateRepository.findOne({
       where: { conversationId },
       relations: ["messages"],
-      order: { updatedAt: "DESC" },
+      order: { 
+        updatedAt: "DESC",
+        messages: { createdAt: "ASC" }
+      },
     });
 
     if (!stateEntity) {
@@ -72,7 +76,10 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
     const states = await this.stateRepository.find({
       where: { agentId },
       relations: ["messages"],
-      order: { updatedAt: "DESC" }
+      order: { 
+        updatedAt: "DESC",
+        messages: { createdAt: "ASC" }
+      }
     });
 
     return states.map((state) => {
@@ -120,26 +127,71 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
         ttl: state.ttl,
       });
 
-      // Update messages
-      const messageEntities = state.conversationHistory.map((msg) => ({
-        id: msg.id,
-        role: msg.role,
-        content: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content),
-        conversationId: state.conversationId,
-        metadata: msg.metadata ? JSON.stringify(msg.metadata) : null,
-        toolCalls: msg.toolCalls ? JSON.stringify(msg.toolCalls) : null,
-        toolCallId: msg.toolCallId || null,
-        toolName: msg.toolName || null,
-        isStreaming: msg.isStreaming,
-        stateId: existingState.id,
-        createdAt: msg.createdAt,
-      }));
+      // Get existing messages
+      const existingMessages = await this.messageRepository.find({
+        where: { stateId: existingState.id },
+        order: { createdAt: "ASC" }
+      });
 
-      // Delete existing messages
-      await this.messageRepository.delete({ stateId: existingState.id });
+      // Create maps for quick lookup
+      const existingMessagesMap = new Map(
+        existingMessages.map(msg => [msg.id, msg])
+      );
+      const newMessagesMap = new Map(
+        state.conversationHistory.map(msg => [msg.id, msg])
+      );
 
-      // Insert new messages
-      await this.messageRepository.insert(messageEntities);
+      // Identify messages to update and insert
+      const messagesToUpdate = state.conversationHistory
+        .filter(msg => existingMessagesMap.has(msg.id))
+        .map(msg => {
+          const existingMessage = existingMessagesMap.get(msg.id)!;
+          return {
+            id: msg.id,
+            role: msg.role,
+            content: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content),
+            conversationId: state.conversationId,
+            metadata: msg.metadata ? JSON.stringify(msg.metadata) : null,
+            toolCalls: msg.toolCalls ? JSON.stringify(msg.toolCalls) : null,
+            toolCallId: msg.toolCallId || null,
+            toolName: msg.toolName || null,
+            isStreaming: msg.isStreaming,
+            stateId: existingState.id,
+            createdAt: existingMessage.createdAt, // Preserve original timestamp
+          };
+        });
+
+      const messagesToInsert = state.conversationHistory
+        .filter(msg => !existingMessagesMap.has(msg.id))
+        .map(msg => ({
+          id: msg.id,
+          role: msg.role,
+          content: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content),
+          conversationId: state.conversationId,
+          metadata: msg.metadata ? JSON.stringify(msg.metadata) : null,
+          toolCalls: msg.toolCalls ? JSON.stringify(msg.toolCalls) : null,
+          toolCallId: msg.toolCallId || null,
+          toolName: msg.toolName || null,
+          isStreaming: msg.isStreaming,
+          stateId: existingState.id,
+          createdAt: msg.createdAt,
+        }));
+
+      // Identify messages to delete (those that exist in DB but not in new state)
+      const messagesToDelete = existingMessages
+        .filter(msg => !newMessagesMap.has(msg.id))
+        .map(msg => msg.id);
+
+      // Perform the operations
+      if (messagesToUpdate.length > 0) {
+        await this.messageRepository.save(messagesToUpdate);
+      }
+      if (messagesToInsert.length > 0) {
+        await this.messageRepository.insert(messagesToInsert);
+      }
+      if (messagesToDelete.length > 0) {
+        await this.messageRepository.delete(messagesToDelete);
+      }
     } else {
       // Create new state
       const stateEntity = this.stateRepository.create({
@@ -233,6 +285,10 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
         conversationId,
       },
       relations: ["messages"],
+      order: { 
+        updatedAt: "DESC",
+        messages: { createdAt: "ASC" }
+      }
     });
 
     if (!state) return null;
@@ -260,5 +316,60 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
     });
 
     return agentState;
+  }
+
+  async getConversationMessages(
+    agentId: string,
+    conversationId: string,
+    options: {
+      limit?: number;
+      beforeTimestamp?: Date;
+    } = {}
+  ): Promise<{
+    messages: Message[];
+    hasMore: boolean;
+  }> {
+    const { limit = 20, beforeTimestamp } = options;
+
+    // First, get the state to ensure it exists
+    const state = await this.stateRepository.findOne({
+      where: { agentId, conversationId }
+    });
+
+    if (!state) {
+      return { messages: [], hasMore: false };
+    }
+
+    // Build the query for messages
+    const queryBuilder = this.messageRepository
+      .createQueryBuilder("message")
+      .where("message.stateId = :stateId", { stateId: state.id })
+      .orderBy("message.createdAt", "ASC");
+
+    // Apply timestamp filter if provided
+    if (beforeTimestamp) {
+      queryBuilder.andWhere("message.createdAt < :beforeTimestamp", { beforeTimestamp });
+    }
+
+    // Get one more message than the limit to determine if there are more
+    const messages = await queryBuilder
+      .take(limit + 1)
+      .getMany();
+
+    // Check if there are more messages
+    const hasMore = messages.length > limit;
+    
+    // If we have more, remove the extra message
+    if (hasMore) {
+      messages.pop();
+    }
+
+    // Convert to domain messages using the MessageMapper
+    const domainMessages = messages.map(msg => MessageMapper.toDomain(msg));
+
+    return {
+      messages: domainMessages,
+      hasMore
+    };
   }
 }

@@ -1,4 +1,5 @@
 import { AgentState } from "@core/domain/agent-state.entity";
+import { Message } from "@core/domain/message.entity";
 
 export interface StateRepositoryPort {
   save(state: AgentState): Promise<void>;
@@ -8,4 +9,17 @@ export interface StateRepositoryPort {
   deleteByAgentId(agentId: string): Promise<void>;
   findAllByAgentId(agentId: string): Promise<AgentState[]>;
   clearExpiredStates(): Promise<number>;
+  
+  // New method for paginated message retrieval
+  getConversationMessages(
+    agentId: string,
+    conversationId: string,
+    options: {
+      limit?: number;
+      beforeTimestamp?: Date;
+    }
+  ): Promise<{
+    messages: Message[];
+    hasMore: boolean;
+  }>;
 }

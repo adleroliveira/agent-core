@@ -1,6 +1,5 @@
 import { DefaultService } from '../api-client/services/DefaultService';
 import type { SendMessageDto } from '../api-client/models/SendMessageDto';
-import { SessionService } from './session.service';
 
 export interface ToolCall {
   id: string;
@@ -15,42 +14,50 @@ export interface ToolResult {
 
 export interface Message {
   role: 'user' | 'assistant';
-  content?: string;
-  thinking?: string;
-  toolCalls?: ToolCall[];
-  toolResults?: ToolResult[];
+  content: string;
+  toolCalls?: Array<{
+    id: string;
+    name: string;
+    arguments: Record<string, any>;
+  }>;
+  toolResults?: Array<{
+    id: string;
+    content: string;
+  }>;
   isExecutingTool?: boolean;
 }
 
 export class ChatService {
   private agentId: string;
-  private sessionService: SessionService;
 
   constructor(agentId: string) {
     this.agentId = agentId;
-    this.sessionService = new SessionService();
   }
 
-  public getSessionId(): string {
-    return this.sessionService.getSessionId();
-  }
-
-  async sendMessage(content: string, stream: boolean = true): Promise<Message> {
+  async sendMessage(content: string, conversationId: string): Promise<Message> {
     const messageDto: SendMessageDto = {
       content,
-      conversationId: this.sessionService.getSessionId()
+      conversationId,
     };
 
     try {
       const response = await DefaultService.agentControllerSendMessage(
         this.agentId,
-        stream.toString(),
         messageDto
       );
 
       return {
         role: 'assistant',
         content: response.content,
+        toolCalls: response.toolCalls?.map(toolCall => ({
+          id: toolCall.id,
+          name: toolCall.name,
+          arguments: toolCall.arguments
+        })),
+        toolResults: response.toolResults?.map(result => ({
+          id: result.id,
+          content: result.content
+        }))
       };
     } catch (error) {
       console.error('Error sending message:', error);
@@ -60,26 +67,31 @@ export class ChatService {
 
   async sendStreamingMessage(
     content: string,
+    conversationId: string,
     onChunk: (chunk: string) => void,
     onComplete: () => void,
     onError: (error: any) => void
   ): Promise<void> {
     const messageDto: SendMessageDto = {
       content,
-      conversationId: this.sessionService.getSessionId()
+      conversationId,
     };
 
     try {
-      const response = await fetch(`/api/agents/${this.agentId}/message?stream=true`, {
+      const response = await fetch(`http://localhost:3000/api/agents/${this.agentId}/message?stream=true`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
         },
         body: JSON.stringify(messageDto),
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
 
       if (!response.body) {
@@ -100,44 +112,22 @@ export class ChatService {
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
             if (data === '[DONE]') {
-              onChunk('[DONE]');
               onComplete();
+              return;
             } else {
               try {
-                // Parse the JSON data
                 const parsedData = JSON.parse(data);
-                
-                // Handle tool calls
-                if (parsedData.toolCalls && Array.isArray(parsedData.toolCalls)) {
-                  for (const toolCall of parsedData.toolCalls) {
-                    // Emit a tool call token
-                    onChunk(JSON.stringify({
-                      type: 'TOOL_CALL',
-                      toolInfo: {
-                        name: toolCall.name,
-                        id: toolCall.id,
-                        arguments: toolCall.arguments
-                      }
-                    }));
-                  }
-                }
-                
-                // Handle tool results
-                if (parsedData.content && typeof parsedData.content === 'string' && 
-                    parsedData.content.includes('Tool') && parsedData.content.includes('result:')) {
-                  onChunk(JSON.stringify({
-                    type: 'TOOL_RESULT',
-                    value: parsedData.content
-                  }));
-                }
-                
-                // Handle regular content
-                if (parsedData.content && typeof parsedData.content === 'string') {
+                if (parsedData.content) {
                   onChunk(parsedData.content);
+                } else if (parsedData.message) {
+                  onChunk(parsedData.message);
+                } else if (parsedData.choices && parsedData.choices[0]?.delta?.content) {
+                  onChunk(parsedData.choices[0].delta.content);
+                } else {
+                  onChunk(data);
                 }
               } catch (error) {
                 console.warn('Error parsing chunk:', error);
-                // If parsing fails, pass the raw data
                 onChunk(data);
               }
             }
@@ -148,9 +138,5 @@ export class ChatService {
       console.error('Error in streaming message:', error);
       onError(error);
     }
-  }
-
-  public resetConversation(): void {
-    this.sessionService.resetSession();
   }
 } 

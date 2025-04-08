@@ -72,26 +72,31 @@
     "/api/agents/{id}/message": {
       "post": {
         "operationId": "AgentController_sendMessage",
+        "summary": "Send a message to an agent",
+        "description": "Send a message to an agent. The conversationId is required to identify the conversation.",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "The ID of the agent",
             "schema": {
               "type": "string"
             }
           },
           {
             "name": "stream",
-            "required": true,
+            "required": false,
             "in": "query",
+            "description": "Whether to stream the response",
             "schema": {
-              "type": "string"
+              "type": "boolean"
             }
           }
         ],
         "requestBody": {
           "required": true,
+          "description": "The message to send, including conversationId to identify the conversation",
           "content": {
             "application/json": {
               "schema": {
@@ -101,8 +106,21 @@
           }
         },
         "responses": {
-          "201": {
-            "description": ""
+          "200": {
+            "description": "Message processed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters"
+          },
+          "404": {
+            "description": "Agent not found"
           }
         }
       }
@@ -235,6 +253,51 @@
         }
       }
     },
+    "/api/agents/{id}/conversation-history": {
+      "get": {
+        "operationId": "AgentController_getConversationHistory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "conversationId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "beforeTimestamp",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/tools": {
       "get": {
         "operationId": "ToolsController_getAllTools",
@@ -269,7 +332,139 @@
       },
       "SendMessageDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The content of the message to send",
+            "example": "Hello, how can you help me today?"
+          },
+          "conversationId": {
+            "type": "string",
+            "description": "Optional conversation ID to continue an existing conversation. If not provided, a new conversation will be created.",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Temperature for response generation (0-1)",
+            "minimum": 0,
+            "maximum": 1,
+            "default": 0.7
+          },
+          "maxTokens": {
+            "type": "number",
+            "description": "Maximum number of tokens to generate",
+            "minimum": 1,
+            "default": 1000
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "ToolCallDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The ID of the tool call",
+            "example": "call_123"
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the tool being called",
+            "example": "search"
+          },
+          "arguments": {
+            "type": "object",
+            "description": "The arguments passed to the tool",
+            "example": {
+              "query": "weather in London"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "arguments"
+        ]
+      },
+      "ToolResultDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The ID of the tool result",
+            "example": "result_123"
+          },
+          "content": {
+            "type": "string",
+            "description": "The content of the tool result",
+            "example": "The weather in London is sunny"
+          }
+        },
+        "required": [
+          "id",
+          "content"
+        ]
+      },
+      "MessageDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The ID of the message",
+            "example": "msg_123"
+          },
+          "content": {
+            "type": "string",
+            "description": "The content of the message",
+            "example": "Hello, how can I help you?"
+          },
+          "role": {
+            "type": "string",
+            "description": "The role of the message sender",
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "example": "assistant"
+          },
+          "conversationId": {
+            "type": "string",
+            "description": "The ID of the conversation this message belongs to",
+            "example": "conv_123"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the message was created",
+            "example": "2024-03-14T12:00:00Z"
+          },
+          "toolCalls": {
+            "description": "Tool calls made in this message",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolCallDto"
+            }
+          },
+          "toolResults": {
+            "description": "Results from tool calls",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolResultDto"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Additional metadata about the message"
+          }
+        },
+        "required": [
+          "id",
+          "content",
+          "role",
+          "conversationId",
+          "createdAt"
+        ]
       },
       "UpdatePromptDto": {
         "type": "object",

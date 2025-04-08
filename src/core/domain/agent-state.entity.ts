@@ -32,7 +32,24 @@ export class AgentState {
   }
 
   public addToConversation(message: Message): void {
-    this.conversationHistory.push(message);
+    // Ensure the message has a timestamp
+    if (!message.createdAt) {
+      message.createdAt = new Date();
+    }
+
+    // Find the correct position to insert the message
+    const insertIndex = this.conversationHistory.findIndex(
+      existingMsg => existingMsg.createdAt > message.createdAt
+    );
+
+    if (insertIndex === -1) {
+      // If no message is newer, append to the end
+      this.conversationHistory.push(message);
+    } else {
+      // Insert at the correct position to maintain chronological order
+      this.conversationHistory.splice(insertIndex, 0, message);
+    }
+
     if (message.conversationId && !this.conversationId) {
       this.conversationId = message.conversationId;
     }
@@ -40,12 +57,12 @@ export class AgentState {
   }
 
   public getLastNMessages(n: number): Message[] {
+    // Return the last N messages in chronological order
     return this.conversationHistory.slice(-n);
   }
 
-  // In agent-state.entity.ts
-
   public getLastNInteractions(n: number): Message[] {
+    // Create a copy to avoid modifying the original array
     const history = [...this.conversationHistory];
     const result: Message[] = [];
     let interactionCount = 0;
@@ -58,7 +75,7 @@ export class AgentState {
       if (
         i > 0 &&
         history[i].role === "assistant" &&
-        history[i - 1].role === "user"
+        (history[i - 1].role === "user" || history[i - 1].role === "tool")
       ) {
         interactionCount++;
         if (interactionCount >= n) break;
@@ -66,15 +83,14 @@ export class AgentState {
     }
 
     // Ensure the first message is from a user
-    if (result.length > 0 && result[0].role !== "user") {
+    if (result.length > 0 && (result[0].role !== "user" && result[0].role !== "tool")) {
       // Find the first user message
-      const firstUserIndex = result.findIndex((msg) => msg.role === "user");
+      const firstUserIndex = result.findIndex((msg) => msg.role === "user" || msg.role === "tool");
       if (firstUserIndex > 0) {
         // Remove any assistant messages that came before the first user message
         result.splice(0, firstUserIndex);
       } else {
         // If there are no user messages, we need at least one to start the conversation
-        // You might want to handle this case differently based on your application's needs
         return [];
       }
     }

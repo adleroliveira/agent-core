@@ -1,21 +1,13 @@
 import { DefaultService } from '../api-client/services/DefaultService';
-import { SessionService } from './session.service';
 
 export class AgentService {
-  private sessionService: SessionService;
-
-  constructor() {
-    this.sessionService = new SessionService();
-  }
-
   async createAgent(name: string, description: string, systemPrompt?: string, tools?: string[]): Promise<string> {
     try {
       const response = await DefaultService.agentControllerCreateAgent({
         name,
         description,
         systemPrompt,
-        tools,
-        conversationId: this.sessionService.getSessionId()
+        tools
       });
 
       return response.id;
@@ -35,11 +27,11 @@ export class AgentService {
     }
   }
 
-  async resetAgentState(agentId: string) {
+  async createNewConversation(agentId: string) {
     try {
       await DefaultService.agentControllerResetState(agentId);
     } catch (error) {
-      console.error('Error resetting agent state:', error);
+      console.error('Error creating new conversation:', error);
       throw error;
     }
   }
@@ -50,6 +42,23 @@ export class AgentService {
       return response;
     } catch (error) {
       console.error('Error loading conversations:', error);
+      throw error;
+    }
+  }
+
+  async getConversationHistory(agentId: string, conversationId: string) {
+    try {
+      const response = await DefaultService.agentControllerGetConversationHistory(agentId, conversationId);
+      
+      return response.messages
+        .map((message: { role: string; content: string | { text: string } }) => ({
+          role: message.role,
+          content: typeof message.content === 'string' ? message.content : message.content.text,
+          blockType: 'normal' as const,
+          isComplete: true
+        }))
+    } catch (error) {
+      console.error('Error loading conversation history:', error);
       throw error;
     }
   }

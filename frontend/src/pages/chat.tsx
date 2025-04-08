@@ -1,325 +1,308 @@
-import { useEffect, useState, useRef } from 'preact/hooks';
+import { useEffect, useRef } from 'preact/hooks';
 import type { ComponentType } from 'preact';
 import '../styles/chat.css';
-import { ChatService, Message } from '../services/chat.service';
-import { AgentService } from '../services/agent.service';
-import { GenAIStreamLexer, TokenType, Token } from '../utils/StreamLexer';
 import { marked } from 'marked';
+import { useChatStore, ExtendedMessage } from '../stores/chat.store';
+import { GenAIStreamLexer } from '../utils/StreamLexer';
+import { ChatService } from '@/services/chat.service';
+import { AgentService } from '@/services/agent.service';
+import '@preact/compat';
 
 interface ChatProps {
   agentId?: string;
 }
 
-interface ExtendedMessage extends Message {
-  blockType: 'normal' | 'thinking' | 'tool';
-  isComplete: boolean;
-  toolName?: string;
-}
-
-interface Conversation {
-  id: string;
-  conversationId: string;
-  createdAt: string;
-  updatedAt: string;
-  messageCount: number;
-}
-
 export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
-  const [messages, setMessages] = useState<ExtendedMessage[]>([]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isStreaming, setIsStreaming] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isUsingTool, setIsUsingTool] = useState(false);
-  const [showThinkingBubbles, setShowThinkingBubbles] = useState(true);
-  const [agentName, setAgentName] = useState<string>('');
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeConversationId, setActiveConversationId] = useState<string>('');
-  const chatService = useRef<ChatService | null>(null);
-  const agentService = useRef<AgentService | null>(null);
+  const { state, dispatch, loadConversation, initializeConversations, resetState } = useChatStore();
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const lexerRef = useRef<GenAIStreamLexer | null>(null);
-  const currentBlockType = useRef<'normal' | 'thinking' | 'tool' | null>(null); // Track current block
-  const [_sessionId, setSessionId] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const [_conversationTitle, setConversationTitle] = useState<string>("New Conversation");
-  const [_conversationId, setConversationId] = useState<string | null>(null);
-  const [_conversationHistory, setConversationHistory] = useState<ExtendedMessage[]>([]);
-  const [_conversationMemory, setConversationMemory] = useState<Record<string, any>>({});
-  const [_conversationTtl, setConversationTtl] = useState<number>(0);
+  const lexerRef = useRef<GenAIStreamLexer | null>(null);
+  const initializedRef = useRef(false);
+  const currentBlockType = useRef<'thinking' | 'tool' | 'normal' | null>(null);
+  const currentMessageRef = useRef<ExtendedMessage | null>(null);
 
-  useEffect(() => {
-    if (agentId) {
-      chatService.current = new ChatService(agentId);
-      agentService.current = new AgentService();
-      lexerRef.current = new GenAIStreamLexer();
+  if (!lexerRef.current) {
+    lexerRef.current = new GenAIStreamLexer();
+  }
 
-      // Get agent details
-      agentService.current.getAgentDetails(agentId)
-        .then(agent => setAgentName(agent.name))
-        .catch(error => {
-          console.error('Error fetching agent details:', error);
-          setAgentName('Agent');
-        });
-
-      // Get initial session ID
-      if (chatService.current) {
-        setSessionId(chatService.current.getSessionId());
-      }
-
-      // Load conversations
-      loadConversations();
-    }
-  }, [agentId]);
-
-  const loadConversations = async () => {
-    if (!agentId || !agentService.current) return;
-    try {
-      const response = await agentService.current.getConversations(agentId);
-      // Sort conversations by date in descending order (newest first)
-      const sortedConversations = [...response].sort((a, b) => {
-        const dateA = new Date(a.createdAt);
-        const dateB = new Date(b.createdAt);
-        return dateB.getTime() - dateA.getTime();
-      });
-
-      console.log('Sorted conversations:', sortedConversations.map(c => ({
-        id: c.id,
-        date: c.createdAt,
-        messageCount: c.messageCount
-      })));
-
-      setConversations(sortedConversations);
-      return sortedConversations;
-    } catch (error) {
-      console.error('Error loading conversations:', error);
-      return [];
-    }
+  const newConversation = async () => {
+    console.log('newConversation');
   };
 
+  // Initialize services and component
   useEffect(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-    }
-  }, [messages, isUsingTool]);
+    if (!agentId) return;
 
+    const initialize = async () => {
+
+      // Reset state first
+      resetState();
+
+      try {
+        // Initialize services
+        const chatService = new ChatService(agentId);
+        const agentService = new AgentService();
+
+        // Set services in state first
+        dispatch({ type: 'SET_CHAT_SERVICE', payload: chatService });
+        dispatch({ type: 'SET_AGENT_SERVICE', payload: agentService });
+        dispatch({ type: 'SET_AGENT_ID', payload: agentId });
+
+        // Get agent details
+        const agent = await agentService.getAgentDetails(agentId);
+        dispatch({ type: 'SET_AGENT_NAME', payload: agent.name });
+
+        // Initialize conversations with the current agentId and service
+        await initializeConversations(agentId, agentService);
+
+        initializedRef.current = true;
+      } catch (error) {
+        dispatch({ type: 'SET_AGENT_NAME', payload: 'Agent' });
+      }
+    };
+
+    initialize();
+
+    return () => {
+      initializedRef.current = false;
+    };
+  }, [agentId]);
+
+  // Auto-scroll messages
   useEffect(() => {
-    // Focus input when loading state changes from true to false
-    if (!isLoading && inputRef.current) {
-      inputRef.current.focus();
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
     }
-  }, [isLoading]);
+  }, [state.messages, state.isUsingTool]);
 
-  const processToken = (token: Token) => {
-    setMessages(prev => {
-      const newMessages = [...prev];
-      const lastMessage = newMessages[newMessages.length - 1];
-      switch (token.type) {
-        case TokenType.TEXT:
-          if (!token.value) return newMessages;
-          // Always append to the last message if it's from the assistant and not complete
-          if (lastMessage?.role === 'assistant' && !lastMessage.isComplete) {
-            if (currentBlockType.current === 'thinking') {
-              lastMessage.thinking = (lastMessage.thinking || '') + token.value;
-            } else {
-              lastMessage.content = (lastMessage.content || '') + token.value;
-            }
-          } else {
-            // If the last message is a tool message, create a new normal message for the text
-            if (lastMessage?.blockType === 'tool') {
-              newMessages.push({
-                role: 'assistant',
-                content: token.value,
-                blockType: 'normal',
-                isComplete: false
-              });
-            } else {
-              newMessages.push({
-                role: 'assistant',
-                content: currentBlockType.current === 'thinking' ? '' : token.value,
-                thinking: currentBlockType.current === 'thinking' ? token.value : undefined,
-                blockType: currentBlockType.current || 'normal',
-                isComplete: false
-              });
-            }
-          }
-          break;
+  // Focus input when not loading
+  useEffect(() => {
+    if (!state.isLoading) {
+      inputRef.current?.focus();
+    }
+  }, [state.isLoading]);
 
-        case TokenType.BLOCK_START:
-          if (!token.blockName) return newMessages;
-          const blockType = token.blockName.toLowerCase() as 'thinking' | 'tool' | 'normal';
-          currentBlockType.current = blockType;
-          if (lastMessage?.role === 'assistant' && !lastMessage.isComplete) {
-            lastMessage.isComplete = true;
-          }
-          newMessages.push({
-            role: 'assistant',
-            content: '',
-            thinking: blockType === 'thinking' ? '' : undefined,
-            blockType,
-            isComplete: false
+  const processToken = (token: any) => {
+    switch (token.type) {
+      case 'TEXT':
+        if (!token.value) return;
+
+        // If we have a current message being streamed, update it
+        if (currentMessageRef.current) {
+          const updatedMessage = {
+            ...currentMessageRef.current,
+            [currentBlockType.current === 'thinking' ? 'thinking' : 'content']:
+              (currentMessageRef.current[currentBlockType.current === 'thinking' ? 'thinking' : 'content'] || '') + token.value
+          };
+          currentMessageRef.current = updatedMessage;
+          dispatch({
+            type: 'UPDATE_LAST_MESSAGE',
+            payload: () => updatedMessage
           });
-          if (blockType === 'tool') setIsUsingTool(true);
-          break;
+        } else {
+          // Create a new message if we don't have one being streamed
+          const newMessage = {
+            role: 'assistant' as const,
+            content: currentBlockType.current === 'thinking' ? '' : token.value,
+            thinking: currentBlockType.current === 'thinking' ? token.value : undefined,
+            blockType: currentBlockType.current || 'normal',
+            isComplete: false
+          };
+          currentMessageRef.current = newMessage;
+          dispatch({
+            type: 'ADD_MESSAGE',
+            payload: newMessage
+          });
+        }
+        break;
 
-        case TokenType.BLOCK_END:
-          if (lastMessage?.role === 'assistant' && !lastMessage.isComplete) {
-            lastMessage.isComplete = true;
-          }
-          currentBlockType.current = null;
-          break;
+      case 'BLOCK_START':
+        if (!token.blockName) return;
+        const blockType = token.blockName.toLowerCase() as 'thinking' | 'tool' | 'normal';
+        currentBlockType.current = blockType;
 
-        case TokenType.TOOL_CALL:
-          if (lastMessage?.role === 'assistant' && !lastMessage.isComplete) {
-            lastMessage.isComplete = true;
-          }
-          currentBlockType.current = 'tool';
-          setIsUsingTool(true);
-          newMessages.push({
+        // If we have a current message, mark it as complete
+        if (currentMessageRef.current) {
+          dispatch({
+            type: 'UPDATE_LAST_MESSAGE',
+            payload: msg => ({ ...msg, isComplete: true })
+          });
+          currentMessageRef.current = null;
+        }
+
+        // Create a new message for the new block
+        const newBlockMessage = {
+          role: 'assistant' as const,
+          content: '',
+          thinking: blockType === 'thinking' ? '' : undefined,
+          blockType,
+          isComplete: false
+        };
+        currentMessageRef.current = newBlockMessage;
+        dispatch({
+          type: 'ADD_MESSAGE',
+          payload: newBlockMessage
+        });
+
+        if (blockType === 'tool') {
+          dispatch({ type: 'SET_IS_USING_TOOL', payload: true });
+        }
+        break;
+
+      case 'BLOCK_END':
+        if (currentMessageRef.current) {
+          dispatch({
+            type: 'UPDATE_LAST_MESSAGE',
+            payload: msg => ({ ...msg, isComplete: true })
+          });
+          currentMessageRef.current = null;
+        }
+        currentBlockType.current = null;
+        break;
+
+      case 'TOOL_CALL':
+        if (currentMessageRef.current?.role === 'assistant' && !currentMessageRef.current.isComplete) {
+          dispatch({
+            type: 'UPDATE_LAST_MESSAGE',
+            payload: msg => ({ ...msg, isComplete: true })
+          });
+        }
+        currentBlockType.current = 'tool';
+        dispatch({ type: 'SET_IS_USING_TOOL', payload: true });
+
+        dispatch({
+          type: 'ADD_MESSAGE',
+          payload: {
             role: 'assistant',
             content: '',
             blockType: 'tool',
             isComplete: false,
             toolName: token.toolInfo?.name
-          });
-          break;
+          }
+        });
+        break;
 
-        case TokenType.TOOL_RESULT:
-          if (lastMessage?.role === 'assistant' && lastMessage.blockType === 'tool' && !lastMessage.isComplete) {
-            lastMessage.content = (lastMessage.content || '') + (token.value || '');
-            lastMessage.isComplete = true;
-          } else {
-            newMessages.push({
+      case 'TOOL_RESULT':
+        if (currentMessageRef.current?.role === 'assistant' && currentMessageRef.current.blockType === 'tool' && !currentMessageRef.current.isComplete) {
+          dispatch({
+            type: 'UPDATE_LAST_MESSAGE',
+            payload: msg => ({
+              ...msg,
+              content: (msg.content || '') + (token.value || ''),
+              isComplete: true
+            })
+          });
+        } else {
+          dispatch({
+            type: 'ADD_MESSAGE',
+            payload: {
               role: 'assistant',
               content: token.value || '',
               blockType: 'tool',
               isComplete: true,
               toolName: token.toolInfo?.name
-            });
-          }
-          setIsUsingTool(false);
-          break;
-
-        case TokenType.DONE:
-          if (lastMessage?.role === 'assistant' && !lastMessage.isComplete) {
-            lastMessage.isComplete = true;
-          }
-          currentBlockType.current = null;
-          setIsLoading(false);
-          setIsUsingTool(false);
-          break;
-
-        case TokenType.UNPARSEABLE:
-          console.warn('Unparseable content:', token.value);
-          if (lastMessage?.role === 'assistant' && lastMessage.blockType === (currentBlockType.current || 'normal') && !lastMessage.isComplete) {
-            if (currentBlockType.current === 'thinking') {
-              lastMessage.thinking = (lastMessage.thinking || '') + (token.value || '');
-            } else {
-              lastMessage.content = (lastMessage.content || '') + (token.value || '');
             }
-          } else {
-            newMessages.push({
+          });
+        }
+        dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
+        break;
+
+      case 'DONE':
+        if (currentMessageRef.current) {
+          dispatch({
+            type: 'UPDATE_LAST_MESSAGE',
+            payload: msg => ({ ...msg, isComplete: true })
+          });
+          currentMessageRef.current = null;
+        }
+        currentBlockType.current = null;
+        dispatch({ type: 'SET_IS_LOADING', payload: false });
+        dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
+        break;
+
+      case 'UNPARSEABLE':
+        console.warn('Unparseable content:', token.value);
+        if (currentMessageRef.current?.role === 'assistant' && currentMessageRef.current.blockType === (currentBlockType.current || 'normal') && !currentMessageRef.current.isComplete) {
+          dispatch({
+            type: 'UPDATE_LAST_MESSAGE',
+            payload: msg => ({
+              ...msg,
+              [currentBlockType.current === 'thinking' ? 'thinking' : 'content']:
+                (msg[currentBlockType.current === 'thinking' ? 'thinking' : 'content'] || '') + (token.value || '')
+            })
+          });
+        } else {
+          dispatch({
+            type: 'ADD_MESSAGE',
+            payload: {
               role: 'assistant',
               content: currentBlockType.current === 'thinking' ? '' : (token.value || ''),
               thinking: currentBlockType.current === 'thinking' ? (token.value || '') : undefined,
               blockType: currentBlockType.current || 'normal',
               isComplete: false
-            });
-          }
-          break;
-      }
-      return newMessages;
-    });
+            }
+          });
+        }
+        break;
+    }
   };
 
   const handleSendMessage = async (e: Event) => {
     e.preventDefault();
-    if (!inputMessage.trim() || !chatService.current || isLoading) return;
+    if (!state.inputMessage.trim() || !state.chatService || state.isLoading) return;
 
-    const userMessage: ExtendedMessage = {
-      role: 'user',
-      content: inputMessage,
-      blockType: 'normal',
-      isComplete: true
-    };
-    setMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
-    setIsLoading(true);
-    setIsUsingTool(false);
-    currentBlockType.current = null; // Reset block type on new message
+    const content = state.inputMessage;
+    dispatch({
+      type: 'ADD_MESSAGE',
+      payload: { role: 'user', content, blockType: 'normal', isComplete: true }
+    });
+    dispatch({ type: 'SET_INPUT_MESSAGE', payload: '' });
+    dispatch({ type: 'SET_IS_LOADING', payload: true });
 
     try {
-      if (isStreaming) {
-        await chatService.current.sendStreamingMessage(
-          inputMessage,
-          (chunk) => {
-            if (lexerRef.current) {
-              for (const token of lexerRef.current.processChunk(chunk)) {
-                processToken(token);
-              }
+      if (state.isStreaming) {
+        await state.chatService.sendStreamingMessage(
+          content,
+          state.activeConversationId,
+          chunk => {
+            for (const token of lexerRef.current!.processChunk(chunk)) {
+              processToken(token);
             }
           },
           () => {
-            setIsLoading(false);
-            setIsUsingTool(false);
-            // Reload conversations after message is complete
-            loadConversations();
+            dispatch({ type: 'SET_IS_LOADING', payload: false });
+            dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
+            if (agentId && state.agentService) {
+              initializeConversations(agentId, state.agentService);
+            }
           },
-          (error) => {
-            console.error('Error in streaming:', error);
-            setIsLoading(false);
-            setIsUsingTool(false);
+          error => {
+            console.error('Streaming error:', error);
+            dispatch({ type: 'SET_IS_LOADING', payload: false });
+            dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
           }
         );
       } else {
-        const response = await chatService.current.sendMessage(inputMessage, false);
-        setMessages(prev => [
-          ...prev,
-          { ...response, blockType: 'normal', isComplete: true }
-        ]);
-        setIsLoading(false);
-        // Reload conversations after message is complete
-        loadConversations();
+        const response = await state.chatService.sendMessage(content, state.activeConversationId);
+        dispatch({
+          type: 'ADD_MESSAGE',
+          payload: { ...response, blockType: 'normal', isComplete: true }
+        });
+        dispatch({ type: 'SET_IS_LOADING', payload: false });
+        if (agentId && state.agentService) {
+          initializeConversations(agentId, state.agentService);
+        }
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      setIsLoading(false);
+      dispatch({ type: 'SET_IS_LOADING', payload: false });
     }
   };
 
-  const renderMarkdown = (content: string): string => {
-    marked.setOptions({
-      breaks: true,
-      gfm: true
-    });
+  const renderMarkdown = (content: string) => {
+    marked.setOptions({ breaks: true, gfm: true });
     return marked.parse(content) as string;
-  };
-
-  const handleResetConversation = async () => {
-    if (!agentId || !agentService.current) return;
-
-    try {
-      // Reset the conversation state
-      setMessages([]);
-      setActiveConversationId('');
-      setConversationTitle("New Conversation");
-      setConversationId(null);
-      setConversationHistory([]);
-      setConversationMemory({});
-      setConversationTtl(0);
-
-      // Reset the agent state
-      await agentService.current.resetAgentState(agentId);
-
-      // Reload conversations to update the list
-      const updatedConversations = await loadConversations();
-
-      // Set the active conversation to the newest one (first in the sorted list)
-      if (updatedConversations && updatedConversations.length > 0) {
-        setActiveConversationId(updatedConversations[0].conversationId);
-      }
-    } catch (error) {
-      console.error("Error resetting conversation:", error);
-    }
   };
 
   return (
@@ -329,55 +312,65 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           <h2>Conversations</h2>
           <button
             class="new-conversation-button"
-            onClick={handleResetConversation}
-            disabled={isLoading}
+            onClick={() => newConversation()}
+            disabled={state.isLoading}
           >
             <span>+</span> New
           </button>
         </div>
         <ul class="conversation-list">
-          {conversations.map((conversation) => (
-            <li
-              key={conversation.id}
-              class={`conversation-item ${conversation.conversationId === activeConversationId ? 'active' : ''}`}
-              onClick={() => setActiveConversationId(conversation.conversationId)}
-            >
-              <div class="conversation-title">
-                Conversation {conversation.id.slice(0, 8)}...
-              </div>
-              <div class="conversation-date">
-                {new Date(conversation.createdAt).toLocaleDateString()}
-              </div>
-              <div class="conversation-message-count">
-                {conversation.messageCount} messages
-              </div>
-            </li>
-          ))}
+          {state.conversations.length > 0 ? (
+            state.conversations.map(conv => (
+              <li
+                key={conv.id}
+                class={`conversation-item ${conv.conversationId === state.activeConversationId ? 'active' : ''}`}
+                onClick={() => {
+                  if (agentId && state.agentService) {
+                    loadConversation(agentId, conv.conversationId, state.agentService);
+                  }
+                }}
+              >
+                <div class="conversation-title">
+                  {conv.conversationId === state.activeConversationId ? '✓ ' : ''}
+                  Conversation {conv.id.slice(0, 8)}...
+                </div>
+                <div class="conversation-date">
+                  {new Date(conv.createdAt).toLocaleDateString()}
+                </div>
+                <div class="conversation-message-count">
+                  {conv.messageCount} messages
+                </div>
+              </li>
+            ))
+          ) : (
+            <div class="no-conversations">No conversations yet</div>
+          )}
         </ul>
       </div>
+
       <div class="chat-container">
         <div class="chat-header">
-          <h1>{agentName}</h1>
+          <h1>{state.agentName}</h1>
           <div class="chat-toggles">
             <div class="streaming-toggle">
               <label class="toggle-switch">
                 <input
                   type="checkbox"
-                  checked={isStreaming}
-                  onChange={(e) => setIsStreaming((e.target as HTMLInputElement).checked)}
-                  disabled={isLoading}
+                  checked={state.isStreaming}
+                  onChange={e => dispatch({ type: 'SET_IS_STREAMING', payload: (e.target as HTMLInputElement).checked })}
+                  disabled={state.isLoading}
                 />
                 <span class="toggle-slider"></span>
               </label>
-              <span class="toggle-label">Streaming {isStreaming ? 'Enabled' : 'Disabled'}</span>
+              <span class="toggle-label">Streaming {state.isStreaming ? 'Enabled' : 'Disabled'}</span>
             </div>
             <div class="thinking-toggle">
               <label class="toggle-switch">
                 <input
                   type="checkbox"
-                  checked={showThinkingBubbles}
-                  onChange={(e) => setShowThinkingBubbles((e.target as HTMLInputElement).checked)}
-                  disabled={isLoading}
+                  checked={state.showThinkingBubbles}
+                  onChange={e => dispatch({ type: 'SET_SHOW_THINKING_BUBBLES', payload: (e.target as HTMLInputElement).checked })}
+                  disabled={state.isLoading}
                 />
                 <span class="toggle-slider"></span>
               </label>
@@ -387,38 +380,36 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         </div>
 
         <div class="chat-messages" ref={messagesContainerRef}>
-          {messages.length === 0 ? (
+          {state.messages.length === 0 ? (
             <div class="empty-chat">
               <p>Start a conversation with your agent</p>
             </div>
           ) : (
-            <>
-              {messages.map((message, index) => (
-                <div
-                  key={index}
-                  class={`message ${message.role} ${message.blockType === 'thinking' ? 'thinking' : ''} ${message.blockType === 'thinking' && showThinkingBubbles ? 'show' : ''} ${message.blockType === 'tool' ? 'tool-message' : ''}`}
-                >
-                  <div class="message-content">
-                    {message.blockType === 'thinking' && showThinkingBubbles ? (
-                      <div class="thinking-content">
-                        <div class="thinking-header">Thought Process</div>
-                        <div class="thinking-body">
-                          <span class="thinking-icon">🤔</span>
-                          {(message.thinking || message.content || '').trimStart()}
-                        </div>
+            state.messages.map((msg, idx) => (
+              <div
+                key={idx}
+                class={`message ${msg.role} ${msg.blockType === 'thinking' ? 'thinking' : ''} ${msg.blockType === 'thinking' && state.showThinkingBubbles ? 'show' : ''} ${msg.blockType === 'tool' ? 'tool-message' : ''}`}
+              >
+                <div class="message-content">
+                  {msg.blockType === 'thinking' && state.showThinkingBubbles ? (
+                    <div class="thinking-content">
+                      <div class="thinking-header">Thought Process</div>
+                      <div class="thinking-body">
+                        <span class="thinking-icon">🤔</span>
+                        {(msg.thinking || msg.content || '').trimStart()}
                       </div>
-                    ) : message.blockType === 'tool' ? (
-                      <div class="tool-message-content">
-                        <span class="tool-icon">🔧</span>
-                        <span>Using {message.toolName || 'tool'}...</span>
-                      </div>
-                    ) : (
-                      <div class="message-content" dangerouslySetInnerHTML={{ __html: renderMarkdown((message.content || '').trimStart()) }} />
-                    )}
-                  </div>
+                    </div>
+                  ) : msg.blockType === 'tool' ? (
+                    <div class="tool-message-content">
+                      <span class="tool-icon">🔧</span>
+                      <span>Using {msg.toolName || 'tool'}...</span>
+                    </div>
+                  ) : (
+                    <div class="message-content" dangerouslySetInnerHTML={{ __html: renderMarkdown((msg.content || '').trimStart()) }} />
+                  )}
                 </div>
-              ))}
-            </>
+              </div>
+            ))
           )}
         </div>
 
@@ -426,14 +417,14 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           <input
             ref={inputRef}
             type="text"
-            value={inputMessage}
-            onInput={(e) => setInputMessage((e.target as HTMLInputElement).value)}
+            value={state.inputMessage}
+            onInput={e => dispatch({ type: 'SET_INPUT_MESSAGE', payload: (e.target as HTMLInputElement).value })}
             placeholder="Type your message..."
             class="chat-input"
-            disabled={isLoading}
+            disabled={state.isLoading}
           />
-          <button type="submit" class="send-button" disabled={isLoading}>
-            {isLoading ? 'Sending...' : 'Send'}
+          <button type="submit" class="send-button" disabled={state.isLoading}>
+            {state.isLoading ? 'Sending...' : 'Send'}
           </button>
         </form>
       </div>

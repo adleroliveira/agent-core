@@ -9,10 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@preact/compat": "^18.3.1",
+    "@preact/signals": "^2.0.3",
+    "@preact/signals-core": "^1.8.0",
     "@types/marked": "^6.0.0",
     "marked": "^15.0.7",
-    "preact": "^10.19.6",
-    "preact-router": "^4.1.2"
+    "preact": "^10.26.5",
+    "preact-router": "^4.1.2",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.7.0",

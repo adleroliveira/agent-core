@@ -87,15 +87,20 @@ export class GenAIStreamLexer {
       }
       
       // Process content chunk - only if it has content
-      if (parsedContent.content && typeof parsedContent.content === 'string') {
+      if (parsedContent.content && (typeof parsedContent.content === 'string' || typeof parsedContent.content === 'number')) {
         // Check for the '[DONE]' signal in the content
         if (parsedContent.content === '[DONE]') {
           yield { type: TokenType.DONE, value: '[DONE]' };
           return;
         }
         
-        yield* this.processContentChunk(parsedContent.content);
-      } else if (parsedContent !== null && parsedContent !== undefined) {
+        // Convert number to string if needed
+        const content = typeof parsedContent.content === 'number' ? parsedContent.content.toString() : parsedContent.content;
+        yield* this.processContentChunk(content);
+      } else if (parsedContent !== null && parsedContent !== undefined && 
+                 !(typeof parsedContent === 'object' && Object.keys(parsedContent).length === 0)) {
+        // Only mark as unparseable if it's not an empty object and not a string content
+        console.log('UNPARSEABLE CONTENT:', chunk, parsedContent, typeof parsedContent);
         yield { 
           type: TokenType.UNPARSEABLE, 
           value: typeof parsedContent === 'string' ? parsedContent : JSON.stringify(parsedContent) 

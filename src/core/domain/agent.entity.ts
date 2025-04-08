@@ -186,6 +186,8 @@ export class Agent {
     const collectedToolCalls: ToolCallResult[] = [];
     let streamingContent = "";
 
+    console.log('STATE CONVERSATION HISTORY:', this.state.conversationHistory);
+
     const streamingObs = this.modelService!.generateStreamingResponse(
       this.state.conversationHistory,
       this.systemPrompt,

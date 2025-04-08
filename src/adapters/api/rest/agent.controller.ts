@@ -20,10 +20,13 @@ import { CreateAgentDto } from "./dto/create-agent.dto";
 import { SendMessageDto } from "./dto/send-message.dto";
 import { UpdatePromptDto } from "./dto/update-prompt.dto";
 import { AddToolDto } from "./dto/add-tool.dto";
+import { GetConversationHistoryDto } from "./dto/get-conversation-history.dto";
 import { Message } from "@core/domain/message.entity";
+import { MessageDto } from "./dto/message.dto";
 import { AGENT_SERVICE } from "@adapters/adapters.module";
 import { ToolRegistryService } from "@core/services/tool-registry.service";
 import { TOOL_REGISTRY } from "@core/constants";
+import { ApiQuery, ApiOperation, ApiParam, ApiResponse, ApiBody } from "@nestjs/swagger";
 
 @Controller("agents")
 export class AgentController {
@@ -127,6 +130,29 @@ export class AgentController {
   }
 
   @Post(":id/message")
+  @ApiOperation({ 
+    summary: 'Send a message to an agent',
+    description: 'Send a message to an agent. The conversationId is required to identify the conversation.'
+  })
+  @ApiParam({ name: 'id', description: 'The ID of the agent' })
+  @ApiQuery({ name: 'stream', required: false, type: Boolean, description: 'Whether to stream the response' })
+  @ApiBody({ 
+    type: SendMessageDto,
+    description: 'The message to send, including conversationId to identify the conversation'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Message processed successfully',
+    type: MessageDto
+  })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Invalid request parameters'
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent not found'
+  })
   async sendMessage(
     @Param("id") id: string,
     @Body() messageDto: SendMessageDto,
@@ -314,6 +340,46 @@ export class AgentController {
     } catch (error) {
       throw new HttpException(
         `Failed to retrieve conversations: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Get(":id/conversation-history")
+  @ApiQuery({ name: 'conversationId', required: true, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'beforeTimestamp', required: false, type: Date })
+  async getConversationHistory(
+    @Param("id") id: string,
+    @Query("conversationId") conversationId: string,
+    @Query("limit") limit?: number,
+    @Query("beforeTimestamp") beforeTimestamp?: Date
+  ) {
+    try {
+      const result = await this.agentService.getConversationHistory(
+        id,
+        conversationId,
+        {
+          limit,
+          beforeTimestamp,
+        }
+      );
+
+      return {
+        messages: result.messages.map(message => ({
+          id: message.id,
+          content: message.content,
+          role: message.role,
+          conversationId: message.conversationId,
+          createdAt: message.createdAt,
+          toolCalls: message.toolCalls,
+          metadata: message.metadata,
+        })),
+        hasMore: result.hasMore,
+      };
+    } catch (error) {
+      throw new HttpException(
+        `Failed to retrieve conversation history: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
