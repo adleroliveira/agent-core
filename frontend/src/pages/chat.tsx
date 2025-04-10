@@ -13,7 +13,7 @@ interface ChatProps {
 }
 
 export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
-  const { state, dispatch, loadConversation, initializeConversations, resetState } = useChatStore();
+  const { state, dispatch, loadConversation, initializeConversations, refreshConversations, resetState } = useChatStore();
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lexerRef = useRef<GenAIStreamLexer | null>(null);
@@ -32,15 +32,14 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
       dispatch({ type: 'SET_IS_LOADING', payload: true });
       const response = await state.agentService.createNewConversation(agentId);
 
-      // Update the active conversation and load its history
+      // Update the active conversation and load its history only if not streaming
       dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: response.conversationId });
-      await loadConversation(agentId, response.conversationId, state.agentService);
 
       // Reset messages for the new conversation
       dispatch({ type: 'SET_MESSAGES', payload: [] });
 
       // Refresh the conversations list
-      await initializeConversations(agentId, state.agentService);
+      await refreshConversations(agentId, state.agentService);
     } catch (error) {
       console.error('Error creating new conversation:', error);
     } finally {
@@ -281,6 +280,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
 
     try {
       if (state.isStreaming) {
+        dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: true });
         await state.chatService.sendStreamingMessage(
           content,
           state.activeConversationId,
@@ -292,14 +292,22 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           () => {
             dispatch({ type: 'SET_IS_LOADING', payload: false });
             dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
+            dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: false });
             if (agentId && state.agentService) {
-              initializeConversations(agentId, state.agentService);
+              refreshConversations(agentId, state.agentService);
             }
+            // Clear the current message ref after streaming is complete
+            currentMessageRef.current = null;
+            currentBlockType.current = null;
           },
           error => {
             console.error('Streaming error:', error);
             dispatch({ type: 'SET_IS_LOADING', payload: false });
             dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
+            dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: false });
+            // Clear the current message ref on error
+            currentMessageRef.current = null;
+            currentBlockType.current = null;
           }
         );
       } else {
@@ -310,12 +318,13 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         });
         dispatch({ type: 'SET_IS_LOADING', payload: false });
         if (agentId && state.agentService) {
-          initializeConversations(agentId, state.agentService);
+          refreshConversations(agentId, state.agentService);
         }
       }
     } catch (error) {
       console.error('Error sending message:', error);
       dispatch({ type: 'SET_IS_LOADING', payload: false });
+      dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: false });
     }
   };
 
