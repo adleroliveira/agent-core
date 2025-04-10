@@ -1,12 +1,12 @@
-# GenAI Agent System
+# AgentCore v0.3 - GenAI Agent Framework
 
-A flexible Agent abstraction for GenAI-powered agents using Amazon Bedrock, built with Hexagonal Architecture.
+A flexible Agent abstraction for GenAI-powered agents using Amazon Bedrock, built with Hexagonal Architecture. This project provides both a NestJS server and an SDK for creating and interacting with AI agents.
 
 ## Project Overview
 
 This project provides a robust framework for building intelligent agents powered by Large Language Models (LLMs) through Amazon Bedrock. The system is designed with the following principles:
 
-- **Interface Flexibility**: Use the agent through REST API, direct calls, or other interfaces
+- **Interface Flexibility**: Use the agent through REST API, direct SDK calls, or other interfaces
 - **Amazon Bedrock Integration**: Seamless integration with Bedrock's features (Claude, Titan, etc.)
 - **State Management**: Flexible conversation and memory management with pluggable storage options
 - **Tool Integration**: Extend agent capabilities with custom tools and functions
@@ -26,8 +26,8 @@ This project provides a robust framework for building intelligent agents powered
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/bedrock-agent-system.git
-   cd bedrock-agent-system
+   git clone https://github.com/adleroliveira/agent-core.git
+   cd agent-core
    ```
 
 2. Install dependencies:
@@ -40,63 +40,93 @@ This project provides a robust framework for building intelligent agents powered
    cp .env.example .env
    ```
 
-4. Update the .env file with your AWS credentials and Bedrock settings.
+4. Update the .env file with your AWS credentials and Bedrock settings:
+   - AWS_REGION
+   - AWS_ACCESS_KEY_ID
+   - AWS_SECRET_ACCESS_KEY
+   - BEDROCK_MODEL_ID (e.g., anthropic.claude-3-haiku-20240307-v1:0)
+   - BEDROCK_EMBEDDING_MODEL_ID (e.g., amazon.titan-embed-text-v2:0)
+   - BEDROCK_KNOWLEDGE_BASE_ID (optional)
+   - BEDROCK_AGENT_ID (optional)
+   - Other configuration options as needed
 
 ### Running the Application
 
-Start the development server:
-```bash
-pnpm start:dev
-```
+1. Build the project:
+   ```bash
+   pnpm build
+   ```
+
+2. Start the server:
+   ```bash
+   pnpm start
+   ```
 
 The server will start on port 3000 (or the port specified in your .env file).
 
 ## Usage
 
-### REST API
+### As a NestJS Server
 
-The system exposes a RESTful API for creating and interacting with agents:
+The project can be used as a standalone NestJS server that exposes:
+- REST API endpoints for agent management and interaction
+- OpenAPI documentation (available at `/api` endpoint)
+- Web interface for agent interaction
 
-```bash
-# Create a new agent
-curl -X POST http://localhost:3000/api/agents -H "Content-Type: application/json" -d '{
-  "name": "My Assistant",
-  "systemPrompt": "You are a helpful AI assistant.",
-  "tools": ["get_weather", "search"]
-}'
+### Using the SDK
 
-# Send a message to the agent
-curl -X POST http://localhost:3000/api/agents/{agent-id}/message -H "Content-Type: application/json" -d '{
-  "content": "What's the weather like in New York?"
-}'
-```
-
-### Direct Integration
-
-You can also use the agent directly in your code:
+The SDK provides a convenient way to create and interact with agents programmatically:
 
 ```typescript
-import { DirectAgentAdapter } from 'bedrock-agent-system';
+import { AgentSDK } from '@agent-core/sdk';
 
 async function example() {
-  // Create agent
-  const agent = await agentAdapter.createAgent({
-    name: 'My Assistant',
-    systemPromptContent: 'You are a helpful AI assistant.',
-    tools: ['get_weather', 'search'],
+  // Initialize the SDK
+  const sdk = new AgentSDK({
+    region: 'us-east-1',
+    credentials: {
+      accessKeyId: 'your-access-key',
+      secretAccessKey: 'your-secret-key'
+    }
   });
-  
-  // Send message
-  const response = await agentAdapter.sendMessage(
-    agent.id,
-    "What's the weather like in New York?"
-  );
-  
-  console.log(response.content);
+
+  // Create a new agent
+  const agent = await sdk.createAgent({
+    name: 'My Assistant',
+    description: 'A helpful AI assistant',
+    systemPrompt: 'You are a helpful AI assistant.',
+    tools: ['search', 'calculator'],
+    memorySize: 10
+  });
+
+  // Send a message and get a response
+  const response = await agent.ask('What is the weather like in New York?');
+  console.log(response.getTextContent());
+
+  // Use streaming for real-time responses
+  await agent.askStream('Tell me a story', {
+    onChunk: (chunk) => console.log(chunk),
+    onComplete: () => console.log('Done'),
+    onError: (error) => console.error(error)
+  });
+
+  // Clean up
+  await sdk.close();
 }
 ```
 
-See the `examples` directory for more detailed usage examples.
+### Key SDK Features
+
+- **Agent Management**: Create, retrieve, and delete agents
+- **Conversation Handling**: Manage conversations with memory and context
+- **Tool Integration**: Register and use custom tools
+- **Streaming Support**: Real-time response streaming
+- **Embedding Generation**: Generate embeddings for text using Bedrock models
+- **Memory Management**: Control conversation memory size and context
+
+### REST API
+
+The system exposes a RESTful API for creating and interacting with agents. The OpenAPI documentation is available at the `/api` endpoint when running the server.
 
 ## Architecture
 
@@ -111,43 +141,23 @@ This project follows Hexagonal (Ports & Adapters) Architecture:
 
 ### Adding Custom Tools
 
-Create a new tool by implementing the Tool interface:
+Create a new tool using the ToolBuilder:
 
 ```typescript
-// src/tools/extensions/my-custom.tool.ts
-import { Injectable } from '@nestjs/common';
-import { Tool, ToolParameter } from '@core/domain/tool.entity';
-import { v4 as uuidv4 } from 'uuid';
+import { ToolBuilder } from '@agent-core/sdk';
 
-@Injectable()
-export class MyCustomTool {
-  getTool(): Tool {
-    const parameters: ToolParameter[] = [
-      {
-        name: 'param1',
-        type: 'string',
-        description: 'Description of parameter',
-        required: true,
-      },
-    ];
-
-    return new Tool({
-      id: uuidv4(),
-      name: 'my_custom_tool',
-      description: 'Description of what the tool does',
-      parameters,
-      handler: this.myToolHandler.bind(this),
-    });
-  }
-
-  private async myToolHandler(args: { param1: string }): Promise<any> {
+const myTool = new ToolBuilder()
+  .name('my_custom_tool')
+  .description('Description of what the tool does')
+  .parameter('param1', 'string', 'Description of parameter', true)
+  .handle(async (args) => {
     // Implement your tool logic here
     return { result: `Processed: ${args.param1}` };
-  }
-}
-```
+  });
 
-Then register your tool in the `ToolsModule`.
+// Register the tool
+await sdk.registerTool(myTool);
+```
 
 ### Adding Storage Adapters
 
