@@ -104,103 +104,107 @@ export class BedrockModelService implements ModelServicePort {
       try {
         const response = await this.bedrockClient.send(command);
 
-        if (response.stream) {
-          for await (const event of response.stream) {
-            if (!event) continue;
+        if (!response || !response.stream) {
+          this.logger.error(`Invalid streaming response from Bedrock for agent ${conversationId}`);
+          subject.error(new Error('Invalid streaming response from Bedrock'));
+          return;
+        }
 
-            const [eventType, eventValue] = Object.entries(event)[0];
+        for await (const event of response.stream) {
+          if (!event) continue;
 
-            switch (eventType) {
-              case "messageStart":
-                currentContent = "";
+          const [eventType, eventValue] = Object.entries(event)[0];
+
+          switch (eventType) {
+            case "messageStart":
+              currentContent = "";
+              subject.next({
+                message: new Message({
+                  role: "assistant",
+                  content: currentContent,
+                  conversationId,
+                }),
+              });
+              break;
+
+            case "contentBlockStart":
+              const toolUse = eventValue?.start?.toolUse;
+              if (toolUse?.toolUseId && toolUse?.name) {
+                pendingToolUse = {
+                  toolName: toolUse.name,
+                  toolId: toolUse.toolUseId,
+                  arguments: "",
+                };
+              }
+              break;
+
+            case "contentBlockDelta":
+              if (pendingToolUse && eventValue?.delta?.toolUse?.input) {
+                pendingToolUse.arguments += eventValue.delta.toolUse.input;
+              } else if (eventValue?.delta?.text) {
+                currentContent += eventValue.delta.text;
                 subject.next({
                   message: new Message({
                     role: "assistant",
-                    content: currentContent,
+                    content: eventValue.delta.text,
                     conversationId,
                   }),
                 });
-                break;
+              }
+              break;
 
-              case "contentBlockStart":
-                const toolUse = eventValue?.start?.toolUse;
-                if (toolUse?.toolUseId && toolUse?.name) {
-                  pendingToolUse = {
-                    toolName: toolUse.name,
-                    toolId: toolUse.toolUseId,
-                    arguments: "",
+            case "contentBlockStop":
+              if (pendingToolUse) {
+                try {
+                  const toolCall: ToolCallResult = {
+                    toolName: pendingToolUse.toolName,
+                    toolId: pendingToolUse.toolId,
+                    arguments: typeof pendingToolUse.arguments === "string"
+                      ? JSON.parse(pendingToolUse.arguments || "{}")
+                      : pendingToolUse.arguments || {},
                   };
+                  subject.next({ toolCalls: [toolCall] });
+                } catch (error) {
+                  this.logger.warn(
+                    `Failed to parse tool arguments as JSON: ${error.message}`
+                  );
                 }
-                break;
+                pendingToolUse = null;
+              }
+              break;
 
-              case "contentBlockDelta":
-                if (pendingToolUse && eventValue?.delta?.toolUse?.input) {
-                  pendingToolUse.arguments += eventValue.delta.toolUse.input;
-                } else if (eventValue?.delta?.text) {
-                  currentContent += eventValue.delta.text;
-                  subject.next({
-                    message: new Message({
-                      role: "assistant",
-                      content: eventValue.delta.text,
-                      conversationId,
-                    }),
-                  });
-                }
-                break;
+            case "messageStop":
+              subject.complete();
+              break;
 
-              case "contentBlockStop":
-                if (pendingToolUse) {
-                  try {
-                    const toolCall: ToolCallResult = {
-                      toolName: pendingToolUse.toolName,
-                      toolId: pendingToolUse.toolId,
-                      arguments: typeof pendingToolUse.arguments === "string"
-                        ? JSON.parse(pendingToolUse.arguments || "{}")
-                        : pendingToolUse.arguments || {},
-                    };
-                    subject.next({ toolCalls: [toolCall] });
-                  } catch (error) {
-                    this.logger.warn(
-                      `Failed to parse tool arguments as JSON: ${error.message}`
-                    );
-                  }
-                  pendingToolUse = null;
-                }
-                break;
+            case "metadata":
+              if (eventValue?.usage) {
+                subject.next({
+                  usage: {
+                    promptTokens: eventValue.usage.inputTokens || 0,
+                    completionTokens: eventValue.usage.outputTokens || 0,
+                    totalTokens:
+                      (eventValue.usage.inputTokens || 0) +
+                      (eventValue.usage.outputTokens || 0),
+                  },
+                });
+              }
+              break;
 
-              case "messageStop":
-                subject.complete();
-                break;
+            case "internalServerException":
+            case "modelStreamErrorException":
+            case "validationException":
+            case "throttlingException":
+            case "serviceUnavailableException":
+              this.logger.error(`Stream error: ${eventType}`, eventValue);
+              subject.error(
+                new Error(`${eventType}: ${JSON.stringify(eventValue)}`)
+              );
+              break;
 
-              case "metadata":
-                if (eventValue?.usage) {
-                  subject.next({
-                    usage: {
-                      promptTokens: eventValue.usage.inputTokens || 0,
-                      completionTokens: eventValue.usage.outputTokens || 0,
-                      totalTokens:
-                        (eventValue.usage.inputTokens || 0) +
-                        (eventValue.usage.outputTokens || 0),
-                    },
-                  });
-                }
-                break;
-
-              case "internalServerException":
-              case "modelStreamErrorException":
-              case "validationException":
-              case "throttlingException":
-              case "serviceUnavailableException":
-                this.logger.error(`Stream error: ${eventType}`, eventValue);
-                subject.error(
-                  new Error(`${eventType}: ${JSON.stringify(eventValue)}`)
-                );
-                break;
-
-              default:
-                this.logger.warn(`Unknown event type: ${eventType}`);
-                break;
-            }
+            default:
+              this.logger.warn(`Unknown event type: ${eventType}`);
+              break;
           }
         }
 
@@ -210,9 +214,9 @@ export class BedrockModelService implements ModelServicePort {
       } catch (error) {
         this.logger.error(
           `Error in streaming response: ${error.message}`,
-          error.stack,
-          command
+          error.stack
         );
+        console.error(JSON.stringify(command.input.toolConfig?.tools, null, 2));
         subject.error(
           new Error(`Failed to generate streaming response: ${error.message}`)
         );

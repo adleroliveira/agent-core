@@ -93,18 +93,19 @@ export class AgentController {
   })
   async getAllAgents() {
     try {
-      const agents = await this.agentService.findAllAgents();
+      // Load agents with their tools
+      const agents = await this.agentService.findAllAgents(true);
       return agents.map((agent) => ({
         id: agent.id,
         name: agent.name,
         description: agent.description,
         modelId: agent.modelId,
         createdAt: agent.createdAt,
-        tools: agent.tools.map((tool) => ({
+        tools: agent.areToolsLoaded() ? agent.tools.map((tool) => ({
           id: tool.id,
           name: tool.name,
           description: tool.description,
-        })),
+        })) : [],
       }));
     } catch (error) {
       throw new HttpException(
@@ -566,7 +567,6 @@ export class AgentController {
         conversationId: conversation.conversationId,
         createdAt: conversation.createdAt,
         updatedAt: conversation.updatedAt,
-        messageCount: conversation.conversationHistory?.length || 0,
       }));
     } catch (error) {
       throw new HttpException(

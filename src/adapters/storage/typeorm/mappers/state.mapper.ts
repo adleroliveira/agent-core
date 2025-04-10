@@ -4,7 +4,7 @@ import { MessageMapper } from "./message.mapper";
 import { AgentEntity } from "../entities/agent.entity";
 
 export class StateMapper {
-  static toDomain(entity: StateEntity): AgentState {
+  static toDomain(entity: StateEntity, loadMessages: boolean = false): AgentState {
     const state = new AgentState({
       id: entity.id,
       memory: entity.memory,
@@ -13,8 +13,10 @@ export class StateMapper {
       agentId: entity.agent?.id || ''
     });
 
-    if (entity.messages) {
+    if (loadMessages && entity.messages) {
       state.conversationHistory = entity.messages.map(MessageMapper.toDomain);
+    } else {
+      state.conversationHistory = [];
     }
 
     state.createdAt = entity.createdAt;
@@ -38,11 +40,8 @@ export class StateMapper {
       entity.agent = agentEntity;
     }
 
-    if (domain.conversationHistory && domain.conversationHistory.length > 0) {
-      entity.messages = domain.conversationHistory.map((message) =>
-        MessageMapper.toPersistence(message, domain.id)
-      );
-    }
+    // Don't set messages here as they will be handled separately
+    // by the message service
 
     return entity;
   }

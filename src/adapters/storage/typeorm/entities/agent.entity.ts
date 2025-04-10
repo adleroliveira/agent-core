@@ -2,6 +2,7 @@ import { Entity, Column, PrimaryColumn, CreateDateColumn, UpdateDateColumn, OneT
 import { StateEntity } from './state.entity';
 import { ToolEntity } from './tool.entity';
 import { KnowledgeBaseEntity } from './knowledge-base.entity';
+import { AgentToolEntity } from './agent-tool.entity';
 
 @Entity('agents')
 export class AgentEntity {
@@ -31,20 +32,17 @@ export class AgentEntity {
   @Column('json', { default: '{"workspaceDir": "./workspace"}' })
   workspaceConfig: { workspaceDir: string };
 
-  @OneToMany(() => StateEntity, state => state.agent, { 
-    cascade: ['insert'],
-    onDelete: 'CASCADE'
-  })
+  @OneToMany(() => StateEntity, state => state.agent)
   states: StateEntity[];
 
-  @OneToMany(() => ToolEntity, tool => tool.agent, { cascade: true })
-  tools: ToolEntity[];
+  @OneToMany(() => AgentToolEntity, agentTool => agentTool.agent, { cascade: true })
+  agentTools: AgentToolEntity[];
 
   @OneToOne(() => KnowledgeBaseEntity, knowledgeBase => knowledgeBase.agent, { 
-    nullable: true, 
-    cascade: true
+    cascade: true, 
+    onDelete: "CASCADE", 
+    nullable: true 
   })
-  @JoinColumn()
   knowledgeBase: KnowledgeBaseEntity | null;
 
   @CreateDateColumn()

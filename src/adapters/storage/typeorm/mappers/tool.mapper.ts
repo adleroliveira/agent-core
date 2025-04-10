@@ -1,58 +1,43 @@
-import { Tool, ToolParameter } from '@core/domain/tool.entity';
-import { ToolEntity } from '../entities/tool.entity';
-import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
+import { Injectable, Inject, forwardRef } from "@nestjs/common";
+import { Tool } from "@core/domain/tool.entity";
+import { ToolEntity } from "../entities/tool.entity";
+import { TOOL_REGISTRY, ToolRegistryPort } from "@ports/tool/tool-registry.port";
 
+@Injectable()
 export class ToolMapper {
-  constructor(private readonly toolRegistry: ToolRegistryPort) {}
+  constructor(
+    @Inject(forwardRef(() => TOOL_REGISTRY))
+    private readonly toolRegistry: ToolRegistryPort
+  ) {}
 
   async toDomain(entity: ToolEntity): Promise<Tool> {
-    // Try to get the actual tool from the registry by name
-    const registeredTool = await this.toolRegistry.getToolByName(entity.name);
-    
-    if (registeredTool) {
-      // If the tool is registered, use its handler
-      return new Tool({
-        id: entity.id,
-        name: entity.name,
-        description: entity.description,
-        directive: entity.description,
-        parameters: entity.parameters as ToolParameter[],
-        handler: registeredTool.handler,
-        metadata: entity.metadata,
-      });
+    const toolDefinition = await this.toolRegistry.getToolByName(entity.name);
+    if (!toolDefinition) {
+      throw new Error(`Tool definition not found for ${entity.name}`);
     }
-
-    // If tool is not registered, create a placeholder handler
-    const placeholderHandler = async (): Promise<any> => {
-      throw new Error(`Tool handler for ${entity.name} not found in registry`);
-    };
 
     return new Tool({
       id: entity.id,
       name: entity.name,
       description: entity.description,
-      directive: entity.description,
-      parameters: entity.parameters as ToolParameter[],
-      handler: placeholderHandler,
-      metadata: entity.metadata,
+      parameters: entity.parameters,
+      directive: toolDefinition.directive,
+      handler: toolDefinition.handler,
+      metadata: entity.metadata || {},
+      // jsonSchema: entity.jsonSchema || {}
     });
   }
 
-  static toPersistence(domain: Tool, agentId?: string): ToolEntity {
+  toEntity(domain: Tool): ToolEntity {
     const entity = new ToolEntity();
     entity.id = domain.id;
     entity.name = domain.name;
     entity.description = domain.description;
     entity.parameters = domain.parameters;
     entity.metadata = domain.metadata || {};
-
-    if (agentId) {
-      entity.agentId = agentId;
-    }
-
+    entity.jsonSchema = domain.jsonSchema || {};
     entity.createdAt = domain.createdAt;
     entity.updatedAt = domain.updatedAt;
-
     return entity;
   }
 }

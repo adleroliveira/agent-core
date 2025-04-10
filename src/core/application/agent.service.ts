@@ -29,11 +29,15 @@ import { DEFAULT_SYSTEM_PROMPT } from "@config/prompts.config";
 import { WorkspaceConfig } from "@core/config/workspace.config";
 import { AgentState } from "@core/domain/agent-state.entity";
 import { MessageService } from "@core/services/message.service";
+import { KnowledgeBase } from "@core/domain/knowledge-base.entity";
+import { KnowledgeBaseRepositoryPort } from "@ports/storage/knowledge-base-repository.port";
+import {
+  KNOWLEDGE_BASE_REPOSITORY,
+} from "@adapters/adapters.module";
 
 @Injectable()
 export class AgentService implements OnModuleInit {
   private readonly logger = new Logger(AgentService.name);
-  private readonly initializedAgents: Map<string, Agent> = new Map();
 
   constructor(
     @Inject(AGENT_REPOSITORY)
@@ -47,12 +51,13 @@ export class AgentService implements OnModuleInit {
     @Inject(VECTOR_DB)
     private readonly vectorDB: VectorDBPort,
     private readonly workspaceConfig: WorkspaceConfig,
-    private readonly messageService: MessageService
-  ) { }
+    private readonly messageService: MessageService,
+    @Inject(KNOWLEDGE_BASE_REPOSITORY)
+    private readonly knowledgeBaseRepository: KnowledgeBaseRepositoryPort
+  ) {}
 
   onModuleInit() {
-    // Clear the cache when the service starts
-    this.initializedAgents.clear();
+    // No initialization needed
   }
 
   async createAgent(params: {
@@ -80,7 +85,7 @@ export class AgentService implements OnModuleInit {
       modelId: modelId || process.env.BEDROCK_MODEL_ID || "",
       systemPrompt,
       workspaceConfig: this.workspaceConfig,
-      conversationId
+      conversationId,
     });
 
     // Initialize services
@@ -118,9 +123,19 @@ export class AgentService implements OnModuleInit {
       // Then save the state
       await this.stateRepository.save(agent.state);
       this.logger.debug(`Saved initial state for agent ${savedAgent.id}`);
+
+      // Create and save the knowledge base with the agent's ID
+      const knowledgeBase = new KnowledgeBase({
+        agentId: savedAgent.id,
+        name: `${name}'s Knowledge Base`,
+        description: `Knowledge base for agent ${name}`,
+        modelService: this.modelService,
+        vectorDB: this.vectorDB,
+      });
       
-      // Cache the initialized agent
-      this.initializedAgents.set(savedAgent.id, savedAgent);
+      agent.knowledgeBase = knowledgeBase;
+      await this.knowledgeBaseRepository.save(knowledgeBase);
+      this.logger.debug(`Saved knowledge base for agent ${savedAgent.id}`);
       
       return savedAgent;
     } catch (error) {
@@ -129,40 +144,38 @@ export class AgentService implements OnModuleInit {
     }
   }
 
-  async findAgentById(id: string): Promise<Agent> {
-    // Check if we already have an initialized agent
-    const cachedAgent = this.initializedAgents.get(id);
-    if (cachedAgent) {
-      return cachedAgent;
-    }
-
-    // If not in cache, load from database
-    const agent = await this.agentRepository.findById(id);
+  async findAgentById(id: string, loadRelations: boolean = false): Promise<Agent> {
+    // Load agent with tools
+    const agent = await this.agentRepository.findById(id, true);
     if (!agent) {
       throw new NotFoundException(`Agent with ID ${id} not found`);
     }
 
     // Load the most recent state for this agent
-    const state = await this.stateRepository.findByAgentId(id);
+    const state = await this.stateRepository.findByAgentId(id, loadRelations);
     if (state) {
       agent.state = state;
     }
 
-    // Initialize services for new agent
-    await agent.setServices(
-      this.modelService,
-      this.vectorDB,
-      this.workspaceConfig
-    );
+    // Initialize services for the agent only if they haven't been set
+    if (!agent.areServicesInitialized()) {
+      await agent.setServices(
+        this.modelService,
+        this.vectorDB,
+        this.workspaceConfig
+      );
+    }
 
-    // Cache the initialized agent
-    this.initializedAgents.set(id, agent);
+    // Mark tools as loaded since we already have them from the repository
+    if (agent.tools && agent.tools.length > 0) {
+      agent.tools = agent.tools;
+    }
 
     return agent;
   }
 
-  async findAllAgents(): Promise<Agent[]> {
-    return this.agentRepository.findAll();
+  async findAllAgents(loadRelations: boolean = false): Promise<Agent[]> {
+    return this.agentRepository.findAll(loadRelations);
   }
 
   async deleteAgent(id: string): Promise<boolean> {
@@ -186,8 +199,8 @@ export class AgentService implements OnModuleInit {
       memorySize?: number;
     }
   ): Promise<Message | Observable<Partial<Message>>> {
-    // Find the agent
-    const agent = await this.findAgentById(agentId);
+    // Find the agent with all relations loaded
+    const agent = await this.findAgentById(agentId, true);
 
     // Create conversation ID if not provided
     if (!conversationId) {
@@ -241,7 +254,7 @@ export class AgentService implements OnModuleInit {
   }
 
   async addToolToAgent(agentId: string, toolName: string): Promise<Agent> {
-    const agent = await this.findAgentById(agentId);
+    const agent = await this.findAgentById(agentId, true);
     const tool = await this.toolRegistry.getToolByName(toolName);
 
     if (!tool) {
@@ -253,7 +266,7 @@ export class AgentService implements OnModuleInit {
   }
 
   async removeToolFromAgent(agentId: string, toolId: string): Promise<Agent> {
-    const agent = await this.findAgentById(agentId);
+    const agent = await this.findAgentById(agentId, true);
     agent.deregisterTool(toolId);
     return this.agentRepository.save(agent);
   }
@@ -262,7 +275,7 @@ export class AgentService implements OnModuleInit {
     agentId: string,
     promptContent: string
   ): Promise<Agent> {
-    const agent = await this.findAgentById(agentId);
+    const agent = await this.findAgentById(agentId, false);
 
     // Combine default prompt with user's prompt
     const combinedPromptContent = `${DEFAULT_SYSTEM_PROMPT}\n\n${promptContent}`;
@@ -278,22 +291,22 @@ export class AgentService implements OnModuleInit {
   }
 
   async resetAgentState(agentId: string): Promise<Agent> {
-    const agent = await this.findAgentById(agentId);
+    const agent = await this.findAgentById(agentId, false);
     agent.resetState();
     return this.agentRepository.save(agent);
   }
 
   async getConversations(agentId: string): Promise<AgentState[]> {
-    return await this.stateRepository.findAllByAgentId(agentId);
+    return await this.stateRepository.findAllByAgentId(agentId, false);
   }
 
   async createNewConversation(agentId: string, conversationId?: string): Promise<Agent> {
     this.logger.debug(`Creating new conversation for agent ${agentId} with conversationId ${conversationId}`);
-    const agent = await this.findAgentById(agentId);
+    const agent = await this.findAgentById(agentId, false);
     this.logger.debug(`Found agent: ${agent.id}`);
     
     // Get all existing states for this agent
-    const existingStates = await this.stateRepository.findAllByAgentId(agentId);
+    const existingStates = await this.stateRepository.findAllByAgentId(agentId, false);
     this.logger.debug(`Found ${existingStates.length} existing states for agent ${agentId}`);
     
     // Create new state with the agent's ID
@@ -333,12 +346,12 @@ export class AgentService implements OnModuleInit {
     hasMore: boolean;
   }> {
     // Find the state for this agent and conversation
-    const state = await this.stateRepository.findByAgentIdAndConversationId(agentId, conversationId);
+    const state = await this.stateRepository.findByAgentIdAndConversationId(agentId, conversationId, false);
     if (!state) {
       throw new NotFoundException(`No conversation found for agent ${agentId} and conversation ${conversationId}`);
     }
 
-    // Get messages using the message service
+    // Get messages using the message service with the provided options
     return this.messageService.getMessages(state.id, options);
   }
 }

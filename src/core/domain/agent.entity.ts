@@ -29,15 +29,17 @@ export class Agent {
   public name: string;
   public description: string;
   public modelId: string;
-  public state: AgentState;
+  private _state: AgentState;
   public systemPrompt: Prompt;
-  public tools: Tool[];
-  public knowledgeBase: KnowledgeBase;
+  private _tools: Tool[];
+  private _knowledgeBase: KnowledgeBase;
   public createdAt: Date;
   public updatedAt: Date;
   private modelService?: ModelServicePort;
   private vectorDB?: VectorDBPort;
   private _workspaceConfig: WorkspaceConfig;
+  private _toolsLoaded: boolean = false;
+  private _knowledgeBaseLoaded: boolean = false;
 
   constructor(
     params: {
@@ -59,26 +61,66 @@ export class Agent {
     this.description = params.description;
     this.modelId = params.modelId;
     this.systemPrompt = params.systemPrompt;
-    this.tools = params.tools || [];
+    this._tools = params.tools || [];
+    this._toolsLoaded = params.tools !== undefined;
     this.modelService = params.modelService;
     this.vectorDB = params.vectorDB;
     this._workspaceConfig = params.workspaceConfig;
-    this.state = new AgentState({ 
+    this._state = new AgentState({ 
       agentId: this.id,
       conversationId: params.conversationId,
     });
 
-    this.knowledgeBase = params.knowledgeBase || new KnowledgeBase({
+    this._knowledgeBase = params.knowledgeBase || new KnowledgeBase({
       agentId: this.id,
       name: `${this.name}'s Knowledge Base`,
       description: `Knowledge base for agent ${this.name}`,
       modelService: this.modelService,
       vectorDB: this.vectorDB,
     });
+    this._knowledgeBaseLoaded = params.knowledgeBase !== undefined;
     this.createdAt = new Date();
     this.updatedAt = new Date();
 
-    this.logger.debug(`Agent initialized: ${this.name} (${this.id}) with ${this.tools.length} tools. Model: ${this.modelId}, Description: ${this.description}`);
+    this.logger.debug(`Agent initialized: ${this.name} (${this.id}) with ${this._tools.length} tools. Model: ${this.modelId}, Description: ${this.description}`);
+  }
+
+  public get state(): AgentState {
+    return this._state;
+  }
+
+  public set state(state: AgentState) {
+    this._state = state;
+  }
+
+  public get tools(): Tool[] {
+    return this._tools;
+  }
+
+  public set tools(tools: Tool[]) {
+    this._tools = tools;
+    this._toolsLoaded = true;
+  }
+
+  public get knowledgeBase(): KnowledgeBase {
+    return this._knowledgeBase;
+  }
+
+  public set knowledgeBase(kb: KnowledgeBase) {
+    this._knowledgeBase = kb;
+    this._knowledgeBaseLoaded = true;
+  }
+
+  public areToolsLoaded(): boolean {
+    return this._toolsLoaded;
+  }
+
+  public isKnowledgeBaseLoaded(): boolean {
+    return this._knowledgeBaseLoaded;
+  }
+
+  public areServicesInitialized(): boolean {
+    return !!this.modelService && !!this.vectorDB;
   }
 
   public async setServices(
@@ -105,11 +147,11 @@ export class Agent {
       throw new Error("Model service not initialized");
     }
 
-    this.logger.debug(`Processing message for agent ${this.id}. Content: "${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}", Role: ${message.role}, Conversation ID: ${message.conversationId}`);
+    // Ensure tools are loaded
+    await this.loadTools();
 
     // Initialize or update state if needed
     if (!this.state || this.state.conversationId !== message.conversationId) {
-      this.logger.debug(`Initializing new conversation state for agent ${this.id}. Previous conversation ID: ${this.state?.conversationId || 'none'}, New conversation ID: ${message.conversationId}`);
       this.state = new AgentState({
         agentId: this.id,
         conversationId: message.conversationId,
@@ -125,12 +167,18 @@ export class Agent {
     };
 
     if (options?.stream) {
-      this.logger.debug(`Processing message with streaming for agent ${this.id}. Options: ${JSON.stringify(requestOptions)}`);
       return this.processStreamingMessage(message, requestOptions);
     } else {
-      this.logger.debug(`Processing message without streaming for agent ${this.id}. Options: ${JSON.stringify(requestOptions)}`);
       return this.processStandardMessage(message, requestOptions);
     }
+  }
+
+  private async loadTools(): Promise<void> {
+    // If tools are already loaded or agent has no tools, do nothing
+    if (this._toolsLoaded || !this._tools || this._tools.length === 0) {
+      return;
+    }
+    this._toolsLoaded = true;
   }
 
   private async processStandardMessage(
@@ -186,12 +234,19 @@ export class Agent {
     const collectedToolCalls: ToolCallResult[] = [];
     let streamingContent = "";
 
+    // Ensure we have a valid Observable from the model service
     const streamingObs = this.modelService!.generateStreamingResponse(
       this.state.conversationHistory,
       this.systemPrompt,
       this.tools,
       options
     );
+
+    if (!streamingObs || typeof streamingObs.subscribe !== 'function') {
+      this.logger.error(`Invalid streaming response from model service for agent ${this.id}`);
+      subject.error(new Error('Invalid streaming response from model service'));
+      return subject.asObservable();
+    }
 
     // Create a promise to track the completion of the streaming process
     const streamingPromise = new Promise<void>((resolve, reject) => {
@@ -504,6 +559,7 @@ export class Agent {
   public registerTool(tool: Tool): void {
     this.logger.debug(`Registering tool ${tool.name} for agent ${this.id}. Tool ID: ${tool.id}, Parameters: ${JSON.stringify(tool.parameters)}`);
     this.tools.push(tool);
+    this._toolsLoaded = true;
     this.updatedAt = new Date();
   }
 

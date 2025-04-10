@@ -3,13 +3,14 @@ import { Message } from "./message.entity";
 
 export class AgentState {
   public readonly id: string;
-  public conversationHistory: Message[];
+  private _conversationHistory: Message[];
   public conversationId: string;
   public agentId: string;
   public memory: Record<string, any>;
   public ttl?: number;
   public createdAt: Date;
   public updatedAt: Date;
+  private _messagesLoaded: boolean = false;
 
   constructor(
     params: {
@@ -24,11 +25,25 @@ export class AgentState {
     this.id = params.id || uuidv4();
     this.agentId = params.agentId || "";
     this.conversationId = params.conversationId || "new-conversation";
-    this.conversationHistory = params.conversationHistory || [];
+    this._conversationHistory = params.conversationHistory || [];
+    this._messagesLoaded = params.conversationHistory !== undefined;
     this.memory = params.memory || {};
     this.ttl = params.ttl;
     this.createdAt = new Date();
     this.updatedAt = new Date();
+  }
+
+  public get conversationHistory(): Message[] {
+    return this._conversationHistory;
+  }
+
+  public set conversationHistory(messages: Message[]) {
+    this._conversationHistory = messages;
+    this._messagesLoaded = true;
+  }
+
+  public areMessagesLoaded(): boolean {
+    return this._messagesLoaded;
   }
 
   public addToConversation(message: Message): void {
@@ -38,16 +53,16 @@ export class AgentState {
     }
 
     // Find the correct position to insert the message
-    const insertIndex = this.conversationHistory.findIndex(
+    const insertIndex = this._conversationHistory.findIndex(
       existingMsg => existingMsg.createdAt > message.createdAt
     );
 
     if (insertIndex === -1) {
       // If no message is newer, append to the end
-      this.conversationHistory.push(message);
+      this._conversationHistory.push(message);
     } else {
       // Insert at the correct position to maintain chronological order
-      this.conversationHistory.splice(insertIndex, 0, message);
+      this._conversationHistory.splice(insertIndex, 0, message);
     }
 
     if (message.conversationId && !this.conversationId) {
@@ -58,12 +73,12 @@ export class AgentState {
 
   public getLastNMessages(n: number): Message[] {
     // Return the last N messages in chronological order
-    return this.conversationHistory.slice(-n);
+    return this._conversationHistory.slice(-n);
   }
 
   public getLastNInteractions(n: number): Message[] {
     // Create a copy to avoid modifying the original array
-    const history = [...this.conversationHistory];
+    const history = [...this._conversationHistory];
     const result: Message[] = [];
     let interactionCount = 0;
 
@@ -118,7 +133,8 @@ export class AgentState {
   }
 
   public clearConversation(): void {
-    this.conversationHistory = [];
+    this._conversationHistory = [];
+    this._messagesLoaded = true;
     this.updatedAt = new Date();
   }
 

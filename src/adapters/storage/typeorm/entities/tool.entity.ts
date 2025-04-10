@@ -1,40 +1,29 @@
-import { Entity, Column, PrimaryColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { AgentEntity } from './agent.entity';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from "typeorm";
+import { Tool, ToolParameter } from "@core/domain/tool.entity";
 
-@Entity('tools')
+@Entity("tools")
 export class ToolEntity {
-  @PrimaryColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column()
+  @Column({ unique: true })
   name: string;
 
-  @Column('text')
+  @Column()
   description: string;
 
-  @Column('json')
-  parameters: Array<{
-    name: string;
-    type: string;
-    description?: string;
-    required?: boolean;
-    enum?: any[];
-    default?: any;
-  }>;
+  @Column({ type: "json" })
+  parameters: ToolParameter[];
 
-  @Column('json', { nullable: true })
+  @Column({ type: "json", nullable: true })
   metadata: Record<string, any>;
 
-  @Column({ nullable: true })
-  agentId: string;
+  @Column({ type: "json", nullable: true })
+  jsonSchema: Record<string, any>;
 
-  @ManyToOne(() => AgentEntity, agent => agent.tools)
-  @JoinColumn({ name: 'agentId' })
-  agent: AgentEntity;
-
-  @CreateDateColumn()
+  @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 }

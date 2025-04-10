@@ -7,6 +7,7 @@ import { MessageEntity } from "./adapters/storage/typeorm/entities/message.entit
 import { ToolEntity } from "./adapters/storage/typeorm/entities/tool.entity";
 import { KnowledgeBaseEntity } from "./adapters/storage/typeorm/entities/knowledge-base.entity";
 import { ProcessEntity } from "./adapters/storage/typeorm/entities/process.entity";
+import { AgentToolEntity } from "./adapters/storage/typeorm/entities/agent-tool.entity";
 import { CoreModule } from "./core/core.module";
 import { AdaptersModule } from "./adapters/adapters.module";
 import { ToolsModule } from "./tools/tools.module";
@@ -32,7 +33,7 @@ import { ToolsModule } from "./tools/tools.module";
           return {
             type: "sqlite",
             database: `${dbPath}${dbName}`,
-            entities: [AgentEntity, StateEntity, MessageEntity, ToolEntity, KnowledgeBaseEntity, ProcessEntity],
+            entities: [AgentEntity, StateEntity, MessageEntity, ToolEntity, KnowledgeBaseEntity, ProcessEntity, AgentToolEntity],
             synchronize: true, // TODO: Set to false in production
           };
         }
@@ -42,7 +43,7 @@ import { ToolsModule } from "./tools/tools.module";
         return {
           type: "sqlite", // Default fallback
           database: "./data/agent.sqlite",
-          entities: [AgentEntity, StateEntity, MessageEntity, ToolEntity, KnowledgeBaseEntity, ProcessEntity],
+          entities: [AgentEntity, StateEntity, MessageEntity, ToolEntity, KnowledgeBaseEntity, ProcessEntity, AgentToolEntity],
           synchronize: true,
         };
       },

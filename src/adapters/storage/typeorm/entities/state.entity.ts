@@ -23,7 +23,7 @@ export class StateEntity {
   @Column()
   conversationId: string;
 
-  @OneToMany(() => MessageEntity, (message) => message.state, { cascade: true })
+  @OneToMany(() => MessageEntity, (message) => message.state)
   messages: MessageEntity[];
 
   @Column("json", { default: "{}" })

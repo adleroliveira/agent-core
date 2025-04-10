@@ -12,6 +12,7 @@ import { Logger } from "@nestjs/common";
 import { MessageService } from "@core/services/message.service";
 import { AgentEntity } from "./entities/agent.entity";
 import { MessageEntity } from "./entities/message.entity";
+import { AgentToolEntity } from "./entities/agent-tool.entity";
 
 @Injectable()
 export class TypeOrmStateRepository implements StateRepositoryPort {
@@ -25,7 +26,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
     private readonly messageService: MessageService
   ) {}
 
-  async findById(id: string): Promise<AgentState | null> {
+  async findById(id: string, loadMessages: boolean = false): Promise<AgentState | null> {
     const stateEntity = await this.stateRepository.findOne({
       where: { id },
       relations: ["agent"],
@@ -35,14 +36,19 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
       return null;
     }
 
-    const { messages } = await this.messageService.getMessages(id);
-    const state = StateMapper.toDomain(stateEntity);
-    state.conversationHistory = messages;
+    const state = StateMapper.toDomain(stateEntity, loadMessages);
+    
+    if (loadMessages) {
+      const { messages } = await this.messageService.getMessages(id);
+      state.conversationHistory = messages;
+    }
+    
     return state;
   }
 
   async findByConversationId(
-    conversationId: string
+    conversationId: string,
+    loadMessages: boolean = false
   ): Promise<AgentState | null> {
     const stateEntity = await this.stateRepository.findOne({
       where: { conversationId },
@@ -54,13 +60,17 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
       return null;
     }
 
-    const { messages } = await this.messageService.getMessages(stateEntity.id);
-    const state = StateMapper.toDomain(stateEntity);
-    state.conversationHistory = messages;
+    const state = StateMapper.toDomain(stateEntity, loadMessages);
+    
+    if (loadMessages) {
+      const { messages } = await this.messageService.getMessages(stateEntity.id);
+      state.conversationHistory = messages;
+    }
+    
     return state;
   }
 
-  async findByAgentId(agentId: string): Promise<AgentState | null> {
+  async findByAgentId(agentId: string, loadMessages: boolean = false): Promise<AgentState | null> {
     const stateEntity = await this.stateRepository.findOne({
       where: { agent: { id: agentId } },
       relations: ["agent"],
@@ -71,13 +81,17 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
       return null;
     }
 
-    const { messages } = await this.messageService.getMessages(stateEntity.id);
-    const state = StateMapper.toDomain(stateEntity);
-    state.conversationHistory = messages;
+    const state = StateMapper.toDomain(stateEntity, loadMessages);
+    
+    if (loadMessages) {
+      const { messages } = await this.messageService.getMessages(stateEntity.id);
+      state.conversationHistory = messages;
+    }
+    
     return state;
   }
 
-  async findAllByAgentId(agentId: string): Promise<AgentState[]> {
+  async findAllByAgentId(agentId: string, loadMessages: boolean = false): Promise<AgentState[]> {
     const states = await this.stateRepository.find({
       where: { agent: { id: agentId } },
       relations: ["agent"],
@@ -85,9 +99,13 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
     });
 
     return Promise.all(states.map(async (state) => {
-      const { messages } = await this.messageService.getMessages(state.id);
-      const agentState = StateMapper.toDomain(state);
-      agentState.conversationHistory = messages;
+      const agentState = StateMapper.toDomain(state, loadMessages);
+      
+      if (loadMessages) {
+        const { messages } = await this.messageService.getMessages(state.id);
+        agentState.conversationHistory = messages;
+      }
+      
       return agentState;
     }));
   }
@@ -160,7 +178,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
       }
 
       // 4. Delete all tool associations for this agent using the agent relationship
-      await manager.delete(ToolEntity, { agent: { id: agentId } });
+      await manager.delete(AgentToolEntity, { agentId: agentId });
     });
   }
 
@@ -190,7 +208,8 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
 
   async findByAgentIdAndConversationId(
     agentId: string,
-    conversationId: string
+    conversationId: string,
+    loadMessages: boolean = false
   ): Promise<AgentState | null> {
     const state = await this.stateRepository.findOne({
       where: {
@@ -203,9 +222,13 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
 
     if (!state) return null;
 
-    const { messages } = await this.messageService.getMessages(state.id);
-    const agentState = StateMapper.toDomain(state);
-    agentState.conversationHistory = messages;
+    const agentState = StateMapper.toDomain(state, loadMessages);
+    
+    if (loadMessages) {
+      const { messages } = await this.messageService.getMessages(state.id);
+      agentState.conversationHistory = messages;
+    }
+    
     return agentState;
   }
 }

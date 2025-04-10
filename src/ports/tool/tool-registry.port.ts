@@ -1,5 +1,8 @@
 import { Tool } from '@core/domain/tool.entity';
 import { Agent } from '@core/domain/agent.entity';
+
+export const TOOL_REGISTRY = 'TOOL_REGISTRY';
+
 export interface ToolRegistryPort {
   registerTool(tool: Tool): Promise<Tool>;
   unregisterTool(toolId: string): Promise<boolean>;
