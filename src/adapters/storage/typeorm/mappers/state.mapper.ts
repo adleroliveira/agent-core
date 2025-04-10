@@ -1,6 +1,7 @@
 import { AgentState } from "@core/domain/agent-state.entity";
 import { StateEntity } from "../entities/state.entity";
 import { MessageMapper } from "./message.mapper";
+import { AgentEntity } from "../entities/agent.entity";
 
 export class StateMapper {
   static toDomain(entity: StateEntity): AgentState {
@@ -9,7 +10,7 @@ export class StateMapper {
       memory: entity.memory,
       ttl: entity.ttl,
       conversationId: entity.conversationId,
-      agentId: entity.agentId
+      agentId: entity.agent?.id || ''
     });
 
     if (entity.messages) {
@@ -27,14 +28,15 @@ export class StateMapper {
     entity.id = domain.id;
     entity.memory = domain.memory;
     entity.ttl = domain.ttl || 0;
-
-    if (agentId) {
-      entity.agentId = agentId;
-    }
-
+    entity.conversationId = domain.conversationId;
     entity.createdAt = domain.createdAt;
     entity.updatedAt = domain.updatedAt;
-    entity.conversationId = domain.conversationId;
+
+    if (agentId) {
+      const agentEntity = new AgentEntity();
+      agentEntity.id = agentId;
+      entity.agent = agentEntity;
+    }
 
     if (domain.conversationHistory && domain.conversationHistory.length > 0) {
       entity.messages = domain.conversationHistory.map((message) =>

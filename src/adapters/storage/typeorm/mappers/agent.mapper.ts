@@ -94,10 +94,8 @@ export class AgentMapper {
     entity.createdAt = agent.createdAt;
     entity.updatedAt = agent.updatedAt;
 
-    if (agent.state) {
-      const stateEntity = StateMapper.toPersistence(agent.state, agent.id);
-      entity.states = [stateEntity];
-    }
+    // Don't include any state information in the agent entity
+    // State management will be handled by the state repository
 
     if (agent.tools) {
       entity.tools = agent.tools.map(tool => ToolMapper.toPersistence(tool, agent.id));

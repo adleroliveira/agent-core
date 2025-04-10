@@ -12,6 +12,7 @@ import { VECTOR_DB } from "@adapters/adapters.module";
 import { Logger } from "@nestjs/common";
 import { Message, MessageRole } from "@core/domain/message.entity";
 import { MessageMapper } from "./mappers/message.mapper";
+import { AgentEntity } from "./entities/agent.entity";
 
 @Injectable()
 export class TypeOrmStateRepository implements StateRepositoryPort {
@@ -60,7 +61,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
 
   async findByAgentId(agentId: string): Promise<AgentState | null> {
     const stateEntity = await this.stateRepository.findOne({
-      where: { agentId },
+      where: { agent: { id: agentId } },
       relations: ["messages"],
       order: { updatedAt: "DESC" },
     });
@@ -74,7 +75,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
 
   async findAllByAgentId(agentId: string): Promise<AgentState[]> {
     const states = await this.stateRepository.find({
-      where: { agentId },
+      where: { agent: { id: agentId } },
       relations: ["messages"],
       order: { 
         updatedAt: "DESC",
@@ -85,7 +86,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
     return states.map((state) => {
       const agentState = new AgentState({
         id: state.id,
-        agentId: state.agentId,
+        agentId: state.agent?.id || '',
         conversationId: state.conversationId,
         conversationHistory: state.messages.map((msg) => {
           const message = new Message({
@@ -114,7 +115,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
     // Find existing state for this agent and conversation
     const existingState = await this.stateRepository.findOne({
       where: {
-        agentId: state.agentId,
+        agent: { id: state.agentId },
         conversationId: state.conversationId,
       },
       relations: ["messages"],
@@ -196,11 +197,15 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
       // Create new state
       const stateEntity = this.stateRepository.create({
         id: state.id,
-        agentId: state.agentId,
         conversationId: state.conversationId,
         memory: state.memory,
         ttl: state.ttl,
       });
+
+      // Set up the agent relationship
+      const agentEntity = new AgentEntity();
+      agentEntity.id = state.agentId;
+      stateEntity.agent = agentEntity;
 
       await this.stateRepository.save(stateEntity);
 
@@ -233,7 +238,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
     await this.stateRepository.manager.transaction(async (manager) => {
       // 1. Find all states associated with this agent
       const states = await manager.find(StateEntity, {
-        where: { agentId },
+        where: { agent: { id: agentId } },
       });
 
       if (states.length > 0) {
@@ -243,7 +248,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
         }
 
         // 3. Delete all states
-        await manager.delete(StateEntity, { agentId });
+        await manager.delete(StateEntity, { agent: { id: agentId } });
       }
 
       // 4. Delete all tool associations for this agent
@@ -281,7 +286,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
   ): Promise<AgentState | null> {
     const state = await this.stateRepository.findOne({
       where: {
-        agentId,
+        agent: { id: agentId },
         conversationId,
       },
       relations: ["messages"],
@@ -295,7 +300,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
 
     const agentState = new AgentState({
       id: state.id,
-      agentId: state.agentId,
+      agentId: state.agent?.id || '',
       conversationHistory: state.messages.map((msg) => {
         const message = new Message({
           id: msg.id,
@@ -333,7 +338,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
 
     // First, get the state to ensure it exists
     const state = await this.stateRepository.findOne({
-      where: { agentId, conversationId }
+      where: { agent: { id: agentId }, conversationId }
     });
 
     if (!state) {

@@ -16,15 +16,12 @@ export class StateEntity {
   @PrimaryColumn("uuid")
   id: string;
 
-  @Column()
-  agentId: string;
-
-  @Column()
-  conversationId: string;
-
   @ManyToOne(() => AgentEntity, (agent) => agent.states, { onDelete: 'CASCADE' })
   @JoinColumn({ name: "agentId" })
   agent: AgentEntity;
+
+  @Column()
+  conversationId: string;
 
   @OneToMany(() => MessageEntity, (message) => message.state, { cascade: true })
   messages: MessageEntity[];

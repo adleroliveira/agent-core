@@ -31,7 +31,10 @@ export class AgentEntity {
   @Column('json', { default: '{"workspaceDir": "./workspace"}' })
   workspaceConfig: { workspaceDir: string };
 
-  @OneToMany(() => StateEntity, state => state.agent, { cascade: true })
+  @OneToMany(() => StateEntity, state => state.agent, { 
+    cascade: ['insert'],
+    onDelete: 'CASCADE'
+  })
   states: StateEntity[];
 
   @OneToMany(() => ToolEntity, tool => tool.agent, { cascade: true })

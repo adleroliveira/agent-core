@@ -80,8 +80,30 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
         tools: agentEntity.tools
       });
 
-      // Initialize states as an empty array if it doesn't exist
-      agentToSave.states = agentEntity.states || [];
+      // Get all existing states for this agent
+      const existingStates = await manager.find(StateEntity, {
+        where: { agent: { id: agent.id } },
+        relations: ['messages']
+      });
+
+      // Initialize states array with existing states
+      agentToSave.states = existingStates;
+
+      // Add the current state if it's not already in the list
+      if (agent.state) {
+        const currentStateExists = existingStates.some(state => state.id === agent.state.id);
+        if (!currentStateExists) {
+          const stateEntity = new StateEntity();
+          stateEntity.id = agent.state.id;
+          stateEntity.conversationId = agent.state.conversationId;
+          stateEntity.memory = agent.state.memory;
+          stateEntity.ttl = agent.state.ttl || 0;
+          stateEntity.createdAt = agent.state.createdAt;
+          stateEntity.updatedAt = agent.state.updatedAt;
+          stateEntity.agent = agentToSave;
+          agentToSave.states.push(stateEntity);
+        }
+      }
       
       const savedAgentEntity = await manager.save(AgentEntity, agentToSave);
       

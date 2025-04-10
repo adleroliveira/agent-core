@@ -104,13 +104,27 @@ export class AgentService implements OnModuleInit {
       }
     }
 
-    // Save the agent with initialized services
-    const savedAgent = await this.agentRepository.save(agent);
-
-    // Cache the initialized agent
-    this.initializedAgents.set(savedAgent.id, savedAgent);
-
-    return savedAgent;
+    try {
+      // First save the agent to get its ID
+      const savedAgent = await this.agentRepository.save(agent);
+      this.logger.debug(`Saved new agent with ID: ${savedAgent.id}`);
+      
+      // Update the state with the agent's ID
+      agent.state.agentId = savedAgent.id;
+      this.logger.debug(`Setting agentId ${savedAgent.id} on initial state`);
+      
+      // Then save the state
+      await this.stateRepository.save(agent.state);
+      this.logger.debug(`Saved initial state for agent ${savedAgent.id}`);
+      
+      // Cache the initialized agent
+      this.initializedAgents.set(savedAgent.id, savedAgent);
+      
+      return savedAgent;
+    } catch (error) {
+      this.logger.error(`Failed to create agent: ${error.message}`);
+      throw error;
+    }
   }
 
   async findAgentById(id: string): Promise<Agent> {
@@ -272,9 +286,37 @@ export class AgentService implements OnModuleInit {
   }
 
   async createNewConversation(agentId: string, conversationId?: string): Promise<Agent> {
+    this.logger.debug(`Creating new conversation for agent ${agentId} with conversationId ${conversationId}`);
     const agent = await this.findAgentById(agentId);
-    agent.createNewConversation(conversationId);
-    return this.agentRepository.save(agent);
+    this.logger.debug(`Found agent: ${agent.id}`);
+    
+    // Get all existing states for this agent
+    const existingStates = await this.stateRepository.findAllByAgentId(agentId);
+    this.logger.debug(`Found ${existingStates.length} existing states for agent ${agentId}`);
+    
+    // Create new state with the agent's ID
+    const newState = new AgentState({
+      agentId: agent.id,
+      conversationId: conversationId || uuidv4(),
+    });
+    
+    // Set the new state on the agent
+    agent.state = newState;
+    this.logger.debug(`Created new state with agentId: ${agent.state.agentId}, conversationId: ${agent.state.conversationId}`);
+    
+    try {
+      // First save the new state
+      await this.stateRepository.save(agent.state);
+      
+      // Then save the agent with all states
+      const savedAgent = await this.agentRepository.save(agent);
+      this.logger.debug(`Successfully saved agent with new state`);
+      return savedAgent;
+    } catch (error) {
+      this.logger.error(`Failed to save agent with new state: ${error.message}`);
+      this.logger.error(`State details - agentId: ${agent.state.agentId}, conversationId: ${agent.state.conversationId}`);
+      throw error;
+    }
   }
 
   async getConversationHistory(
