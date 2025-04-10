@@ -239,6 +239,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
       // 1. Find all states associated with this agent
       const states = await manager.find(StateEntity, {
         where: { agent: { id: agentId } },
+        relations: ['messages']
       });
 
       if (states.length > 0) {
@@ -247,12 +248,12 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
           await manager.delete(MessageEntity, { stateId: state.id });
         }
 
-        // 3. Delete all states
+        // 3. Delete all states using the agent relationship
         await manager.delete(StateEntity, { agent: { id: agentId } });
       }
 
-      // 4. Delete all tool associations for this agent
-      await manager.delete(ToolEntity, { agentId });
+      // 4. Delete all tool associations for this agent using the agent relationship
+      await manager.delete(ToolEntity, { agent: { id: agentId } });
     });
   }
 

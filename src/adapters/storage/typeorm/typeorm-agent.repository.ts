@@ -164,14 +164,14 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
           }
         }
 
-        // 3. Delete all states
+        // 3. Delete all states using the agent relationship
         if (agent.states) {
-          await manager.delete(StateEntity, { agentId: id });
+          await manager.delete(StateEntity, { agent: { id } });
         }
 
-        // 4. Delete all tools
+        // 4. Delete all tools using the agent relationship
         if (agent.tools) {
-          await manager.delete(ToolEntity, { agentId: id });
+          await manager.delete(ToolEntity, { agent: { id } });
         }
 
         // 5. Handle knowledge base
