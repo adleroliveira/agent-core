@@ -365,9 +365,6 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
                 <div class="conversation-date">
                   {new Date(conv.createdAt).toLocaleDateString()}
                 </div>
-                <div class="conversation-message-count">
-                  {conv.messageCount} messages
-                </div>
               </li>
             ))
           ) : (

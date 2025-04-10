@@ -8,7 +8,6 @@ interface Conversation {
   conversationId: string;
   createdAt: string;
   updatedAt: string;
-  messageCount: number;
 }
 
 export interface ExtendedMessage {
