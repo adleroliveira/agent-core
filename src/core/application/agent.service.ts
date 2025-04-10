@@ -271,6 +271,12 @@ export class AgentService implements OnModuleInit {
     return await this.stateRepository.findAllByAgentId(agentId);
   }
 
+  async createNewConversation(agentId: string, conversationId?: string): Promise<Agent> {
+    const agent = await this.findAgentById(agentId);
+    agent.createNewConversation(conversationId);
+    return this.agentRepository.save(agent);
+  }
+
   async getConversationHistory(
     agentId: string,
     conversationId: string,

@@ -533,6 +533,15 @@ export class Agent {
     this.updatedAt = new Date();
   }
 
+  public createNewConversation(conversationId?: string): void {
+    this.logger.debug(`Creating new conversation for agent ${this.id}. Previous conversation ID: ${this.state.conversationId}, Previous history length: ${this.state.conversationHistory.length}`);
+    this.state = new AgentState({
+      agentId: this.id,
+      conversationId: conversationId || uuidv4(),
+    });
+    this.updatedAt = new Date();
+  }
+
   public getConversationId(): string {
     return this.state.conversationId;
   }

@@ -20,7 +20,6 @@ import { CreateAgentDto } from "./dto/create-agent.dto";
 import { SendMessageDto } from "./dto/send-message.dto";
 import { UpdatePromptDto } from "./dto/update-prompt.dto";
 import { AddToolDto } from "./dto/add-tool.dto";
-import { GetConversationHistoryDto } from "./dto/get-conversation-history.dto";
 import { Message } from "@core/domain/message.entity";
 import { MessageDto } from "./dto/message.dto";
 import { AGENT_SERVICE } from "@adapters/adapters.module";
@@ -38,6 +37,22 @@ export class AgentController {
   ) {}
 
   @Post()
+  @ApiOperation({ 
+    summary: 'Create a new agent',
+    description: 'Creates a new agent with the specified configuration'
+  })
+  @ApiBody({ 
+    type: CreateAgentDto,
+    description: 'The agent configuration including name, description, and system prompt'
+  })
+  @ApiResponse({ 
+    status: 201, 
+    description: 'Agent created successfully'
+  })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Invalid request parameters'
+  })
   async createAgent(@Body() createAgentDto: CreateAgentDto) {
     try {
       const agent = await this.agentService.createAgent({
@@ -64,6 +79,18 @@ export class AgentController {
   }
 
   @Get()
+  @ApiOperation({ 
+    summary: 'Get all agents',
+    description: 'Retrieves a list of all available agents'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'List of agents retrieved successfully'
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error'
+  })
   async getAllAgents() {
     try {
       const agents = await this.agentService.findAllAgents();
@@ -88,6 +115,23 @@ export class AgentController {
   }
 
   @Get(":id")
+  @ApiOperation({ 
+    summary: 'Get agent by ID',
+    description: 'Retrieves detailed information about a specific agent'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'The ID of the agent to retrieve',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Agent retrieved successfully'
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent not found'
+  })
   async getAgent(@Param("id") id: string) {
     try {
       const agent = await this.agentService.findAgentById(id);
@@ -114,6 +158,27 @@ export class AgentController {
   }
 
   @Delete(":id")
+  @ApiOperation({ 
+    summary: 'Delete an agent',
+    description: 'Deletes a specific agent by ID'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'The ID of the agent to delete',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Agent deleted successfully'
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent not found'
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error'
+  })
   async deleteAgent(@Param("id") id: string) {
     try {
       const deleted = await this.agentService.deleteAgent(id);
@@ -244,6 +309,31 @@ export class AgentController {
   }
 
   @Put(":id/prompt")
+  @ApiOperation({ 
+    summary: 'Update system prompt',
+    description: 'Updates the system prompt for a specific agent'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'The ID of the agent',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiBody({ 
+    type: UpdatePromptDto,
+    description: 'The new system prompt content'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'System prompt updated successfully'
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent not found'
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error'
+  })
   async updateSystemPrompt(
     @Param("id") id: string,
     @Body() promptDto: UpdatePromptDto
@@ -268,6 +358,31 @@ export class AgentController {
   }
 
   @Post(":id/tools")
+  @ApiOperation({ 
+    summary: 'Add tool to agent',
+    description: 'Adds a new tool to the agent\'s capabilities'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'The ID of the agent',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiBody({ 
+    type: AddToolDto,
+    description: 'The tool to add to the agent'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Tool added successfully'
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent not found'
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error'
+  })
   async addTool(@Param("id") id: string, @Body() toolDto: AddToolDto) {
     try {
       const agent = await this.agentService.addToolToAgent(
@@ -293,6 +408,32 @@ export class AgentController {
   }
 
   @Delete(":id/tools/:toolId")
+  @ApiOperation({ 
+    summary: 'Remove tool from agent',
+    description: 'Removes a tool from the agent\'s capabilities'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'The ID of the agent',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiParam({ 
+    name: 'toolId', 
+    description: 'The ID of the tool to remove',
+    example: 'tool_123'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Tool removed successfully'
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent or tool not found'
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error'
+  })
   async removeTool(@Param("id") id: string, @Param("toolId") toolId: string) {
     try {
       const agent = await this.agentService.removeToolFromAgent(id, toolId);
@@ -314,6 +455,27 @@ export class AgentController {
   }
 
   @Post(":id/reset")
+  @ApiOperation({ 
+    summary: 'Reset agent state',
+    description: 'Resets the state of a specific agent'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'The ID of the agent to reset',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Agent state reset successfully'
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent not found'
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error'
+  })
   async resetState(@Param("id") id: string) {
     try {
       await this.agentService.resetAgentState(id);
@@ -326,7 +488,76 @@ export class AgentController {
     }
   }
 
+  @Post(":id/new-conversation")
+  @ApiOperation({ 
+    summary: 'Create new conversation',
+    description: 'Creates a new conversation for a specific agent'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'The ID of the agent',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiQuery({ 
+    name: 'conversationId',
+    description: 'Optional conversation ID to specify when creating a new conversation',
+    required: false,
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'New conversation created successfully'
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent not found'
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error'
+  })
+  async createNewConversation(
+    @Param("id") id: string,
+    @Query("conversationId") conversationId?: string
+  ) {
+    try {
+      const agent = await this.agentService.createNewConversation(id, conversationId);
+      return {
+        id: agent.id,
+        name: agent.name,
+        conversationId: agent.state.conversationId,
+        createdAt: agent.createdAt,
+      };
+    } catch (error) {
+      throw new HttpException(
+        `Failed to create new conversation: ${error.message || error.toString()}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
   @Get(":id/conversations")
+  @ApiOperation({ 
+    summary: 'Get agent conversations',
+    description: 'Retrieves all conversations for a specific agent'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'The ID of the agent',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Conversations retrieved successfully'
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent not found'
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error'
+  })
   async getConversations(@Param("id") id: string) {
     try {
       const conversations = await this.agentService.getConversations(id);

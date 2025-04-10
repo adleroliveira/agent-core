@@ -12,8 +12,10 @@ import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 export class DefaultService {
     /**
-     * @param requestBody
-     * @returns any
+     * Create a new agent
+     * Creates a new agent with the specified configuration
+     * @param requestBody The agent configuration including name, description, and system prompt
+     * @returns any Agent created successfully
      * @throws ApiError
      */
     public static agentControllerCreateAgent(
@@ -24,21 +26,31 @@ export class DefaultService {
             url: '/agents',
             body: requestBody,
             mediaType: 'application/json',
+            errors: {
+                400: `Invalid request parameters`,
+            },
         });
     }
     /**
-     * @returns any
+     * Get all agents
+     * Retrieves a list of all available agents
+     * @returns any List of agents retrieved successfully
      * @throws ApiError
      */
     public static agentControllerGetAllAgents(): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/agents',
+            errors: {
+                500: `Internal server error`,
+            },
         });
     }
     /**
-     * @param id
-     * @returns any
+     * Get agent by ID
+     * Retrieves detailed information about a specific agent
+     * @param id The ID of the agent to retrieve
+     * @returns any Agent retrieved successfully
      * @throws ApiError
      */
     public static agentControllerGetAgent(
@@ -50,11 +62,16 @@ export class DefaultService {
             path: {
                 'id': id,
             },
+            errors: {
+                404: `Agent not found`,
+            },
         });
     }
     /**
-     * @param id
-     * @returns any
+     * Delete an agent
+     * Deletes a specific agent by ID
+     * @param id The ID of the agent to delete
+     * @returns any Agent deleted successfully
      * @throws ApiError
      */
     public static agentControllerDeleteAgent(
@@ -65,6 +82,10 @@ export class DefaultService {
             url: '/agents/{id}',
             path: {
                 'id': id,
+            },
+            errors: {
+                404: `Agent not found`,
+                500: `Internal server error`,
             },
         });
     }
@@ -100,9 +121,11 @@ export class DefaultService {
         });
     }
     /**
-     * @param id
-     * @param requestBody
-     * @returns any
+     * Update system prompt
+     * Updates the system prompt for a specific agent
+     * @param id The ID of the agent
+     * @param requestBody The new system prompt content
+     * @returns any System prompt updated successfully
      * @throws ApiError
      */
     public static agentControllerUpdateSystemPrompt(
@@ -117,12 +140,18 @@ export class DefaultService {
             },
             body: requestBody,
             mediaType: 'application/json',
+            errors: {
+                404: `Agent not found`,
+                500: `Internal server error`,
+            },
         });
     }
     /**
-     * @param id
-     * @param requestBody
-     * @returns any
+     * Add tool to agent
+     * Adds a new tool to the agent's capabilities
+     * @param id The ID of the agent
+     * @param requestBody The tool to add to the agent
+     * @returns any Tool added successfully
      * @throws ApiError
      */
     public static agentControllerAddTool(
@@ -137,12 +166,18 @@ export class DefaultService {
             },
             body: requestBody,
             mediaType: 'application/json',
+            errors: {
+                404: `Agent not found`,
+                500: `Internal server error`,
+            },
         });
     }
     /**
-     * @param id
-     * @param toolId
-     * @returns any
+     * Remove tool from agent
+     * Removes a tool from the agent's capabilities
+     * @param id The ID of the agent
+     * @param toolId The ID of the tool to remove
+     * @returns any Tool removed successfully
      * @throws ApiError
      */
     public static agentControllerRemoveTool(
@@ -156,11 +191,17 @@ export class DefaultService {
                 'id': id,
                 'toolId': toolId,
             },
+            errors: {
+                404: `Agent or tool not found`,
+                500: `Internal server error`,
+            },
         });
     }
     /**
-     * @param id
-     * @returns any
+     * Reset agent state
+     * Resets the state of a specific agent
+     * @param id The ID of the agent to reset
+     * @returns any Agent state reset successfully
      * @throws ApiError
      */
     public static agentControllerResetState(
@@ -172,11 +213,44 @@ export class DefaultService {
             path: {
                 'id': id,
             },
+            errors: {
+                404: `Agent not found`,
+                500: `Internal server error`,
+            },
         });
     }
     /**
-     * @param id
-     * @returns any
+     * Create new conversation
+     * Creates a new conversation for a specific agent
+     * @param id The ID of the agent
+     * @param conversationId Optional conversation ID to specify when creating a new conversation
+     * @returns any New conversation created successfully
+     * @throws ApiError
+     */
+    public static agentControllerCreateNewConversation(
+        id: string,
+        conversationId?: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/agents/{id}/new-conversation',
+            path: {
+                'id': id,
+            },
+            query: {
+                'conversationId': conversationId,
+            },
+            errors: {
+                404: `Agent not found`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Get agent conversations
+     * Retrieves all conversations for a specific agent
+     * @param id The ID of the agent
+     * @returns any Conversations retrieved successfully
      * @throws ApiError
      */
     public static agentControllerGetConversations(
@@ -187,6 +261,10 @@ export class DefaultService {
             url: '/agents/{id}/conversations',
             path: {
                 'id': id,
+            },
+            errors: {
+                404: `Agent not found`,
+                500: `Internal server error`,
             },
         });
     }

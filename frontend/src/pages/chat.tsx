@@ -26,7 +26,23 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   }
 
   const newConversation = async () => {
-    console.log('newConversation');
+    if (!agentId || !state.agentService) return;
+
+    try {
+      dispatch({ type: 'SET_IS_LOADING', payload: true });
+      const response = await state.agentService.createNewConversation(agentId);
+
+      // Update the active conversation and load its history
+      dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: response.conversationId });
+      await loadConversation(agentId, response.conversationId, state.agentService);
+
+      // Reset messages for the new conversation
+      dispatch({ type: 'SET_MESSAGES', payload: [] });
+    } catch (error) {
+      console.error('Error creating new conversation:', error);
+    } finally {
+      dispatch({ type: 'SET_IS_LOADING', payload: false });
+    }
   };
 
   // Initialize services and component

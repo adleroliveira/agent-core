@@ -27,9 +27,10 @@ export class AgentService {
     }
   }
 
-  async createNewConversation(agentId: string) {
+  async createNewConversation(agentId: string, conversationId?: string) {
     try {
-      await DefaultService.agentControllerResetState(agentId);
+      const response = await DefaultService.agentControllerCreateNewConversation(agentId, conversationId);
+      return response;
     } catch (error) {
       console.error('Error creating new conversation:', error);
       throw error;

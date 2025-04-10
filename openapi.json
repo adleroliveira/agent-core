@@ -4,9 +4,12 @@
     "/api/agents": {
       "post": {
         "operationId": "AgentController_createAgent",
+        "summary": "Create a new agent",
+        "description": "Creates a new agent with the specified configuration",
         "parameters": [],
         "requestBody": {
           "required": true,
+          "description": "The agent configuration including name, description, and system prompt",
           "content": {
             "application/json": {
               "schema": {
@@ -17,16 +20,24 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "Agent created successfully"
+          },
+          "400": {
+            "description": "Invalid request parameters"
           }
         }
       },
       "get": {
         "operationId": "AgentController_getAllAgents",
+        "summary": "Get all agents",
+        "description": "Retrieves a list of all available agents",
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "List of agents retrieved successfully"
+          },
+          "500": {
+            "description": "Internal server error"
           }
         }
       }
@@ -34,37 +45,54 @@
     "/api/agents/{id}": {
       "get": {
         "operationId": "AgentController_getAgent",
+        "summary": "Get agent by ID",
+        "description": "Retrieves detailed information about a specific agent",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "The ID of the agent to retrieve",
             "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
               "type": "string"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Agent retrieved successfully"
+          },
+          "404": {
+            "description": "Agent not found"
           }
         }
       },
       "delete": {
         "operationId": "AgentController_deleteAgent",
+        "summary": "Delete an agent",
+        "description": "Deletes a specific agent by ID",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "The ID of the agent to delete",
             "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
               "type": "string"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Agent deleted successfully"
+          },
+          "404": {
+            "description": "Agent not found"
+          },
+          "500": {
+            "description": "Internal server error"
           }
         }
       }
@@ -128,18 +156,23 @@
     "/api/agents/{id}/prompt": {
       "put": {
         "operationId": "AgentController_updateSystemPrompt",
+        "summary": "Update system prompt",
+        "description": "Updates the system prompt for a specific agent",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "The ID of the agent",
             "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
               "type": "string"
             }
           }
         ],
         "requestBody": {
           "required": true,
+          "description": "The new system prompt content",
           "content": {
             "application/json": {
               "schema": {
@@ -150,7 +183,13 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "System prompt updated successfully"
+          },
+          "404": {
+            "description": "Agent not found"
+          },
+          "500": {
+            "description": "Internal server error"
           }
         }
       }
@@ -158,18 +197,23 @@
     "/api/agents/{id}/tools": {
       "post": {
         "operationId": "AgentController_addTool",
+        "summary": "Add tool to agent",
+        "description": "Adds a new tool to the agent's capabilities",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "The ID of the agent",
             "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
               "type": "string"
             }
           }
         ],
         "requestBody": {
           "required": true,
+          "description": "The tool to add to the agent",
           "content": {
             "application/json": {
               "schema": {
@@ -179,8 +223,14 @@
           }
         },
         "responses": {
-          "201": {
-            "description": ""
+          "200": {
+            "description": "Tool added successfully"
+          },
+          "404": {
+            "description": "Agent not found"
+          },
+          "500": {
+            "description": "Internal server error"
           }
         }
       }
@@ -188,12 +238,16 @@
     "/api/agents/{id}/tools/{toolId}": {
       "delete": {
         "operationId": "AgentController_removeTool",
+        "summary": "Remove tool from agent",
+        "description": "Removes a tool from the agent's capabilities",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "The ID of the agent",
             "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
               "type": "string"
             }
           },
@@ -201,14 +255,22 @@
             "name": "toolId",
             "required": true,
             "in": "path",
+            "description": "The ID of the tool to remove",
             "schema": {
+              "example": "tool_123",
               "type": "string"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Tool removed successfully"
+          },
+          "404": {
+            "description": "Agent or tool not found"
+          },
+          "500": {
+            "description": "Internal server error"
           }
         }
       }
@@ -216,19 +278,69 @@
     "/api/agents/{id}/reset": {
       "post": {
         "operationId": "AgentController_resetState",
+        "summary": "Reset agent state",
+        "description": "Resets the state of a specific agent",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "The ID of the agent to reset",
             "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
               "type": "string"
             }
           }
         ],
         "responses": {
-          "201": {
-            "description": ""
+          "200": {
+            "description": "Agent state reset successfully"
+          },
+          "404": {
+            "description": "Agent not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/agents/{id}/new-conversation": {
+      "post": {
+        "operationId": "AgentController_createNewConversation",
+        "summary": "Create new conversation",
+        "description": "Creates a new conversation for a specific agent",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the agent",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          },
+          {
+            "name": "conversationId",
+            "required": false,
+            "in": "query",
+            "description": "Optional conversation ID to specify when creating a new conversation",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "New conversation created successfully"
+          },
+          "404": {
+            "description": "Agent not found"
+          },
+          "500": {
+            "description": "Internal server error"
           }
         }
       }
@@ -236,19 +348,29 @@
     "/api/agents/{id}/conversations": {
       "get": {
         "operationId": "AgentController_getConversations",
+        "summary": "Get agent conversations",
+        "description": "Retrieves all conversations for a specific agent",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "The ID of the agent",
             "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
               "type": "string"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Conversations retrieved successfully"
+          },
+          "404": {
+            "description": "Agent not found"
+          },
+          "500": {
+            "description": "Internal server error"
           }
         }
       }
