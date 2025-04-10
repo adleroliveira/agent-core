@@ -38,6 +38,9 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
 
       // Reset messages for the new conversation
       dispatch({ type: 'SET_MESSAGES', payload: [] });
+
+      // Refresh the conversations list
+      await initializeConversations(agentId, state.agentService);
     } catch (error) {
       console.error('Error creating new conversation:', error);
     } finally {
