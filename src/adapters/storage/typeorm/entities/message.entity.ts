@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  VersionColumn,
 } from "typeorm";
 import { StateEntity } from "./state.entity";
 
@@ -46,4 +47,7 @@ export class MessageEntity {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @VersionColumn()
+  version: number;
 }

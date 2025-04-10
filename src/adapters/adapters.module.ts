@@ -1,13 +1,12 @@
 import { Module, forwardRef, InjectionToken } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { CoreModule } from "@core/core.module";
-import { ConfigModule } from "@nestjs/config";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AgentService } from "@core/application/agent.service";
 import { StateRepositoryPort } from "@ports/storage/state-repository.port";
-import { ProcessRepositoryPort } from "@ports/storage/process-repository.port";
-import { ProcessManagerService } from "@core/application/process-manager.service";
 import { WorkspaceConfig } from "@core/config/workspace.config";
 import { AgentMapper } from "./storage/typeorm/mappers/agent.mapper";
+import { TypeOrmMessageRepository } from './storage/typeorm/typeorm-message.repository';
 
 // Storage entities
 import { AgentEntity } from "./storage/typeorm/entities/agent.entity";
@@ -39,9 +38,10 @@ import { ProcessTool } from "@tools/default/process.tool";
 export const AGENT_REPOSITORY = "AGENT_REPOSITORY";
 export const STATE_REPOSITORY = "STATE_REPOSITORY";
 export const PROCESS_REPOSITORY = "PROCESS_REPOSITORY";
-export const VECTOR_DB = "VECTOR_DB";
 export const MODEL_SERVICE = "MODEL_SERVICE";
+export const VECTOR_DB = "VECTOR_DB";
 export const AGENT_SERVICE = "AGENT_SERVICE";
+export const MESSAGE_REPOSITORY = Symbol('MESSAGE_REPOSITORY');
 
 @Module({
   imports: [
@@ -74,6 +74,10 @@ export const AGENT_SERVICE = "AGENT_SERVICE";
     {
       provide: VECTOR_DB,
       useClass: VectraAdapter,
+    },
+    {
+      provide: MESSAGE_REPOSITORY,
+      useClass: TypeOrmMessageRepository,
     },
 
     // Model providers
@@ -108,6 +112,7 @@ export const AGENT_SERVICE = "AGENT_SERVICE";
     DirectAgentAdapter,
     ProcessTool,
     AgentMapper,
+    MESSAGE_REPOSITORY,
   ],
 })
 export class AdaptersModule {}

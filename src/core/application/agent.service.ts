@@ -28,6 +28,7 @@ import { TOOL_REGISTRY } from "@core/constants";
 import { DEFAULT_SYSTEM_PROMPT } from "@config/prompts.config";
 import { WorkspaceConfig } from "@core/config/workspace.config";
 import { AgentState } from "@core/domain/agent-state.entity";
+import { MessageService } from "@core/services/message.service";
 
 @Injectable()
 export class AgentService implements OnModuleInit {
@@ -45,7 +46,8 @@ export class AgentService implements OnModuleInit {
     private readonly toolRegistry: ToolRegistryPort,
     @Inject(VECTOR_DB)
     private readonly vectorDB: VectorDBPort,
-    private readonly workspaceConfig: WorkspaceConfig
+    private readonly workspaceConfig: WorkspaceConfig,
+    private readonly messageService: MessageService
   ) { }
 
   onModuleInit() {
@@ -330,6 +332,13 @@ export class AgentService implements OnModuleInit {
     messages: Message[];
     hasMore: boolean;
   }> {
-    return this.stateRepository.getConversationMessages(agentId, conversationId, options);
+    // Find the state for this agent and conversation
+    const state = await this.stateRepository.findByAgentIdAndConversationId(agentId, conversationId);
+    if (!state) {
+      throw new NotFoundException(`No conversation found for agent ${agentId} and conversation ${conversationId}`);
+    }
+
+    // Get messages using the message service
+    return this.messageService.getMessages(state.id, options);
   }
 }
