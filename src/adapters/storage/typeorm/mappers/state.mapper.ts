@@ -5,19 +5,18 @@ import { AgentEntity } from "../entities/agent.entity";
 
 export class StateMapper {
   static toDomain(entity: StateEntity, loadMessages: boolean = false): AgentState {
+    if (!entity.conversationId) {
+      throw new Error('State entity must have a conversationId');
+    }
+
     const state = new AgentState({
       id: entity.id,
       memory: entity.memory,
       ttl: entity.ttl,
       conversationId: entity.conversationId,
-      agentId: entity.agent?.id || ''
+      agentId: entity.agent.id,
+      conversationHistory: loadMessages && entity.messages ? entity.messages.map(MessageMapper.toDomain) : undefined
     });
-
-    if (loadMessages && entity.messages) {
-      state.conversationHistory = entity.messages.map(MessageMapper.toDomain);
-    } else {
-      state.conversationHistory = [];
-    }
 
     state.createdAt = entity.createdAt;
     state.updatedAt = entity.updatedAt;
@@ -39,9 +38,6 @@ export class StateMapper {
       agentEntity.id = agentId;
       entity.agent = agentEntity;
     }
-
-    // Don't set messages here as they will be handled separately
-    // by the message service
 
     return entity;
   }

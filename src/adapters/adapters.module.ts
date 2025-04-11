@@ -12,6 +12,7 @@ import { VectorDBPort } from '@ports/storage/vector-db.port';
 import { ToolRegistryPort, TOOL_REGISTRY } from '@ports/tool/tool-registry.port';
 import { ToolMapper } from './storage/typeorm/mappers/tool.mapper';
 import { TypeOrmToolRegistryService } from './storage/typeorm/typeorm-tool-registry.service';
+import { StateMapper } from './storage/typeorm/mappers/state.mapper';
 
 // Storage entities
 import { AgentEntity } from "./storage/typeorm/entities/agent.entity";
@@ -106,6 +107,7 @@ export const KNOWLEDGE_BASE_REPOSITORY = Symbol('KNOWLEDGE_BASE_REPOSITORY');
 
     // Mappers
     ToolMapper,
+    StateMapper,
     {
       provide: AgentMapper,
       useFactory: (

@@ -526,7 +526,7 @@ export class AgentController {
       return {
         id: agent.id,
         name: agent.name,
-        conversationId: agent.state.conversationId,
+        conversationId: agent.getMostRecentState().conversationId,
         createdAt: agent.createdAt,
       };
     } catch (error) {

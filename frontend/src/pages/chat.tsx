@@ -360,7 +360,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
               >
                 <div class="conversation-title">
                   {conv.conversationId === state.activeConversationId ? '✓ ' : ''}
-                  Conversation {conv.id.slice(0, 8)}...
+                  Conversation {conv.conversationId.slice(0, 8)}...
                 </div>
                 <div class="conversation-date">
                   {new Date(conv.createdAt).toLocaleDateString()}

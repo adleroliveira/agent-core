@@ -25,7 +25,7 @@ export class Agent {
     private entity: AgentEntity,
     private adapter: DirectAgentAdapter
   ) {
-    this._conversationId = entity.getConversationId();
+    this._conversationId = entity.getMostRecentState().conversationId;
   }
 
   /**

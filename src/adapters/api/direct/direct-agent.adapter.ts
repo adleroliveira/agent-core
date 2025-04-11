@@ -101,11 +101,7 @@ export class DirectAgentAdapter {
     agentId: string,
     conversationId?: string
   ): Promise<Message[]> {
-    const agent = await this.agentService.findAgentById(agentId);
-    if (!agent) {
-      throw new Error(`Agent with ID ${agentId} not found`);
-    }
-    return agent.state?.conversationHistory || [];
+    return (await this.agentService.getConversationHistory(agentId, conversationId)).messages;
   }
 
   /**

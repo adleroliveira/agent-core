@@ -5,7 +5,6 @@ import { AgentState } from "@core/domain/agent-state.entity";
 import { StateRepositoryPort } from "@ports/storage/state-repository.port";
 import { StateEntity } from "./entities/state.entity";
 import { StateMapper } from "./mappers/state.mapper";
-import { ToolEntity } from "./entities/tool.entity";
 import { VectorDBPort } from "@ports/storage/vector-db.port";
 import { VECTOR_DB } from "@adapters/adapters.module";
 import { Logger } from "@nestjs/common";
@@ -95,7 +94,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
     const states = await this.stateRepository.find({
       where: { agent: { id: agentId } },
       relations: ["agent"],
-      order: { updatedAt: "DESC" }
+      order: { createdAt: "DESC" }
     });
 
     return Promise.all(states.map(async (state) => {
@@ -129,16 +128,17 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
 
       // Append new messages
       if (state.conversationHistory && state.conversationHistory.length > 0) {
-        await this.messageService.appendMessages(existingState.id, state.conversationHistory);
+        await this.messageService.appendMessages(state.conversationHistory);
       }
     } else {
       // Create new state
-      const stateEntity = this.stateRepository.create({
-        id: state.id,
-        conversationId: state.conversationId,
-        memory: state.memory,
-        ttl: state.ttl,
-      });
+      const stateEntity = new StateEntity();
+      stateEntity.id = state.id;
+      stateEntity.conversationId = state.conversationId;
+      stateEntity.memory = state.memory;
+      stateEntity.ttl = state.ttl || 0;
+      stateEntity.createdAt = state.createdAt;
+      stateEntity.updatedAt = state.updatedAt;
 
       // Set up the agent relationship
       const agentEntity = new AgentEntity();
@@ -149,7 +149,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
 
       // Create messages
       if (state.conversationHistory && state.conversationHistory.length > 0) {
-        await this.messageService.appendMessages(state.id, state.conversationHistory);
+        await this.messageService.appendMessages(state.conversationHistory);
       }
     }
   }

@@ -24,7 +24,7 @@ export class AgentState {
   ) {
     this.id = params.id || uuidv4();
     this.agentId = params.agentId || "";
-    this.conversationId = params.conversationId || "new-conversation";
+    this.conversationId = params.conversationId || uuidv4();
     this._conversationHistory = params.conversationHistory || [];
     this._messagesLoaded = params.conversationHistory !== undefined;
     this.memory = params.memory || {};
@@ -65,9 +65,6 @@ export class AgentState {
       this._conversationHistory.splice(insertIndex, 0, message);
     }
 
-    if (message.conversationId && !this.conversationId) {
-      this.conversationId = message.conversationId;
-    }
     this.updatedAt = new Date();
   }
 

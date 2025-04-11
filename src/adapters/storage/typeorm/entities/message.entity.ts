@@ -38,11 +38,8 @@ export class MessageEntity {
   @Column({ default: false })
   isStreaming: boolean;
 
-  @Column({ nullable: true })
-  stateId: string;
-
   @ManyToOne(() => StateEntity, (state) => state.messages)
-  @JoinColumn({ name: "stateId" })
+  @JoinColumn({ name: "conversationId" })
   state: StateEntity;
 
   @CreateDateColumn()

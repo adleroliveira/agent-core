@@ -52,7 +52,7 @@ export class MessageMapper {
     });
   }
 
-  static toPersistence(domain: Message, stateId?: string): MessageEntity {
+  static toPersistence(domain: Message): MessageEntity {
     const entity = new MessageEntity();
     entity.id = domain.id;
     entity.role = domain.role;
@@ -77,10 +77,6 @@ export class MessageMapper {
     entity.toolCallId = domain.toolCallId || null;
     entity.toolName = domain.toolName || null;
     entity.isStreaming = domain.isStreaming || false;
-
-    if (stateId) {
-      entity.stateId = stateId;
-    }
 
     entity.createdAt = domain.createdAt;
 

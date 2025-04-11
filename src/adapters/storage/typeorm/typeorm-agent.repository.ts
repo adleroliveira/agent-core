@@ -15,9 +15,8 @@ import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
 import { Logger } from '@nestjs/common';
 import { StateEntity } from './entities/state.entity';
 import { MessageEntity } from './entities/message.entity';
-import { ToolEntity } from './entities/tool.entity';
 import { AgentToolEntity } from './entities/agent-tool.entity';
-import { ToolMapper } from './mappers/tool.mapper';
+import { StateMapper } from './mappers/state.mapper';
 
 @Injectable()
 export class TypeOrmAgentRepository implements AgentRepositoryPort {
@@ -34,7 +33,8 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
     private readonly modelService: ModelServicePort,
     @Inject(TOOL_REGISTRY)
     private readonly toolRegistry: ToolRegistryPort,
-    private readonly agentMapper: AgentMapper
+    private readonly agentMapper: AgentMapper,
+    private readonly stateMapper: StateMapper
   ) {
     this.logger = new Logger(TypeOrmAgentRepository.name);
   }
@@ -56,79 +56,49 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
     const agentEntities = await this.agentRepository.find({
       relations: loadRelations ? ['states', 'agentTools', 'agentTools.tool', 'knowledgeBase'] : [],
     });
-    
-    return await Promise.all(agentEntities.map(entity => this.agentMapper.toDomain(entity, loadRelations)));
+
+    const domainAgents = await Promise.all(agentEntities.map(entity => this.agentMapper.toDomain(entity, loadRelations)));
+    console.log("DOMAIN AGENTS:", domainAgents);
+    return domainAgents;
   }
 
   async save(agent: Agent): Promise<Agent> {
     // Use a transaction to ensure data consistency
     return this.agentRepository.manager.transaction(async (manager) => {
-      // First, save the agent without the knowledge base
+      // Convert domain to persistence
       const agentEntity = this.agentMapper.toPersistence(agent);
-      const knowledgeBase = agentEntity.knowledgeBase;
       
-      // Create a new agent entity without the knowledge base relationship
-      const agentToSave = new AgentEntity();
-      Object.assign(agentToSave, {
-        id: agentEntity.id,
-        name: agentEntity.name,
-        description: agentEntity.description,
-        modelId: agentEntity.modelId,
-        systemPrompt: agentEntity.systemPrompt,
-        workspaceConfig: agentEntity.workspaceConfig,
-        createdAt: agentEntity.createdAt,
-        updatedAt: agentEntity.updatedAt,
-      });
+      // Save the agent with all its relationships
+      const savedAgentEntity = await manager.save(AgentEntity, agentEntity);
 
-      // Get all existing states for this agent
-      const existingStates = await manager.find(StateEntity, {
-        where: { agent: { id: agent.id } }
-      });
-
-      // Initialize states array with existing states
-      agentToSave.states = existingStates;
-
-      // Add the current state if it's not already in the list
-      if (agent.state) {
-        const currentStateExists = existingStates.some(state => state.id === agent.state.id);
-        if (!currentStateExists) {
-          const stateEntity = new StateEntity();
-          stateEntity.id = agent.state.id;
-          stateEntity.conversationId = agent.state.conversationId;
-          stateEntity.memory = agent.state.memory;
-          stateEntity.ttl = agent.state.ttl || 0;
-          stateEntity.createdAt = agent.state.createdAt;
-          stateEntity.updatedAt = agent.state.updatedAt;
-          stateEntity.agent = agentToSave;
-          agentToSave.states.push(stateEntity);
-        }
-      }
-      
-      // Save the agent first to get its ID
-      const savedAgentEntity = await manager.save(AgentEntity, agentToSave);
-
-      // If tools are loaded, save them
+      // If the agent has tools, save them
       if (agent.areToolsLoaded() && agent.tools) {
-        // First, delete existing agent-tool relationships
-        await manager.delete(AgentToolEntity, { agentId: savedAgentEntity.id });
-
-        // Then create new relationships for each tool
-        for (const tool of agent.tools) {
-          // Create the agent-tool relationship
+        // First, remove any existing agent tools
+        await manager.delete(AgentToolEntity, { agentId: agent.id });
+        
+        // Then create new agent tools
+        const agentTools = agent.tools.map(tool => {
           const agentTool = new AgentToolEntity();
-          agentTool.agentId = savedAgentEntity.id;
+          agentTool.agentId = agent.id;
           agentTool.toolId = tool.id;
-          await manager.save(AgentToolEntity, agentTool);
-        }
+          return agentTool;
+        });
+        
+        await manager.save(AgentToolEntity, agentTools);
       }
 
-      // If knowledge base exists and is loaded, save it
-      if (agent.isKnowledgeBaseLoaded() && knowledgeBase) {
-        knowledgeBase.agentId = savedAgentEntity.id;
-        await manager.save(KnowledgeBaseEntity, knowledgeBase);
+      // Fetch the saved agent with its relationships
+      const agentWithRelations = await manager.findOne(AgentEntity, {
+        where: { id: savedAgentEntity.id },
+        relations: ['states', 'agentTools', 'agentTools.tool', 'knowledgeBase']
+      });
+
+      if (!agentWithRelations) {
+        throw new Error('Failed to load saved agent');
       }
 
-      return this.agentMapper.toDomain(savedAgentEntity, true);
+      // Convert back to domain
+      return await this.agentMapper.toDomain(agentWithRelations, true);
     });
   }
 

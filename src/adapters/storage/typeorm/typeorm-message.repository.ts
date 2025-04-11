@@ -13,13 +13,13 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
     private readonly messageRepository: Repository<MessageEntity>
   ) {}
 
-  async appendMessages(stateId: string, messages: Message[]): Promise<void> {
-    const messageEntities = messages.map(msg => MessageMapper.toPersistence(msg, stateId));
+  async appendMessages(messages: Message[]): Promise<void> {
+    const messageEntities = messages.map(msg => MessageMapper.toPersistence(msg));
     await this.messageRepository.save(messageEntities);
   }
 
   async getMessages(
-    stateId: string,
+    conversationId: string,
     options: {
       limit?: number;
       beforeTimestamp?: Date;
@@ -34,7 +34,7 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
 
     const queryBuilder = this.messageRepository
       .createQueryBuilder('message')
-      .where('message.stateId = :stateId', { stateId })
+      .where('message.conversationId = :conversationId', { conversationId })
       .orderBy('message.createdAt', 'ASC');
 
     if (beforeTimestamp) {
@@ -68,14 +68,13 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
     };
   }
 
-  async deleteMessages(stateId: string, messageIds: string[]): Promise<void> {
+  async deleteMessages(messageIds: string[]): Promise<void> {
     if (messageIds.length === 0) return;
     
     await this.messageRepository
       .createQueryBuilder()
       .delete()
-      .where('stateId = :stateId', { stateId })
-      .andWhere('id IN (:...messageIds)', { messageIds })
+      .whereInIds(messageIds)
       .execute();
   }
 

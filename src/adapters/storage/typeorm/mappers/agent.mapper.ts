@@ -9,6 +9,7 @@ import { ModelServicePort } from '@ports/model/model-service.port';
 import { VectorDBPort } from '@ports/storage/vector-db.port';
 import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
 import { Injectable, Inject } from '@nestjs/common';
+import { AgentToolEntity } from '../entities/agent-tool.entity';
 
 @Injectable()
 export class AgentMapper {
@@ -21,7 +22,10 @@ export class AgentMapper {
 
   async toDomain(entity: AgentEntity, loadRelations: boolean = false): Promise<Agent> {
     const states = loadRelations && entity.states
-      ? await Promise.all(entity.states.map(state => StateMapper.toDomain(state)))
+      ? await Promise.all(entity.states.map(state => {
+        state.agent = entity;
+        return StateMapper.toDomain(state, true)
+      }))
       : [];
 
     const tools = loadRelations && entity.agentTools
@@ -54,17 +58,13 @@ export class AgentMapper {
       }),
       workspaceConfig,
       tools,
-      knowledgeBase
+      knowledgeBase,
+      states
     });
 
     // Set services after creating the agent
     if (this.modelService && this.vectorDB) {
       await agent.setServices(this.modelService, this.vectorDB, workspaceConfig);
-    }
-
-    // Set the state after creating the agent
-    if (states.length > 0) {
-      agent.state = states[0];
     }
 
     return agent;
@@ -90,13 +90,23 @@ export class AgentMapper {
     entity.updatedAt = domain.updatedAt;
 
     // Handle states
-    if (domain.state) {
-      entity.states = [StateMapper.toPersistence(domain.state, domain.id)];
+    if (domain.states) {
+      entity.states = domain.states.map(state => StateMapper.toPersistence(state, domain.id));
     }
 
     // Handle knowledge base
     if (domain.isKnowledgeBaseLoaded() && domain.knowledgeBase) {
       entity.knowledgeBase = KnowledgeBaseMapper.toPersistence(domain.knowledgeBase, domain.id);
+    }
+
+    // Handle tools
+    if (domain.areToolsLoaded() && domain.tools) {
+      entity.agentTools = domain.tools.map(tool => {
+        const agentTool = new AgentToolEntity();
+        agentTool.agentId = domain.id;
+        agentTool.toolId = tool.id;
+        return agentTool;
+      });
     }
 
     return entity;
