@@ -36,7 +36,6 @@ async function runRagExample(): Promise<void> {
 
       Always maintain a helpful and informative tone.`,
       tools: ["knowledge_add", "knowledge_search"],
-      conversationId
     });
 
     console.log(`RAG Agent created with ID: ${agent.id}`);

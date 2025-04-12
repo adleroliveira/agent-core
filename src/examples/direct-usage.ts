@@ -7,12 +7,10 @@ async function runSimpleExample() {
   try {
     // Create a new agent
     console.log("Creating agent...");
-    const conversationId = "test-conversation-1";
     const agent = await sdk.createAgent({
       name: "Simple Conversation Agent",
       description: "A basic agent for testing conversation flow",
       systemPrompt: "You are a helpful AI assistant that provides concise answers to user questions. Keep your responses brief and to the point.",
-      conversationId
     });
 
     console.log(`Agent created with ID: ${agent.id}`);
@@ -49,14 +47,14 @@ async function runSimpleExample() {
 
     // Get the conversation history
     console.log("\nGetting conversation history...");
-    const history = await agent.getConversationHistory(conversationId);
+    const history = await agent.getConversationHistory(agent.mostRecentStateId);
     console.log(`Conversation has ${history.length} messages`);
 
     // Start a new conversation
     const newConversationId = "test-conversation-2";
     console.log(`\nStarting new conversation with ID: ${newConversationId}`);
 
-    agent.setConversationId(newConversationId);
+    agent.createNewConversation();
 
     const newMessage = "Hello, this is a new conversation";
     console.log("\nSending message in new conversation:");

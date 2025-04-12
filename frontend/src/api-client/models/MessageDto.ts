@@ -20,7 +20,7 @@ export type MessageDto = {
     /**
      * The ID of the conversation this message belongs to
      */
-    conversationId: string;
+    stateId: string;
     /**
      * When the message was created
      */

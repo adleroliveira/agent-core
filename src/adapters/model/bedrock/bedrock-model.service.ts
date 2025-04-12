@@ -41,8 +41,6 @@ export class BedrockModelService implements ModelServicePort {
     options?: ModelRequestOptions
   ): Promise<ModelResponse> {
     const modelId = this.configService.getModelId();
-    const conversationId =
-      messages.length > 0 ? messages[0].conversationId : uuidv4();
 
     try {
       const requestBody = this.createConverseRequest(
@@ -51,6 +49,8 @@ export class BedrockModelService implements ModelServicePort {
         tools,
         options
       );
+
+      const conversationId = messages[0].stateId;
 
       const command = new ConverseCommand({
         modelId,
@@ -76,8 +76,7 @@ export class BedrockModelService implements ModelServicePort {
     options?: ModelRequestOptions
   ): Observable<Partial<ModelResponse>> {
     const modelId = this.configService.getModelId();
-    const conversationId =
-      messages.length > 0 ? messages[0].conversationId : uuidv4();
+    const conversationId = messages[0].stateId;
     const subject = new Subject<Partial<ModelResponse>>();
 
     const requestBody = this.createConverseRequest(
@@ -122,7 +121,7 @@ export class BedrockModelService implements ModelServicePort {
                 message: new Message({
                   role: "assistant",
                   content: currentContent,
-                  conversationId,
+                  stateId: conversationId,
                 }),
               });
               break;
@@ -147,7 +146,7 @@ export class BedrockModelService implements ModelServicePort {
                   message: new Message({
                     role: "assistant",
                     content: eventValue.delta.text,
-                    conversationId,
+                    stateId: conversationId,
                   }),
                 });
               }
@@ -490,7 +489,7 @@ export class BedrockModelService implements ModelServicePort {
       message: new Message({
         role: "assistant",
         content: "",
-        conversationId,
+        stateId: conversationId,
       }),
       usage: {
         promptTokens: response.usage?.inputTokens || 0,

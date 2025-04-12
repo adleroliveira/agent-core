@@ -58,47 +58,59 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
     });
 
     const domainAgents = await Promise.all(agentEntities.map(entity => this.agentMapper.toDomain(entity, loadRelations)));
-    console.log("DOMAIN AGENTS:", domainAgents);
     return domainAgents;
   }
 
   async save(agent: Agent): Promise<Agent> {
     // Use a transaction to ensure data consistency
     return this.agentRepository.manager.transaction(async (manager) => {
-      // Convert domain to persistence
-      const agentEntity = this.agentMapper.toPersistence(agent);
-      
-      // Save the agent with all its relationships
-      const savedAgentEntity = await manager.save(AgentEntity, agentEntity);
-
-      // If the agent has tools, save them
-      if (agent.areToolsLoaded() && agent.tools) {
-        // First, remove any existing agent tools
-        await manager.delete(AgentToolEntity, { agentId: agent.id });
+      try {
+        // Convert domain to persistence
+        const agentEntity = this.agentMapper.toPersistence(agent);
         
-        // Then create new agent tools
-        const agentTools = agent.tools.map(tool => {
-          const agentTool = new AgentToolEntity();
-          agentTool.agentId = agent.id;
-          agentTool.toolId = tool.id;
-          return agentTool;
+        // Create a new object without the agentTools property
+        const { agentTools: _, ...agentEntityWithoutTools } = agentEntity;
+        
+        // Save the agent without the tools first
+        const savedAgentEntity = await manager.save(AgentEntity, agentEntityWithoutTools);
+
+        // If the agent has tools, save them
+        if (agent.areToolsLoaded() && agent.tools) {
+          // First, remove any existing agent tools
+          await manager.delete(AgentToolEntity, { agentId: savedAgentEntity.id });
+          
+          // Then create new agent tools using the saved agent's ID
+          const newAgentTools = agent.tools.map(tool => {
+            if (!tool.id) {
+              throw new Error('Tool ID is required to save agent tool relationship');
+            }
+            
+            const agentTool = new AgentToolEntity();
+            agentTool.agentId = savedAgentEntity.id;
+            agentTool.toolId = tool.id;
+            
+            return agentTool;
+          });
+          
+          await manager.save(AgentToolEntity, newAgentTools);
+        }
+
+        // Fetch the saved agent with its relationships
+        const agentWithRelations = await manager.findOne(AgentEntity, {
+          where: { id: savedAgentEntity.id },
+          relations: ['states', 'agentTools', 'agentTools.tool', 'knowledgeBase']
         });
-        
-        await manager.save(AgentToolEntity, agentTools);
+
+        if (!agentWithRelations) {
+          throw new Error('Failed to load saved agent');
+        }
+
+        // Convert back to domain
+        return await this.agentMapper.toDomain(agentWithRelations, true);
+      } catch (error) {
+        console.error('Error saving agent:', error);
+        throw error;
       }
-
-      // Fetch the saved agent with its relationships
-      const agentWithRelations = await manager.findOne(AgentEntity, {
-        where: { id: savedAgentEntity.id },
-        relations: ['states', 'agentTools', 'agentTools.tool', 'knowledgeBase']
-      });
-
-      if (!agentWithRelations) {
-        throw new Error('Failed to load saved agent');
-      }
-
-      // Convert back to domain
-      return await this.agentMapper.toDomain(agentWithRelations, true);
     });
   }
 

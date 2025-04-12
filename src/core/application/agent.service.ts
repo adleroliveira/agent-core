@@ -66,9 +66,8 @@ export class AgentService implements OnModuleInit {
     modelId?: string;
     systemPromptContent: string;
     tools?: string[];
-    conversationId?: string;
   }): Promise<Agent> {
-    const { name, description, modelId, systemPromptContent, tools, conversationId } = params;
+    const { name, description, modelId, systemPromptContent, tools } = params;
 
     // Combine default prompt with user's prompt
     const combinedPromptContent = `${DEFAULT_SYSTEM_PROMPT}\n\n${systemPromptContent}`;
@@ -114,16 +113,9 @@ export class AgentService implements OnModuleInit {
       // First save the agent to get its ID
       const savedAgent = await this.agentRepository.save(agent);
       this.logger.debug(`Saved new agent with ID: ${savedAgent.id}`);
-
-      const agentState = new AgentState({
-        agentId: agent.id,
-        conversationId: conversationId || uuidv4(),
-      });
-
-      agent.states.push(agentState);
       
       // Then save the state
-      await this.stateRepository.save(agentState);
+      await this.stateRepository.save(agent.states[0]);
       this.logger.debug(`Saved initial state for agent ${savedAgent.id}`);
 
       // Create and save the knowledge base with the agent's ID
@@ -148,7 +140,7 @@ export class AgentService implements OnModuleInit {
 
   async findAgentById(id: string, loadRelations: boolean = false): Promise<Agent> {
     // Load agent with tools
-    const agent = await this.agentRepository.findById(id, true);
+    const agent = await this.agentRepository.findById(id, loadRelations);
     if (!agent) {
       throw new NotFoundException(`Agent with ID ${id} not found`);
     }
@@ -182,7 +174,7 @@ export class AgentService implements OnModuleInit {
   async processMessage(
     agentId: string,
     messageContent: string,
-    conversationId?: string,
+    stateId?: string,
     options?: {
       temperature?: number;
       maxTokens?: number;
@@ -192,19 +184,26 @@ export class AgentService implements OnModuleInit {
   ): Promise<Message | Observable<Partial<Message>>> {
     // Find the agent with all relations loaded
     const agent = await this.findAgentById(agentId, true);
-    const stateToUse = conversationId? agent.getStateByConversationId(conversationId) : agent.getMostRecentState();
-    console.log("STATE TO USE:", stateToUse);
-    if (!stateToUse) {
+
+    const stateIdToUse = stateId || agent.getMostRecentState().id;
+    if (!stateIdToUse) {
       throw new NotFoundException(`No conversation found for agent ${agentId}`);
     }
 
-    const conversationIdToUse = stateToUse.conversationId;
+    const state = agent.getStateById(stateIdToUse);
+    if (!state) {
+      throw new NotFoundException(`No state found with ID ${stateIdToUse}`);
+    }
+
+    // Load messages into the state
+    const messages = await this.messageService.getMessages(stateIdToUse);
+    state.conversationHistory = messages.messages;
 
     // Create the message
     const message = new Message({
       content: messageContent,
       role: "user",
-      conversationId: conversationIdToUse,
+      stateId: stateIdToUse,
     });
 
     // Process the message and let the agent handle its state
@@ -213,6 +212,11 @@ export class AgentService implements OnModuleInit {
       maxTokens: options?.maxTokens,
       stream: options?.stream,
     });
+
+    const updatedState = agent.getStateById(stateIdToUse);
+    if (!updatedState) {
+      throw new NotFoundException(`No state found with ID ${stateIdToUse}`);
+    }
 
     if (options?.stream) {
       // For streaming responses, we need to wrap the observable to save state when complete
@@ -227,10 +231,9 @@ export class AgentService implements OnModuleInit {
             subscriber.error(error);
           },
           complete: async () => {
-            // console.log("Stream complete in AgentService, saving state...", stateToUse);
             try {
               // Save the final state after stream completes
-              await this.stateRepository.save(stateToUse);
+              await this.messageService.appendMessages(updatedState.conversationHistory);
               subscriber.complete();
             } catch (error) {
               console.error("Error saving state:", error);
@@ -241,7 +244,7 @@ export class AgentService implements OnModuleInit {
       });
     } else {
       // For non-streaming responses, save state immediately
-      await this.stateRepository.save(stateToUse);
+      await this.messageService.appendMessages(updatedState.conversationHistory);
       return response as Message;
     }
   }
@@ -288,11 +291,11 @@ export class AgentService implements OnModuleInit {
   }
 
   async getConversations(agentId: string): Promise<AgentState[]> {
-    return await this.stateRepository.findAllByAgentId(agentId, false);
+    return this.stateRepository.findByAgentId(agentId, false);
   }
 
-  async createNewConversation(agentId: string, conversationId?: string): Promise<Agent> {
-    this.logger.debug(`Creating new conversation for agent ${agentId} with conversationId ${conversationId}`);
+  async createNewConversation(agentId: string): Promise<Agent> {
+    this.logger.debug(`Creating new conversation for agent ${agentId}`);
     
     // Get the agent entity directly to avoid creating a new Agent instance
     const agentEntity = await this.agentRepository.findById(agentId, true);
@@ -300,15 +303,10 @@ export class AgentService implements OnModuleInit {
       throw new NotFoundException(`Agent with ID ${agentId} not found`);
     }
     
-    // Create new state with the agent's ID
-    const newState = new AgentState({
-      agentId: agentEntity.id,
-      conversationId: conversationId || uuidv4(),
-    });
+    const newState = agentEntity.createNewConversation();
     
     // Save the new state first
     await this.stateRepository.save(newState);
-    agentEntity.states.push(newState);
 
     // Save the agent with the new state
     const savedAgent = await this.agentRepository.save(agentEntity);
@@ -319,7 +317,7 @@ export class AgentService implements OnModuleInit {
 
   async getConversationHistory(
     agentId: string,
-    conversationId?: string,
+    stateId?: string,
     options: {
       limit?: number;
       beforeTimestamp?: Date;
@@ -329,22 +327,18 @@ export class AgentService implements OnModuleInit {
     hasMore: boolean;
   }> {
 
-    let conversationIdToUse = conversationId;
-    if (!conversationIdToUse) {
-      const state = await this.stateRepository.findByAgentId(agentId, false);
-      if (!state?.conversationId) {
-        throw new NotFoundException(`No conversation found for agent ${agentId}`);
+    if (stateId) {
+      const state = await this.stateRepository.findById(stateId, true);
+      if (!state) {
+        throw new NotFoundException(`No state found with ID ${stateId}`);
       }
       return this.messageService.getMessages(state.id, options);
+    } else {
+      const agent = await this.agentRepository.findById(agentId, true);
+      if (!agent) {
+        throw new NotFoundException(`No agent found with ID ${agentId}`);
+      }
+      return this.messageService.getMessages(agent.getMostRecentState().id, options);
     }
-
-    // Find the state for this agent and conversation
-    const state = await this.stateRepository.findByAgentIdAndConversationId(agentId, conversationIdToUse, false);
-    if (!state) {
-      throw new NotFoundException(`No conversation found for agent ${agentId} and conversation ${conversationIdToUse}`);
-    }
-
-    // Get messages using the message service with the provided options
-    return this.messageService.getMessages(state.id, options);
   }
 }

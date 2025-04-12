@@ -21,7 +21,10 @@ export class StateEntity {
   agent: AgentEntity;
 
   @Column()
-  conversationId: string;
+  agentId: string;
+
+  @Column({ type: "text", nullable: true })
+  title: string | null;
 
   @OneToMany(() => MessageEntity, (message) => message.state)
   messages: MessageEntity[];

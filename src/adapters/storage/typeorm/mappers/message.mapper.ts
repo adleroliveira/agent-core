@@ -43,7 +43,7 @@ export class MessageMapper {
       id: entity.id,
       role: entity.role as MessageRole,
       content: parsedContent,
-      conversationId: entity.conversationId,
+      stateId: entity.stateId,
       metadata: parsedMetadata,
       toolCalls: parsedToolCalls,
       toolCallId: entity.toolCallId || undefined, // Convert null to undefined
@@ -63,7 +63,7 @@ export class MessageMapper {
         ? JSON.stringify(domain.content)
         : domain.content;
 
-    entity.conversationId = domain.conversationId;
+    entity.stateId = domain.stateId;
 
     // Stringify metadata if it exists
     entity.metadata = domain.metadata ? JSON.stringify(domain.metadata) : null;

@@ -25,7 +25,11 @@ export class Agent {
     private entity: AgentEntity,
     private adapter: DirectAgentAdapter
   ) {
-    this._conversationId = entity.getMostRecentState().conversationId;
+    this._conversationId = entity.getMostRecentState().id;
+  }
+
+  get mostRecentStateId(): string {
+    return this.entity.getMostRecentState().id;
   }
 
   /**
@@ -149,8 +153,8 @@ export class Agent {
     });
   }
 
-  public setConversationId(conversationId: string): void {
-    this._conversationId = conversationId;
+  public createNewConversation(): void {
+    this._conversationId = this.entity.createNewConversation().id;
   }
 
   /**

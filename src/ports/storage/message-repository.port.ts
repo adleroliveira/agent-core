@@ -2,7 +2,7 @@ import { Message } from '@core/domain/message.entity';
 
 export interface MessageRepositoryPort {
   appendMessages(messages: Message[]): Promise<void>;
-  getMessages(conversationId: string, options?: {
+  getMessages(stateId: string, options?: {
     limit?: number;
     beforeTimestamp?: Date;
     afterTimestamp?: Date;

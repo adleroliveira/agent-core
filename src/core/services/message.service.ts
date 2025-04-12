@@ -34,7 +34,7 @@ export class MessageService {
   }
 
   async getMessages(
-    conversationId: string,
+    stateId: string,
     options?: {
       limit?: number;
       beforeTimestamp?: Date;
@@ -45,7 +45,7 @@ export class MessageService {
     messages: Message[];
     hasMore: boolean;
   }> {
-    return this.messageRepository.getMessages(conversationId, options);
+    return this.messageRepository.getMessages(stateId, options);
   }
 
   async deleteMessages(messageIds: string[]): Promise<void> {

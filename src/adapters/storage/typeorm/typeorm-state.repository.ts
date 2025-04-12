@@ -45,113 +45,55 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
     return state;
   }
 
-  async findByConversationId(
-    conversationId: string,
-    loadMessages: boolean = false
-  ): Promise<AgentState | null> {
-    const stateEntity = await this.stateRepository.findOne({
-      where: { conversationId },
-      relations: ["agent"],
-      order: { updatedAt: "DESC" },
-    });
-
-    if (!stateEntity) {
-      return null;
-    }
-
-    const state = StateMapper.toDomain(stateEntity, loadMessages);
-    
-    if (loadMessages) {
-      const { messages } = await this.messageService.getMessages(stateEntity.id);
-      state.conversationHistory = messages;
-    }
-    
-    return state;
-  }
-
-  async findByAgentId(agentId: string, loadMessages: boolean = false): Promise<AgentState | null> {
-    const stateEntity = await this.stateRepository.findOne({
+  async findByAgentId(agentId: string, loadMessages: boolean = false): Promise<AgentState[]> {
+    const stateEntities = await this.stateRepository.find({
       where: { agent: { id: agentId } },
       relations: ["agent"],
       order: { updatedAt: "DESC" },
     });
 
-    if (!stateEntity) {
-      return null;
+    if (!stateEntities) {
+      return [];
     }
 
-    const state = StateMapper.toDomain(stateEntity, loadMessages);
-    
-    if (loadMessages) {
-      const { messages } = await this.messageService.getMessages(stateEntity.id);
-      state.conversationHistory = messages;
-    }
-    
-    return state;
-  }
-
-  async findAllByAgentId(agentId: string, loadMessages: boolean = false): Promise<AgentState[]> {
-    const states = await this.stateRepository.find({
-      where: { agent: { id: agentId } },
-      relations: ["agent"],
-      order: { createdAt: "DESC" }
-    });
-
-    return Promise.all(states.map(async (state) => {
-      const agentState = StateMapper.toDomain(state, loadMessages);
+    const states = stateEntities.map(async (stateEntity) => {
+      const state = StateMapper.toDomain(stateEntity, loadMessages);
       
       if (loadMessages) {
-        const { messages } = await this.messageService.getMessages(state.id);
-        agentState.conversationHistory = messages;
+        const { messages } = await this.messageService.getMessages(stateEntity.id);
+        state.conversationHistory = messages;
       }
-      
-      return agentState;
-    }));
-  }
-
-  async save(state: AgentState): Promise<void> {
-    // Find existing state for this agent and conversation
-    const existingState = await this.stateRepository.findOne({
-      where: {
-        agent: { id: state.agentId },
-        conversationId: state.conversationId,
-      },
-      relations: ["agent"],
+    
+      return state;
     });
 
-    if (existingState) {
-      // Update existing state
-      await this.stateRepository.update(existingState.id, {
-        memory: state.memory,
-        ttl: state.ttl,
-      });
+    return Promise.all(states);
+  }
 
-      // Append new messages
-      if (state.conversationHistory && state.conversationHistory.length > 0) {
-        await this.messageService.appendMessages(state.conversationHistory);
+  async save(state: AgentState): Promise<AgentState> {
+    return this.stateRepository.manager.transaction(async (manager) => {
+      try {
+        // Convert to persistence and save
+        const stateEntity = StateMapper.toPersistence(state, state.agentId);
+        const savedStateEntity = await manager.save(StateEntity, stateEntity);
+
+        // Fetch the complete state with all relations
+        const stateWithRelations = await manager.findOne(StateEntity, {
+          where: { id: savedStateEntity.id },
+          relations: ["agent", "messages"],
+        });
+
+        if (!stateWithRelations) {
+          throw new Error('Failed to load saved state');
+        }
+
+        // Convert back to domain
+        return StateMapper.toDomain(stateWithRelations, true);
+      } catch (error) {
+        console.error('Error saving state:', error);
+        throw error;
       }
-    } else {
-      // Create new state
-      const stateEntity = new StateEntity();
-      stateEntity.id = state.id;
-      stateEntity.conversationId = state.conversationId;
-      stateEntity.memory = state.memory;
-      stateEntity.ttl = state.ttl || 0;
-      stateEntity.createdAt = state.createdAt;
-      stateEntity.updatedAt = state.updatedAt;
-
-      // Set up the agent relationship
-      const agentEntity = new AgentEntity();
-      agentEntity.id = state.agentId;
-      stateEntity.agent = agentEntity;
-
-      await this.stateRepository.save(stateEntity);
-
-      // Create messages
-      if (state.conversationHistory && state.conversationHistory.length > 0) {
-        await this.messageService.appendMessages(state.conversationHistory);
-      }
-    }
+    });
   }
 
   async delete(id: string): Promise<boolean> {
@@ -186,49 +128,12 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
     const now = new Date();
     const result = await this.stateRepository
       .createQueryBuilder()
-      .select('id, "updatedAt", ttl')
-      .getRawMany();
-
-    const expiredStateIds = result
-      .filter((state) => {
-        if (!state.ttl) return false;
-        const expirationTime = new Date(state.updatedAt);
-        expirationTime.setSeconds(expirationTime.getSeconds() + state.ttl);
-        return now > expirationTime;
+      .delete()
+      .where("ttl > 0 AND updatedAt < :expiryDate", {
+        expiryDate: new Date(now.getTime() - 1000 * 60 * 60 * 24), // 24 hours ago
       })
-      .map((state) => state.id);
+      .execute();
 
-    if (expiredStateIds.length === 0) {
-      return 0;
-    }
-
-    const deleteResult = await this.stateRepository.delete(expiredStateIds);
-    return deleteResult.affected || 0;
-  }
-
-  async findByAgentIdAndConversationId(
-    agentId: string,
-    conversationId: string,
-    loadMessages: boolean = false
-  ): Promise<AgentState | null> {
-    const state = await this.stateRepository.findOne({
-      where: {
-        agent: { id: agentId },
-        conversationId,
-      },
-      relations: ["agent"],
-      order: { updatedAt: "DESC" }
-    });
-
-    if (!state) return null;
-
-    const agentState = StateMapper.toDomain(state, loadMessages);
-    
-    if (loadMessages) {
-      const { messages } = await this.messageService.getMessages(state.id);
-      agentState.conversationHistory = messages;
-    }
-    
-    return agentState;
+    return result.affected || 0;
   }
 }

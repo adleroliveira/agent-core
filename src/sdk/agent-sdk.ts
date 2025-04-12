@@ -24,7 +24,6 @@ export interface CreateAgentOptions {
   systemPrompt?: string;
   tools?: string[]; // Array of tool names to register with the agent
   memorySize?: number; // Number of past interactions to include in context
-  conversationId?: string; // Optional conversation ID to use for initial state
 }
 
 export class AgentSDK {
@@ -214,7 +213,6 @@ export class AgentSDK {
       options.description,
       options.systemPrompt,
       options.tools,
-      options.conversationId
     );
 
     const agent = new Agent(agentEntity, this.agentAdapter);

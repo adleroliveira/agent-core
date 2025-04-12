@@ -91,9 +91,9 @@ export class DefaultService {
     }
     /**
      * Send a message to an agent
-     * Send a message to an agent. The conversationId is required to identify the conversation.
+     * Send a message to an agent. The StateId is required to identify the conversation.
      * @param id The ID of the agent
-     * @param requestBody The message to send, including conversationId to identify the conversation
+     * @param requestBody The message to send, including stateId to identify the conversation
      * @param stream Whether to stream the response
      * @returns MessageDto Message processed successfully
      * @throws ApiError
@@ -223,13 +223,13 @@ export class DefaultService {
      * Create new conversation
      * Creates a new conversation for a specific agent
      * @param id The ID of the agent
-     * @param conversationId Optional conversation ID to specify when creating a new conversation
+     * @param stateId Optional state ID to specify when creating a new conversation
      * @returns any New conversation created successfully
      * @throws ApiError
      */
     public static agentControllerCreateNewConversation(
         id: string,
-        conversationId?: string,
+        stateId?: any,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
@@ -238,7 +238,7 @@ export class DefaultService {
                 'id': id,
             },
             query: {
-                'conversationId': conversationId,
+                'stateId': stateId,
             },
             errors: {
                 404: `Agent not found`,
@@ -270,7 +270,7 @@ export class DefaultService {
     }
     /**
      * @param id
-     * @param conversationId
+     * @param stateId
      * @param limit
      * @param beforeTimestamp
      * @returns any
@@ -278,7 +278,7 @@ export class DefaultService {
      */
     public static agentControllerGetConversationHistory(
         id: string,
-        conversationId: string,
+        stateId: string,
         limit?: number,
         beforeTimestamp?: string,
     ): CancelablePromise<any> {
@@ -289,7 +289,7 @@ export class DefaultService {
                 'id': id,
             },
             query: {
-                'conversationId': conversationId,
+                'stateId': stateId,
                 'limit': limit,
                 'beforeTimestamp': beforeTimestamp,
             },

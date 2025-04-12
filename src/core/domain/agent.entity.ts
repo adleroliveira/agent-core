@@ -74,7 +74,6 @@ export class Agent {
     if (this._states.length === 0) {
       const defaultState = new AgentState({ 
         agentId: this.id,
-        conversationId: uuidv4(),
       });
       this._states = [defaultState];
     }
@@ -101,8 +100,8 @@ export class Agent {
     return this._workspaceConfig;
   }
 
-  public getStateByConversationId(conversationId: string): AgentState | undefined {
-    return this._states.find(state => state.conversationId === conversationId);
+  public getStateById(stateId: string): AgentState | undefined {
+    return this._states.find(state => state.id === stateId);
   }
 
   public async processMessage(
@@ -117,20 +116,22 @@ export class Agent {
       throw new Error("Model service not initialized");
     }
 
-    // Get the conversationId from the message
-    const conversationId = message.conversationId;
-    if (!conversationId) {
-      throw new Error("Message must have a conversationId");
+    // Get the StateId from the message
+    const stateId = message.stateId;
+    if (!stateId) {
+      throw new Error("Message must have a stateId");
     }
 
-    // Find the state for this conversation
-    const state = this.getStateByConversationId(conversationId);
+    // Find the state
+    const state = this.getStateById(stateId);
     if (!state) {
-      throw new Error(`No conversation found with ID: ${conversationId}`);
+      throw new Error(`No state found with ID: ${stateId}`);
     }
 
     // Record the incoming message in conversation history
     state.addToConversation(message);
+
+    console.log("History:", state.conversationHistory);
 
     const requestOptions = {
       temperature: options?.temperature,
@@ -161,7 +162,7 @@ export class Agent {
     const responseMessage = new Message({
       role: "assistant",
       content: response.message.content,
-      conversationId: message.conversationId,
+      stateId: message.stateId,
       toolCalls: response.toolCalls?.map((tc) => ({
         id: tc.toolId,
         name: tc.toolName,
@@ -181,7 +182,7 @@ export class Agent {
         responseMessage,
         state,
         response.toolCalls,
-        message.conversationId
+        message.stateId
       );
     }
 
@@ -251,7 +252,7 @@ export class Agent {
           const streamingMessage = new Message({
             role: "assistant",
             content: streamingContent,
-            conversationId: message.conversationId,
+            stateId: message.stateId,
             toolCalls: collectedToolCalls.map((tc) => ({
               id: tc.toolId,
               name: tc.toolName,
@@ -269,7 +270,7 @@ export class Agent {
                 streamingMessage,
                 state,
                 collectedToolCalls,
-                message.conversationId,
+                message.stateId,
                 subject
               );
             } catch (error) {
@@ -302,12 +303,12 @@ export class Agent {
     // If this is a recursive call, wait for the streaming to complete
     if (responseSubject) {
       streamingPromise.catch(error => {
-        this.logger.error(`Error in recursive streaming for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Parent conversation ID: ${message.conversationId}`);
+        this.logger.error(`Error in recursive streaming for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Parent State ID: ${message.stateId}`);
       });
     } else {
       // For root level, ensure we wait for all streaming to complete
       streamingPromise.then(() => {}).catch(error => {
-        this.logger.error(`Error in root streaming for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Conversation ID: ${message.conversationId}`);
+        this.logger.error(`Error in root streaming for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, State ID: ${message.stateId}`);
       });
     }
 
@@ -318,7 +319,7 @@ export class Agent {
     assistantMessage: Message,
     state: AgentState,
     toolCalls: ToolCallResult[],
-    conversationId: string,
+    stateId: string,
     responseSubject: Subject<Partial<Message>>,
     recursionDepth: number = 0
   ): Promise<void> {
@@ -364,7 +365,7 @@ export class Agent {
     const toolResponseMessage = new Message({
       role: "tool",
       content: JSON.stringify(toolResults),
-      conversationId: conversationId,
+      stateId: stateId,
       toolCallId: toolCalls[0].toolId, // Use the first tool call ID as reference
       toolName: toolCalls[0].toolName, // Use the first tool name as reference
       isToolError: hasErrors
@@ -409,7 +410,7 @@ export class Agent {
     assistantMessage: Message,
     state: AgentState,
     toolCalls: ToolCallResult[],
-    conversationId: string,
+    stateId: string,
     recursionDepth: number = 0
   ): Promise<Message> {
     this.logger.debug(`Executing ${toolCalls.length} tool calls for agent ${this.id}. Tools: ${toolCalls.map(tc => `${tc.toolName}(${JSON.stringify(tc.arguments)})`).join(', ')}, Recursion depth: ${recursionDepth}`);
@@ -453,7 +454,7 @@ export class Agent {
     const toolResponseMessage = new Message({
       role: "tool",
       content: JSON.stringify(toolResults),
-      conversationId: conversationId,
+      stateId: stateId,
       toolCallId: toolCalls[0].toolId,
       toolName: toolCalls[0].toolName,
       isToolError: hasErrors
@@ -474,7 +475,7 @@ export class Agent {
         const followUpMessage = new Message({
           role: "assistant",
           content: followUpResponse.message.content,
-          conversationId,
+          stateId: stateId,
           toolCalls: followUpResponse.toolCalls?.map((tc) => ({
             id: tc.toolId,
             name: tc.toolName,
@@ -494,7 +495,7 @@ export class Agent {
             return new Message({
               role: "assistant",
               content: MAX_RECURSION_ERROR,
-              conversationId,
+              stateId: stateId,
             });
           }
 
@@ -502,7 +503,7 @@ export class Agent {
             followUpMessage,
             state,
             followUpResponse.toolCalls,
-            conversationId,
+            stateId,
             nextRecursionDepth
           );
         }
@@ -513,7 +514,7 @@ export class Agent {
         const errorMessage = new Message({
           role: "assistant",
           content: TOOL_RESULTS_PROCESSING_ERROR.replace("%s", error.message),
-          conversationId,
+          stateId: stateId,
         });
         state.addToConversation(errorMessage);
         return errorMessage;
@@ -582,7 +583,7 @@ export class Agent {
     this.updatedAt = new Date();
   }
 
-  public resetConversation(_conversationId: string): void {
+  public resetConversation(_stateId: string): void {
     throw new Error("Not implemented");
   }
 
@@ -590,17 +591,16 @@ export class Agent {
     this.logger.debug(`Creating new conversation for agent ${this.id}`);
     const newState = new AgentState({
       agentId: this.id,
-      conversationId: uuidv4(),
     });
     this._states.push(newState);
     this.updatedAt = new Date();
     return newState;
   }
 
-  public getConversationHistory(conversationId: string): Message[] {
-    const state = this.getStateByConversationId(conversationId);
+  public getConversationHistory(stateId: string): Message[] {
+    const state = this.getStateById(stateId);
     if (!state) {
-      throw new Error(`No conversation found with ID: ${conversationId}`);
+      throw new Error(`No conversation found with ID: ${stateId}`);
     }
     return state.conversationHistory;
   }

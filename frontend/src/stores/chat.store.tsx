@@ -5,7 +5,7 @@ import { AgentService } from '../services/agent.service';
 
 interface Conversation {
   id: string;
-  conversationId: string;
+  stateId: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -280,8 +280,8 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
       // If we have conversations, set and load the first one as active
       if (conversationsList.length > 0) {
         const firstConversation = conversationsList[0];
-        dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: firstConversation.conversationId });
-        await loadConversation(agentId, firstConversation.conversationId, agentService);
+        dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: firstConversation.stateId });
+        await loadConversation(agentId, firstConversation.stateId, agentService);
       }
     } catch (error) {
       console.error("Error initializing conversations:", error);

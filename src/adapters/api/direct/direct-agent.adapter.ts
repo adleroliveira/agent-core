@@ -38,14 +38,12 @@ export class DirectAgentAdapter {
     description: string,
     systemPrompt?: string,
     tools?: string[],
-    conversationId?: string
   ): Promise<Agent> {
     return this.agentService.createAgent({
       name,
       description,
       systemPromptContent: systemPrompt || "",
       tools,
-      conversationId
     });
   }
 
@@ -180,15 +178,15 @@ export class DirectAgentAdapter {
    * Get the current conversation ID for an agent
    */
   async getCurrentConversationId(agentId: string): Promise<string | undefined> {
-    const state = await this.stateRepository.findByAgentId(agentId);
-    return state?.conversationId;
+    const agent = await this.agentService.findAgentById(agentId);
+    return agent.getMostRecentState()?.id;
   }
 
   /**
    * Get all conversation IDs for an agent
    */
   async getConversationIds(agentId: string): Promise<string[]> {
-    const states = await this.stateRepository.findAllByAgentId(agentId);
-    return states.map((state: AgentState) => state.conversationId).filter(Boolean) as string[];
+    const agent = await this.agentService.findAgentById(agentId);
+    return agent.states.map((state: AgentState) => state.id);
   }
 }

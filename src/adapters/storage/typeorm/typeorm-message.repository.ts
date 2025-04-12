@@ -19,7 +19,7 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
   }
 
   async getMessages(
-    conversationId: string,
+    stateId: string,
     options: {
       limit?: number;
       beforeTimestamp?: Date;
@@ -34,7 +34,7 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
 
     const queryBuilder = this.messageRepository
       .createQueryBuilder('message')
-      .where('message.conversationId = :conversationId', { conversationId })
+      .where('message.stateId = :stateId', { stateId })
       .orderBy('message.createdAt', 'ASC');
 
     if (beforeTimestamp) {

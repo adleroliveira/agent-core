@@ -4,8 +4,8 @@ import { Message } from "./message.entity";
 export class AgentState {
   public readonly id: string;
   private _conversationHistory: Message[];
-  public conversationId: string;
   public agentId: string;
+  public title?: string;
   public memory: Record<string, any>;
   public ttl?: number;
   public createdAt: Date;
@@ -16,7 +16,7 @@ export class AgentState {
     params: {
       id?: string;
       agentId?: string;
-      conversationId?: string;
+      title?: string;
       conversationHistory?: Message[];
       memory?: Record<string, any>;
       ttl?: number;
@@ -24,7 +24,7 @@ export class AgentState {
   ) {
     this.id = params.id || uuidv4();
     this.agentId = params.agentId || "";
-    this.conversationId = params.conversationId || uuidv4();
+    this.title = params.title;
     this._conversationHistory = params.conversationHistory || [];
     this._messagesLoaded = params.conversationHistory !== undefined;
     this.memory = params.memory || {};
