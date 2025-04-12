@@ -1,4 +1,4 @@
-# AgentCore v0.3 - GenAI Agent Framework
+# AgentCore v0.4 - GenAI Agent Framework
 
 A flexible Agent abstraction for GenAI-powered agents using Amazon Bedrock, built with Hexagonal Architecture. This project provides both a NestJS server and an SDK for creating and interacting with AI agents.
 
