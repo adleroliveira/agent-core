@@ -8,7 +8,7 @@
 }
 
 .app-header {
-  background: linear-gradient(to right, #1a365d, #2c5282);
+  background: linear-gradient(180deg, #1a365d 0%, #2c5282 100%);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   position: sticky;
   top: 0;

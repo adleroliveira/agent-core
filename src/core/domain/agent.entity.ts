@@ -131,8 +131,6 @@ export class Agent {
     // Record the incoming message in conversation history
     state.addToConversation(message);
 
-    console.log("History:", state.conversationHistory);
-
     const requestOptions = {
       temperature: options?.temperature,
       maxTokens: options?.maxTokens,
