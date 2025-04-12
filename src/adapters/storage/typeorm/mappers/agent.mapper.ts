@@ -8,28 +8,41 @@ import { WorkspaceConfig } from '@core/config/workspace.config';
 import { ModelServicePort } from '@ports/model/model-service.port';
 import { VectorDBPort } from '@ports/storage/vector-db.port';
 import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
+import { Injectable, Inject } from '@nestjs/common';
+import { AgentToolEntity } from '../entities/agent-tool.entity';
 
+@Injectable()
 export class AgentMapper {
-  private toolMapper: ToolMapper;
-
   constructor(
     private readonly modelService: ModelServicePort,
     private readonly vectorDB: VectorDBPort,
-    private readonly toolRegistry: ToolRegistryPort
-  ) {
-    this.toolMapper = new ToolMapper(toolRegistry);
-  }
+    private readonly toolRegistry: ToolRegistryPort,
+    private readonly toolMapper: ToolMapper
+  ) {}
 
-  async toDomain(entity: AgentEntity): Promise<Agent> {
+  async toDomain(entity: AgentEntity, loadRelations: boolean = false): Promise<Agent> {
+    const states = loadRelations && entity.states
+      ? await Promise.all(entity.states.map(state => {
+        state.agent = entity;
+        return StateMapper.toDomain(state, true)
+      }))
+      : [];
+
+    const tools = loadRelations && entity.agentTools
+      ? await Promise.all(entity.agentTools
+          .filter(agentTool => agentTool.tool) // Only map tools that exist
+          .map(agentTool => this.toolMapper.toDomain(agentTool.tool))
+      )
+      : [];
+
+    const knowledgeBase = loadRelations && entity.knowledgeBase
+      ? KnowledgeBaseMapper.toDomain(entity.knowledgeBase, this.modelService, this.vectorDB)
+      : undefined;
+
     const workspaceConfig = new WorkspaceConfig();
     if (entity.workspaceConfig?.workspaceDir) {
       workspaceConfig.setWorkspacePath(entity.workspaceConfig.workspaceDir);
     }
-
-    // Map tools asynchronously
-    const tools = await Promise.all(
-      entity.tools.map(tool => this.toolMapper.toDomain(tool))
-    );
 
     const agent = new Agent({
       id: entity.id,
@@ -43,66 +56,57 @@ export class AgentMapper {
         name: entity.systemPrompt.name,
         metadata: entity.systemPrompt.metadata,
       }),
-      tools,
       workspaceConfig,
-      knowledgeBase: entity.knowledgeBase ? KnowledgeBaseMapper.toDomain(entity.knowledgeBase) : undefined,
+      tools,
+      knowledgeBase,
+      states
     });
 
-    if (entity.states && entity.states.length > 0) {
-      const mostRecentState = entity.states.reduce((prev, current) => {
-        return prev.updatedAt > current.updatedAt ? prev : current;
-      });
-      const state = StateMapper.toDomain(mostRecentState);
-      state.agentId = entity.id;
-      agent.state = state;
+    // Set services after creating the agent
+    if (this.modelService && this.vectorDB) {
+      await agent.setServices(this.modelService, this.vectorDB, workspaceConfig);
     }
-
-    if (entity.knowledgeBase) {
-      agent.knowledgeBase = KnowledgeBaseMapper.toDomain(
-        entity.knowledgeBase,
-        this.modelService,
-        this.vectorDB
-      );
-    }
-
-    // Initialize services
-    agent.setServices(
-      this.modelService,
-      this.vectorDB,
-      workspaceConfig
-    );
 
     return agent;
   }
 
-  toPersistence(agent: Agent): AgentEntity {
+  toPersistence(domain: Agent): AgentEntity {
     const entity = new AgentEntity();
-    entity.id = agent.id;
-    entity.name = agent.name;
-    entity.description = agent.description || '';
-    entity.modelId = agent.modelId;
+    entity.id = domain.id;
+    entity.name = domain.name;
+    entity.description = domain.description;
+    entity.modelId = domain.modelId;
     entity.systemPrompt = {
-      id: agent.systemPrompt.id,
-      content: agent.systemPrompt.content,
-      type: agent.systemPrompt.type,
-      name: agent.systemPrompt.name,
-      metadata: agent.systemPrompt.metadata,
-      createdAt: agent.systemPrompt.createdAt,
-      updatedAt: agent.systemPrompt.updatedAt,
+      id: domain.systemPrompt.id,
+      content: domain.systemPrompt.content,
+      type: domain.systemPrompt.type,
+      name: domain.systemPrompt.name,
+      metadata: domain.systemPrompt.metadata,
+      createdAt: domain.systemPrompt.createdAt,
+      updatedAt: domain.systemPrompt.updatedAt,
     };
-    entity.workspaceConfig = { workspaceDir: agent.workspaceConfig.getWorkspacePath() };
-    entity.createdAt = agent.createdAt;
-    entity.updatedAt = agent.updatedAt;
+    entity.workspaceConfig = { workspaceDir: domain.workspaceConfig.getWorkspacePath() };
+    entity.createdAt = domain.createdAt;
+    entity.updatedAt = domain.updatedAt;
 
-    // Don't include any state information in the agent entity
-    // State management will be handled by the state repository
-
-    if (agent.tools) {
-      entity.tools = agent.tools.map(tool => ToolMapper.toPersistence(tool, agent.id));
+    // Handle states
+    if (domain.states) {
+      entity.states = domain.states.map(state => StateMapper.toPersistence(state, domain.id));
     }
 
-    if (agent.knowledgeBase) {
-      entity.knowledgeBase = KnowledgeBaseMapper.toPersistence(agent.knowledgeBase, agent.id);
+    // Handle knowledge base
+    if (domain.isKnowledgeBaseLoaded() && domain.knowledgeBase) {
+      entity.knowledgeBase = KnowledgeBaseMapper.toPersistence(domain.knowledgeBase, domain.id);
+    }
+
+    // Handle tools
+    if (domain.areToolsLoaded() && domain.tools) {
+      entity.agentTools = domain.tools.map(tool => {
+        const agentTool = new AgentToolEntity();
+        agentTool.agentId = domain.id;
+        agentTool.toolId = tool.id;
+        return agentTool;
+      });
     }
 
     return entity;

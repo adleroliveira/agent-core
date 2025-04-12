@@ -34,10 +34,10 @@ export class ChatService {
     this.agentId = agentId;
   }
 
-  async sendMessage(content: string, conversationId: string): Promise<Message> {
+  async sendMessage(content: string, stateId: string): Promise<Message> {
     const messageDto: SendMessageDto = {
       content,
-      conversationId,
+      stateId,
     };
 
     try {
@@ -67,14 +67,14 @@ export class ChatService {
 
   async sendStreamingMessage(
     content: string,
-    conversationId: string,
+    stateId: string,
     onChunk: (chunk: string) => void,
     onComplete: () => void,
     onError: (error: any) => void
   ): Promise<void> {
     const messageDto: SendMessageDto = {
       content,
-      conversationId,
+      stateId,
     };
 
     try {

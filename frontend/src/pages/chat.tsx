@@ -33,7 +33,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
       const response = await state.agentService.createNewConversation(agentId);
 
       // Update the active conversation and load its history only if not streaming
-      dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: response.conversationId });
+      dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: response.stateId });
 
       // Reset messages for the new conversation
       dispatch({ type: 'SET_MESSAGES', payload: [] });
@@ -351,22 +351,19 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
             state.conversations.map(conv => (
               <li
                 key={conv.id}
-                class={`conversation-item ${conv.conversationId === state.activeConversationId ? 'active' : ''}`}
+                class={`conversation-item ${conv.stateId === state.activeConversationId ? 'active' : ''}`}
                 onClick={() => {
                   if (agentId && state.agentService) {
-                    loadConversation(agentId, conv.conversationId, state.agentService);
+                    loadConversation(agentId, conv.stateId, state.agentService);
                   }
                 }}
               >
                 <div class="conversation-title">
-                  {conv.conversationId === state.activeConversationId ? '✓ ' : ''}
-                  Conversation {conv.id.slice(0, 8)}...
+                  {conv.stateId === state.activeConversationId ? '✓ ' : ''}
+                  Conversation {conv.stateId.slice(0, 8)}...
                 </div>
                 <div class="conversation-date">
                   {new Date(conv.createdAt).toLocaleDateString()}
-                </div>
-                <div class="conversation-message-count">
-                  {conv.messageCount} messages
                 </div>
               </li>
             ))

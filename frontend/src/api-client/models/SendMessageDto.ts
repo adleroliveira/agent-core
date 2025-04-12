@@ -8,9 +8,9 @@ export type SendMessageDto = {
      */
     content: string;
     /**
-     * Optional conversation ID to continue an existing conversation. If not provided, a new conversation will be created.
+     * Optional state ID to continue an existing conversation. If not provided, a new conversation will be created.
      */
-    conversationId?: string;
+    stateId?: string;
     /**
      * Temperature for response generation (0-1)
      */

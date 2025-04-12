@@ -58,7 +58,7 @@ export class MessageDto {
     description: 'The ID of the conversation this message belongs to',
     example: 'conv_123'
   })
-  conversationId: string;
+  stateId: string;
 
   @ApiProperty({
     description: 'When the message was created',

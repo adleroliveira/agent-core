@@ -21,9 +21,12 @@ export class StateEntity {
   agent: AgentEntity;
 
   @Column()
-  conversationId: string;
+  agentId: string;
 
-  @OneToMany(() => MessageEntity, (message) => message.state, { cascade: true })
+  @Column({ type: "text", nullable: true })
+  title: string | null;
+
+  @OneToMany(() => MessageEntity, (message) => message.state)
   messages: MessageEntity[];
 
   @Column("json", { default: "{}" })

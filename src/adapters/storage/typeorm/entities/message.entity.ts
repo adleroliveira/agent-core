@@ -21,7 +21,7 @@ export class MessageEntity {
   content: string; // Store as JSON string if object
 
   @Column()
-  conversationId: string;
+  stateId: string;
 
   @Column({ type: "text", nullable: true })
   metadata: string | null; // Store as JSON string
@@ -37,9 +37,6 @@ export class MessageEntity {
 
   @Column({ default: false })
   isStreaming: boolean;
-
-  @Column({ nullable: true })
-  stateId: string;
 
   @ManyToOne(() => StateEntity, (state) => state.messages)
   @JoinColumn({ name: "stateId" })

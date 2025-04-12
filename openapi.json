@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/api/agents": {
+    "/agents": {
       "post": {
         "operationId": "AgentController_createAgent",
         "summary": "Create a new agent",
@@ -42,7 +42,7 @@
         }
       }
     },
-    "/api/agents/{id}": {
+    "/agents/{id}": {
       "get": {
         "operationId": "AgentController_getAgent",
         "summary": "Get agent by ID",
@@ -97,11 +97,11 @@
         }
       }
     },
-    "/api/agents/{id}/message": {
+    "/agents/{id}/message": {
       "post": {
         "operationId": "AgentController_sendMessage",
         "summary": "Send a message to an agent",
-        "description": "Send a message to an agent. The conversationId is required to identify the conversation.",
+        "description": "Send a message to an agent. The StateId is required to identify the conversation.",
         "parameters": [
           {
             "name": "id",
@@ -124,7 +124,7 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "The message to send, including conversationId to identify the conversation",
+          "description": "The message to send, including stateId to identify the conversation",
           "content": {
             "application/json": {
               "schema": {
@@ -153,7 +153,7 @@
         }
       }
     },
-    "/api/agents/{id}/prompt": {
+    "/agents/{id}/prompt": {
       "put": {
         "operationId": "AgentController_updateSystemPrompt",
         "summary": "Update system prompt",
@@ -194,7 +194,7 @@
         }
       }
     },
-    "/api/agents/{id}/tools": {
+    "/agents/{id}/tools": {
       "post": {
         "operationId": "AgentController_addTool",
         "summary": "Add tool to agent",
@@ -235,7 +235,7 @@
         }
       }
     },
-    "/api/agents/{id}/tools/{toolId}": {
+    "/agents/{id}/tools/{toolId}": {
       "delete": {
         "operationId": "AgentController_removeTool",
         "summary": "Remove tool from agent",
@@ -275,7 +275,7 @@
         }
       }
     },
-    "/api/agents/{id}/reset": {
+    "/agents/{id}/reset": {
       "post": {
         "operationId": "AgentController_resetState",
         "summary": "Reset agent state",
@@ -305,7 +305,7 @@
         }
       }
     },
-    "/api/agents/{id}/new-conversation": {
+    "/agents/{id}/new-conversation": {
       "post": {
         "operationId": "AgentController_createNewConversation",
         "summary": "Create new conversation",
@@ -322,13 +322,12 @@
             }
           },
           {
-            "name": "conversationId",
+            "name": "stateId",
             "required": false,
             "in": "query",
-            "description": "Optional conversation ID to specify when creating a new conversation",
+            "description": "Optional state ID to specify when creating a new conversation",
             "schema": {
-              "example": "123e4567-e89b-12d3-a456-426614174000",
-              "type": "string"
+              "example": "123e4567-e89b-12d3-a456-426614174000"
             }
           }
         ],
@@ -345,7 +344,7 @@
         }
       }
     },
-    "/api/agents/{id}/conversations": {
+    "/agents/{id}/conversations": {
       "get": {
         "operationId": "AgentController_getConversations",
         "summary": "Get agent conversations",
@@ -375,7 +374,7 @@
         }
       }
     },
-    "/api/agents/{id}/conversation-history": {
+    "/agents/{id}/conversation-history": {
       "get": {
         "operationId": "AgentController_getConversationHistory",
         "parameters": [
@@ -388,7 +387,7 @@
             }
           },
           {
-            "name": "conversationId",
+            "name": "stateId",
             "required": true,
             "in": "query",
             "schema": {
@@ -420,7 +419,7 @@
         }
       }
     },
-    "/api/tools": {
+    "/tools": {
       "get": {
         "operationId": "ToolsController_getAllTools",
         "summary": "Get all available tools",
@@ -445,7 +444,11 @@
       "description": ""
     }
   ],
-  "servers": [],
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
   "components": {
     "schemas": {
       "CreateAgentDto": {
@@ -460,9 +463,9 @@
             "description": "The content of the message to send",
             "example": "Hello, how can you help me today?"
           },
-          "conversationId": {
+          "stateId": {
             "type": "string",
-            "description": "Optional conversation ID to continue an existing conversation. If not provided, a new conversation will be created.",
+            "description": "Optional state ID to continue an existing conversation. If not provided, a new conversation will be created.",
             "example": "123e4567-e89b-12d3-a456-426614174000"
           },
           "temperature": {
@@ -551,7 +554,7 @@
             ],
             "example": "assistant"
           },
-          "conversationId": {
+          "stateId": {
             "type": "string",
             "description": "The ID of the conversation this message belongs to",
             "example": "conv_123"
@@ -584,7 +587,7 @@
           "id",
           "content",
           "role",
-          "conversationId",
+          "stateId",
           "createdAt"
         ]
       },

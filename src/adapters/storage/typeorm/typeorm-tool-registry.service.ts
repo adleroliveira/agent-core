@@ -5,12 +5,12 @@ import { WorkspaceConfig } from '@core/config/workspace.config';
 import { Agent } from '@core/domain/agent.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ToolEntity } from '@adapters/storage/typeorm/entities/tool.entity';
-import { ToolMapper } from '@adapters/storage/typeorm/mappers/tool.mapper';
+import { ToolEntity } from './entities/tool.entity';
+import { ToolMapper } from './mappers/tool.mapper';
 
 @Injectable()
-export class ToolRegistryService implements ToolRegistryPort {
-  private readonly logger = new Logger(ToolRegistryService.name);
+export class TypeOrmToolRegistryService implements ToolRegistryPort {
+  private readonly logger = new Logger(TypeOrmToolRegistryService.name);
   private readonly tools: Map<string, Tool> = new Map();
   private readonly toolsByName: Map<string, Tool> = new Map();
 

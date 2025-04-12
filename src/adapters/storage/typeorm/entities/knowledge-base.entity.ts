@@ -1,27 +1,27 @@
-import { Entity, Column, PrimaryColumn, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn } from 'typeorm';
-import { AgentEntity } from './agent.entity';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from "typeorm";
+import { AgentEntity } from "./agent.entity";
 
-@Entity('knowledge_bases')
+@Entity("knowledge_bases")
 export class KnowledgeBaseEntity {
-  @PrimaryColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column('uuid', { name: 'agent_id' })
+  @Column({ name: "agent_id" })
   agentId: string;
+
+  @ManyToOne(() => AgentEntity, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "agent_id" })
+  agent: AgentEntity;
 
   @Column()
   name: string;
 
   @Column({ nullable: true })
-  description: string;
+  description?: string;
 
-  @OneToOne(() => AgentEntity, agent => agent.knowledgeBase)
-  @JoinColumn({ name: 'agent_id' })
-  agent: AgentEntity;
-
-  @CreateDateColumn()
+  @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 } 

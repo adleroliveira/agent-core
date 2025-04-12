@@ -24,8 +24,8 @@ export class MessageService {
     private readonly eventEmitter: EventEmitter2
   ) {}
 
-  async appendMessages(stateId: string, messages: Message[]): Promise<void> {
-    await this.messageRepository.appendMessages(stateId, messages);
+  async appendMessages(messages: Message[]): Promise<void> {
+    await this.messageRepository.appendMessages(messages);
     
     // Emit events for each message
     for (const message of messages) {
@@ -48,8 +48,8 @@ export class MessageService {
     return this.messageRepository.getMessages(stateId, options);
   }
 
-  async deleteMessages(stateId: string, messageIds: string[]): Promise<void> {
-    await this.messageRepository.deleteMessages(stateId, messageIds);
+  async deleteMessages(messageIds: string[]): Promise<void> {
+    await this.messageRepository.deleteMessages(messageIds);
     await this.eventEmitter.emitAsync('message.deleted', new MessageDeletedEvent(messageIds));
   }
 

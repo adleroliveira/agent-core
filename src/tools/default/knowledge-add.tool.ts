@@ -26,6 +26,11 @@ export class KnowledgeAddTool extends Tool {
       The content should be a string and the metadata should be an object. The metadata is optional and can be used to associate the content with a specific topic or source.`,
       parameters,
       handler: async (args: Record<string, any>, agent: Agent) => {
+        // Ensure knowledge base is loaded
+        if (!agent.isKnowledgeBaseLoaded()) {
+          throw new Error("Knowledge base not loaded. Please ensure the agent is loaded with knowledge base enabled.");
+        }
+
         const entry = await agent.knowledgeBase.addKnowledge(args.content, args.metadata);
         return { id: entry.id };
       }

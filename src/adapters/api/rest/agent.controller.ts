@@ -93,18 +93,19 @@ export class AgentController {
   })
   async getAllAgents() {
     try {
-      const agents = await this.agentService.findAllAgents();
+      // Load agents with their tools
+      const agents = await this.agentService.findAllAgents(true);
       return agents.map((agent) => ({
         id: agent.id,
         name: agent.name,
         description: agent.description,
         modelId: agent.modelId,
         createdAt: agent.createdAt,
-        tools: agent.tools.map((tool) => ({
+        tools: agent.areToolsLoaded() ? agent.tools.map((tool) => ({
           id: tool.id,
           name: tool.name,
           description: tool.description,
-        })),
+        })) : [],
       }));
     } catch (error) {
       throw new HttpException(
@@ -197,13 +198,13 @@ export class AgentController {
   @Post(":id/message")
   @ApiOperation({ 
     summary: 'Send a message to an agent',
-    description: 'Send a message to an agent. The conversationId is required to identify the conversation.'
+    description: 'Send a message to an agent. The StateId is required to identify the conversation.'
   })
   @ApiParam({ name: 'id', description: 'The ID of the agent' })
   @ApiQuery({ name: 'stream', required: false, type: Boolean, description: 'Whether to stream the response' })
   @ApiBody({ 
     type: SendMessageDto,
-    description: 'The message to send, including conversationId to identify the conversation'
+    description: 'The message to send, including stateId to identify the conversation'
   })
   @ApiResponse({ 
     status: 200, 
@@ -234,7 +235,7 @@ export class AgentController {
         const streamResponse = await this.agentService.processMessage(
           id,
           messageDto.content,
-          messageDto.conversationId,
+          messageDto.stateId,
           {
             temperature: messageDto.temperature,
             maxTokens: messageDto.maxTokens,
@@ -271,7 +272,7 @@ export class AgentController {
       const response = await this.agentService.processMessage(
         id,
         messageDto.content,
-        messageDto.conversationId,
+        messageDto.stateId,
         {
           temperature: messageDto.temperature,
           maxTokens: messageDto.maxTokens,
@@ -294,7 +295,7 @@ export class AgentController {
           id: response.id,
           content: response.content,
           role: response.role,
-          conversationId: response.conversationId,
+          stateId: response.stateId,
           createdAt: response.createdAt,
           toolCalls: response.toolCalls,
           metadata: response.metadata,
@@ -499,8 +500,8 @@ export class AgentController {
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
   @ApiQuery({ 
-    name: 'conversationId',
-    description: 'Optional conversation ID to specify when creating a new conversation',
+    name: 'stateId',
+    description: 'Optional state ID to specify when creating a new conversation',
     required: false,
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
@@ -518,14 +519,13 @@ export class AgentController {
   })
   async createNewConversation(
     @Param("id") id: string,
-    @Query("conversationId") conversationId?: string
   ) {
     try {
-      const agent = await this.agentService.createNewConversation(id, conversationId);
+      const agent = await this.agentService.createNewConversation(id);
       return {
         id: agent.id,
         name: agent.name,
-        conversationId: agent.state.conversationId,
+        stateId: agent.getMostRecentState().id,
         createdAt: agent.createdAt,
       };
     } catch (error) {
@@ -563,10 +563,9 @@ export class AgentController {
       const conversations = await this.agentService.getConversations(id);
       return conversations.map((conversation) => ({
         id: conversation.id,
-        conversationId: conversation.conversationId,
+        stateId: conversation.id,
         createdAt: conversation.createdAt,
         updatedAt: conversation.updatedAt,
-        messageCount: conversation.conversationHistory?.length || 0,
       }));
     } catch (error) {
       throw new HttpException(
@@ -577,19 +576,19 @@ export class AgentController {
   }
 
   @Get(":id/conversation-history")
-  @ApiQuery({ name: 'conversationId', required: true, type: String })
+  @ApiQuery({ name: 'stateId', required: true, type: String })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'beforeTimestamp', required: false, type: Date })
   async getConversationHistory(
     @Param("id") id: string,
-    @Query("conversationId") conversationId: string,
+    @Query("stateId") stateId: string,
     @Query("limit") limit?: number,
     @Query("beforeTimestamp") beforeTimestamp?: Date
   ) {
     try {
       const result = await this.agentService.getConversationHistory(
         id,
-        conversationId,
+        stateId,
         {
           limit,
           beforeTimestamp,
@@ -601,7 +600,7 @@ export class AgentController {
           id: message.id,
           content: message.content,
           role: message.role,
-          conversationId: message.conversationId,
+          stateId: message.stateId,
           createdAt: message.createdAt,
           toolCalls: message.toolCalls,
           metadata: message.metadata,

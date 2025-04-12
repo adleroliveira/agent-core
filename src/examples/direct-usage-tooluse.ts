@@ -24,8 +24,6 @@ async function runStockMarketAgentExample(): Promise<void> {
     await sdk.registerTool(getStockHistoryTool.getTool());
     await sdk.registerTool(getStockPriceTool.getTool());
 
-    const conversationId = "test-conversation-1";
-
     const agent = await sdk.createAgent({
       name: "Financial Advisor",
       description:
@@ -46,7 +44,6 @@ async function runStockMarketAgentExample(): Promise<void> {
         "getStockHistory",
         "getStockPrice",
       ],
-      conversationId
     });
 
     console.log(`Stock Market Agent created with ID: ${agent.id}`);

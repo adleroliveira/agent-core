@@ -19,7 +19,7 @@ export class Message {
   public readonly id: string;
   public role: MessageRole;
   public content: string | MessageContent;
-  public conversationId: string;
+  public stateId: string;
   public metadata?: Record<string, any>;
   public toolCalls?: ToolCall[];
   public toolCallId?: string;
@@ -33,7 +33,7 @@ export class Message {
     id?: string;
     role: MessageRole;
     content: string | MessageContent;
-    conversationId: string;
+    stateId: string;
     metadata?: Record<string, any>;
     toolCalls?: ToolCall[];
     toolCallId?: string;
@@ -44,7 +44,7 @@ export class Message {
     this.id = params.id || uuidv4();
     this.role = params.role;
     this.content = params.content;
-    this.conversationId = params.conversationId;
+    this.stateId = params.stateId;
     this.metadata = params.metadata;
     this.toolCalls = params.toolCalls;
     this.toolCallId = params.toolCallId;

@@ -4,18 +4,15 @@ import { MessageMapper } from "./message.mapper";
 import { AgentEntity } from "../entities/agent.entity";
 
 export class StateMapper {
-  static toDomain(entity: StateEntity): AgentState {
+  static toDomain(entity: StateEntity, loadMessages: boolean = false): AgentState {
+
     const state = new AgentState({
       id: entity.id,
       memory: entity.memory,
       ttl: entity.ttl,
-      conversationId: entity.conversationId,
-      agentId: entity.agent?.id || ''
+      agentId: entity.agent.id,
+      conversationHistory: loadMessages && entity.messages ? entity.messages.map(MessageMapper.toDomain) : undefined
     });
-
-    if (entity.messages) {
-      state.conversationHistory = entity.messages.map(MessageMapper.toDomain);
-    }
 
     state.createdAt = entity.createdAt;
     state.updatedAt = entity.updatedAt;
@@ -28,7 +25,6 @@ export class StateMapper {
     entity.id = domain.id;
     entity.memory = domain.memory;
     entity.ttl = domain.ttl || 0;
-    entity.conversationId = domain.conversationId;
     entity.createdAt = domain.createdAt;
     entity.updatedAt = domain.updatedAt;
 
@@ -36,12 +32,6 @@ export class StateMapper {
       const agentEntity = new AgentEntity();
       agentEntity.id = agentId;
       entity.agent = agentEntity;
-    }
-
-    if (domain.conversationHistory && domain.conversationHistory.length > 0) {
-      entity.messages = domain.conversationHistory.map((message) =>
-        MessageMapper.toPersistence(message, domain.id)
-      );
     }
 
     return entity;

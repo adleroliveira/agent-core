@@ -43,7 +43,7 @@ export class MessageMapper {
       id: entity.id,
       role: entity.role as MessageRole,
       content: parsedContent,
-      conversationId: entity.conversationId,
+      stateId: entity.stateId,
       metadata: parsedMetadata,
       toolCalls: parsedToolCalls,
       toolCallId: entity.toolCallId || undefined, // Convert null to undefined
@@ -52,7 +52,7 @@ export class MessageMapper {
     });
   }
 
-  static toPersistence(domain: Message, stateId?: string): MessageEntity {
+  static toPersistence(domain: Message): MessageEntity {
     const entity = new MessageEntity();
     entity.id = domain.id;
     entity.role = domain.role;
@@ -63,7 +63,7 @@ export class MessageMapper {
         ? JSON.stringify(domain.content)
         : domain.content;
 
-    entity.conversationId = domain.conversationId;
+    entity.stateId = domain.stateId;
 
     // Stringify metadata if it exists
     entity.metadata = domain.metadata ? JSON.stringify(domain.metadata) : null;
@@ -77,10 +77,6 @@ export class MessageMapper {
     entity.toolCallId = domain.toolCallId || null;
     entity.toolName = domain.toolName || null;
     entity.isStreaming = domain.isStreaming || false;
-
-    if (stateId) {
-      entity.stateId = stateId;
-    }
 
     entity.createdAt = domain.createdAt;
 

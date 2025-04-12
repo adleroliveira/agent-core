@@ -11,14 +11,14 @@ export class SendMessageDto {
   content: string;
 
   @ApiPropertyOptional({
-    name: 'conversationId',
-    description: 'Optional conversation ID to continue an existing conversation. If not provided, a new conversation will be created.',
+    name: 'stateId',
+    description: 'Optional state ID to continue an existing conversation. If not provided, a new conversation will be created.',
     example: '123e4567-e89b-12d3-a456-426614174000',
     required: false
   })
   @IsString()
   @IsOptional()
-  conversationId?: string;
+  stateId?: string;
 
   @ApiPropertyOptional({
     description: 'Temperature for response generation (0-1)',

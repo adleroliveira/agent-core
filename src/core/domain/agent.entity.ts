@@ -29,15 +29,17 @@ export class Agent {
   public name: string;
   public description: string;
   public modelId: string;
-  public state: AgentState;
+  private _states: AgentState[];
   public systemPrompt: Prompt;
-  public tools: Tool[];
-  public knowledgeBase: KnowledgeBase;
+  private _tools: Tool[];
+  private _knowledgeBase: KnowledgeBase;
   public createdAt: Date;
   public updatedAt: Date;
   private modelService?: ModelServicePort;
   private vectorDB?: VectorDBPort;
   private _workspaceConfig: WorkspaceConfig;
+  private _toolsLoaded: boolean = false;
+  private _knowledgeBaseLoaded: boolean = false;
 
   constructor(
     params: {
@@ -51,7 +53,7 @@ export class Agent {
       vectorDB?: VectorDBPort;
       knowledgeBase?: KnowledgeBase;
       workspaceConfig: WorkspaceConfig;
-      conversationId?: string;
+      states?: AgentState[];
     }
   ) {
     this.id = params.id || uuidv4();
@@ -59,38 +61,47 @@ export class Agent {
     this.description = params.description;
     this.modelId = params.modelId;
     this.systemPrompt = params.systemPrompt;
-    this.tools = params.tools || [];
+    this._tools = params.tools || [];
+    this._toolsLoaded = params.tools !== undefined;
     this.modelService = params.modelService;
     this.vectorDB = params.vectorDB;
     this._workspaceConfig = params.workspaceConfig;
-    this.state = new AgentState({ 
-      agentId: this.id,
-      conversationId: params.conversationId,
-    });
 
-    this.knowledgeBase = params.knowledgeBase || new KnowledgeBase({
+    // Initialize states
+    this._states = params.states || [];
+    
+    // If no states provided, create a default one
+    if (this._states.length === 0) {
+      const defaultState = new AgentState({ 
+        agentId: this.id,
+      });
+      this._states = [defaultState];
+    }
+
+    this._knowledgeBase = params.knowledgeBase || new KnowledgeBase({
       agentId: this.id,
       name: `${this.name}'s Knowledge Base`,
       description: `Knowledge base for agent ${this.name}`,
       modelService: this.modelService,
       vectorDB: this.vectorDB,
     });
+    this._knowledgeBaseLoaded = params.knowledgeBase !== undefined;
     this.createdAt = new Date();
     this.updatedAt = new Date();
 
-    this.logger.debug(`Agent initialized: ${this.name} (${this.id}) with ${this.tools.length} tools. Model: ${this.modelId}, Description: ${this.description}`);
+    this.logger.debug(`Agent initialized: ${this.name} (${this.id}) with ${this._tools.length} tools. Model: ${this.modelId}, Description: ${this.description}`);
   }
 
-  public async setServices(
-    modelService: ModelServicePort,
-    vectorDB: VectorDBPort,
-    workspaceConfig: WorkspaceConfig
-  ): Promise<void> {
-    this.logger.debug(`Setting services for agent ${this.id}. Model service: ${modelService ? 'available' : 'not set'}, Vector DB: ${vectorDB ? 'available' : 'not set'}, Workspace path: ${workspaceConfig.getWorkspacePath()}`);
-    this.modelService = modelService;
-    this.vectorDB = vectorDB;
-    this._workspaceConfig = workspaceConfig;
-    this.knowledgeBase.setServices(modelService, vectorDB);
+  public get states(): AgentState[] {
+    return this._states;
+  }
+
+  public get workspaceConfig(): WorkspaceConfig {
+    return this._workspaceConfig;
+  }
+
+  public getStateById(stateId: string): AgentState | undefined {
+    return this._states.find(state => state.id === stateId);
   }
 
   public async processMessage(
@@ -105,19 +116,22 @@ export class Agent {
       throw new Error("Model service not initialized");
     }
 
-    this.logger.debug(`Processing message for agent ${this.id}. Content: "${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}", Role: ${message.role}, Conversation ID: ${message.conversationId}`);
+    // Get the StateId from the message
+    const stateId = message.stateId;
+    if (!stateId) {
+      throw new Error("Message must have a stateId");
+    }
 
-    // Initialize or update state if needed
-    if (!this.state || this.state.conversationId !== message.conversationId) {
-      this.logger.debug(`Initializing new conversation state for agent ${this.id}. Previous conversation ID: ${this.state?.conversationId || 'none'}, New conversation ID: ${message.conversationId}`);
-      this.state = new AgentState({
-        agentId: this.id,
-        conversationId: message.conversationId,
-      });
+    // Find the state
+    const state = this.getStateById(stateId);
+    if (!state) {
+      throw new Error(`No state found with ID: ${stateId}`);
     }
 
     // Record the incoming message in conversation history
-    this.state.addToConversation(message);
+    state.addToConversation(message);
+
+    console.log("History:", state.conversationHistory);
 
     const requestOptions = {
       temperature: options?.temperature,
@@ -125,21 +139,20 @@ export class Agent {
     };
 
     if (options?.stream) {
-      this.logger.debug(`Processing message with streaming for agent ${this.id}. Options: ${JSON.stringify(requestOptions)}`);
-      return this.processStreamingMessage(message, requestOptions);
+      return this.processStreamingMessage(message, state, requestOptions);
     } else {
-      this.logger.debug(`Processing message without streaming for agent ${this.id}. Options: ${JSON.stringify(requestOptions)}`);
-      return this.processStandardMessage(message, requestOptions);
+      return this.processStandardMessage(message, state, requestOptions);
     }
   }
 
   private async processStandardMessage(
     message: Message,
+    state: AgentState,
     options: any
   ): Promise<Message> {
-    this.logger.debug(`Generating standard response for agent ${this.id}. Conversation history length: ${this.state.conversationHistory.length}, Available tools: ${this.tools.map(t => t.name).join(', ')}`);
+    this.logger.debug(`Generating standard response for agent ${this.id}. Conversation history length: ${state.conversationHistory.length}, Available tools: ${this.tools.map(t => t.name).join(', ')}`);
     const response = await this.modelService!.generateResponse(
-      this.state.conversationHistory,
+      state.conversationHistory,
       this.systemPrompt,
       this.tools,
       options
@@ -149,7 +162,7 @@ export class Agent {
     const responseMessage = new Message({
       role: "assistant",
       content: response.message.content,
-      conversationId: message.conversationId,
+      stateId: message.stateId,
       toolCalls: response.toolCalls?.map((tc) => ({
         id: tc.toolId,
         name: tc.toolName,
@@ -160,15 +173,16 @@ export class Agent {
     this.logger.debug(`Generated response for agent ${this.id}. Content length: ${response.message.content.length}, Tool calls: ${response.toolCalls?.length || 0} (${response.toolCalls?.map(tc => tc.toolName).join(', ') || 'none'})`);
 
     // Add the initial response to conversation history
-    this.state.addToConversation(responseMessage);
+    state.addToConversation(responseMessage);
 
     // Handle any tool calls and get the final response
     if (response.toolCalls && response.toolCalls.length > 0) {
       this.logger.debug(`Executing ${response.toolCalls.length} tool calls for agent ${this.id}. Tools: ${response.toolCalls.map(tc => `${tc.toolName}(${JSON.stringify(tc.arguments)})`).join(', ')}`);
       return this.executeToolCalls(
         responseMessage,
+        state,
         response.toolCalls,
-        message.conversationId
+        message.stateId
       );
     }
 
@@ -177,6 +191,7 @@ export class Agent {
 
   private processStreamingMessage(
     message: Message,
+    state: AgentState,
     options: any,
     responseSubject?: Subject<Partial<Message>>
   ): Observable<Partial<Message>> {
@@ -186,12 +201,19 @@ export class Agent {
     const collectedToolCalls: ToolCallResult[] = [];
     let streamingContent = "";
 
+    // Ensure we have a valid Observable from the model service
     const streamingObs = this.modelService!.generateStreamingResponse(
-      this.state.conversationHistory,
+      state.conversationHistory,
       this.systemPrompt,
       this.tools,
       options
     );
+
+    if (!streamingObs || typeof streamingObs.subscribe !== 'function') {
+      this.logger.error(`Invalid streaming response from model service for agent ${this.id}`);
+      subject.error(new Error('Invalid streaming response from model service'));
+      return subject.asObservable();
+    }
 
     // Create a promise to track the completion of the streaming process
     const streamingPromise = new Promise<void>((resolve, reject) => {
@@ -230,7 +252,7 @@ export class Agent {
           const streamingMessage = new Message({
             role: "assistant",
             content: streamingContent,
-            conversationId: message.conversationId,
+            stateId: message.stateId,
             toolCalls: collectedToolCalls.map((tc) => ({
               id: tc.toolId,
               name: tc.toolName,
@@ -240,14 +262,15 @@ export class Agent {
 
           this.logger.debug(`Streaming response completed for agent ${this.id}. Content length: ${streamingContent.length}, Tool calls: ${collectedToolCalls.length} (${collectedToolCalls.map(tc => tc.toolName).join(', ') || 'none'})`);
 
-          this.state.addToConversation(streamingMessage);
+          state.addToConversation(streamingMessage);
 
           if (collectedToolCalls.length > 0) {
             try {
               await this.executeToolCallsForStreaming(
                 streamingMessage,
+                state,
                 collectedToolCalls,
-                message.conversationId,
+                message.stateId,
                 subject
               );
             } catch (error) {
@@ -280,12 +303,12 @@ export class Agent {
     // If this is a recursive call, wait for the streaming to complete
     if (responseSubject) {
       streamingPromise.catch(error => {
-        this.logger.error(`Error in recursive streaming for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Parent conversation ID: ${message.conversationId}`);
+        this.logger.error(`Error in recursive streaming for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Parent State ID: ${message.stateId}`);
       });
     } else {
       // For root level, ensure we wait for all streaming to complete
       streamingPromise.then(() => {}).catch(error => {
-        this.logger.error(`Error in root streaming for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Conversation ID: ${message.conversationId}`);
+        this.logger.error(`Error in root streaming for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, State ID: ${message.stateId}`);
       });
     }
 
@@ -294,8 +317,9 @@ export class Agent {
 
   private async executeToolCallsForStreaming(
     assistantMessage: Message,
+    state: AgentState,
     toolCalls: ToolCallResult[],
-    conversationId: string,
+    stateId: string,
     responseSubject: Subject<Partial<Message>>,
     recursionDepth: number = 0
   ): Promise<void> {
@@ -341,13 +365,13 @@ export class Agent {
     const toolResponseMessage = new Message({
       role: "tool",
       content: JSON.stringify(toolResults),
-      conversationId: conversationId,
+      stateId: stateId,
       toolCallId: toolCalls[0].toolId, // Use the first tool call ID as reference
       toolName: toolCalls[0].toolName, // Use the first tool name as reference
       isToolError: hasErrors
     });
 
-    this.state.addToConversation(toolResponseMessage);
+    state.addToConversation(toolResponseMessage);
 
     if (hasErrors && recursionDepth >= MAX_RECURSION_DEPTH_ON_ERRORS) {
       this.logger.warn(`Max recursion depth reached for agent ${this.id}. Depth: ${recursionDepth}, Errors: ${toolResults.filter(r => r.isError).map(r => r.toolId).join(', ')}`);
@@ -361,6 +385,7 @@ export class Agent {
     this.logger.debug(`Processing recursive streaming response for agent ${this.id}. Previous content length: ${assistantMessage.content.length}, Tool results: ${toolResults.length}`);
     const recursiveStream = this.processStreamingMessage(
       assistantMessage,
+      state,
       { temperature: DEFAULT_TOOL_EXECUTION_TEMPERATURE },
       responseSubject
     );
@@ -381,14 +406,11 @@ export class Agent {
     });
   }
 
-  get workspaceConfig(): WorkspaceConfig {
-    return this._workspaceConfig;
-  }
-
   private async executeToolCalls(
     assistantMessage: Message,
+    state: AgentState,
     toolCalls: ToolCallResult[],
-    conversationId: string,
+    stateId: string,
     recursionDepth: number = 0
   ): Promise<Message> {
     this.logger.debug(`Executing ${toolCalls.length} tool calls for agent ${this.id}. Tools: ${toolCalls.map(tc => `${tc.toolName}(${JSON.stringify(tc.arguments)})`).join(', ')}, Recursion depth: ${recursionDepth}`);
@@ -432,19 +454,19 @@ export class Agent {
     const toolResponseMessage = new Message({
       role: "tool",
       content: JSON.stringify(toolResults),
-      conversationId: conversationId,
+      stateId: stateId,
       toolCallId: toolCalls[0].toolId,
       toolName: toolCalls[0].toolName,
       isToolError: hasErrors
     });
 
-    this.state.addToConversation(toolResponseMessage);
+    state.addToConversation(toolResponseMessage);
 
     if (toolResults.length > 0) {
       try {
         this.logger.debug(`Generating follow-up response for agent ${this.id}. Previous content length: ${assistantMessage.content.length}, Tool results: ${toolResults.length}, Has errors: ${hasErrors}`);
         const followUpResponse = await this.modelService!.generateResponse(
-          this.state.conversationHistory,
+          state.conversationHistory,
           this.systemPrompt,
           this.tools,
           { temperature: DEFAULT_TOOL_EXECUTION_TEMPERATURE }
@@ -453,7 +475,7 @@ export class Agent {
         const followUpMessage = new Message({
           role: "assistant",
           content: followUpResponse.message.content,
-          conversationId,
+          stateId: stateId,
           toolCalls: followUpResponse.toolCalls?.map((tc) => ({
             id: tc.toolId,
             name: tc.toolName,
@@ -463,7 +485,7 @@ export class Agent {
 
         this.logger.debug(`Generated follow-up response for agent ${this.id}. Content length: ${followUpResponse.message.content.length}, Tool calls: ${followUpResponse.toolCalls?.length || 0} (${followUpResponse.toolCalls?.map(tc => tc.toolName).join(', ') || 'none'})`);
 
-        this.state.addToConversation(followUpMessage);
+        state.addToConversation(followUpMessage);
 
         if (followUpResponse.toolCalls && followUpResponse.toolCalls.length > 0) {
           const nextRecursionDepth = hasErrors ? recursionDepth + 1 : recursionDepth;
@@ -473,14 +495,15 @@ export class Agent {
             return new Message({
               role: "assistant",
               content: MAX_RECURSION_ERROR,
-              conversationId,
+              stateId: stateId,
             });
           }
 
           return this.executeToolCalls(
             followUpMessage,
+            state,
             followUpResponse.toolCalls,
-            conversationId,
+            stateId,
             nextRecursionDepth
           );
         }
@@ -491,9 +514,9 @@ export class Agent {
         const errorMessage = new Message({
           role: "assistant",
           content: TOOL_RESULTS_PROCESSING_ERROR.replace("%s", error.message),
-          conversationId,
+          stateId: stateId,
         });
-        this.state.addToConversation(errorMessage);
+        state.addToConversation(errorMessage);
         return errorMessage;
       }
     }
@@ -501,46 +524,88 @@ export class Agent {
     return assistantMessage;
   }
 
+  public get tools(): Tool[] {
+    return this._tools;
+  }
+
+  public set tools(tools: Tool[]) {
+    this._tools = tools;
+    this._toolsLoaded = true;
+  }
+
+  public get knowledgeBase(): KnowledgeBase {
+    return this._knowledgeBase;
+  }
+
+  public set knowledgeBase(kb: KnowledgeBase) {
+    this._knowledgeBase = kb;
+    this._knowledgeBaseLoaded = true;
+  }
+
+  public areToolsLoaded(): boolean {
+    return this._toolsLoaded;
+  }
+
+  public isKnowledgeBaseLoaded(): boolean {
+    return this._knowledgeBaseLoaded;
+  }
+
+  public areServicesInitialized(): boolean {
+    return !!this.modelService && !!this.vectorDB;
+  }
+
+  public async setServices(
+    modelService: ModelServicePort,
+    vectorDB: VectorDBPort,
+    workspaceConfig: WorkspaceConfig
+  ): Promise<void> {
+    this.modelService = modelService;
+    this.vectorDB = vectorDB;
+    this._workspaceConfig = workspaceConfig;
+    this.knowledgeBase.setServices(modelService, vectorDB);
+  }
+
   public registerTool(tool: Tool): void {
     this.logger.debug(`Registering tool ${tool.name} for agent ${this.id}. Tool ID: ${tool.id}, Parameters: ${JSON.stringify(tool.parameters)}`);
     this.tools.push(tool);
+    this._toolsLoaded = true;
     this.updatedAt = new Date();
   }
 
   public deregisterTool(toolId: string): void {
-    const tool = this.tools.find(t => t.id === toolId);
-    if (tool) {
-      this.logger.debug(`Deregistering tool ${tool.name} for agent ${this.id}. Tool ID: ${toolId}, Parameters: ${JSON.stringify(tool.parameters)}`);
-      this.tools = this.tools.filter((tool) => tool.id !== toolId);
-      this.updatedAt = new Date();
-    }
+    this.tools = this.tools.filter((t) => t.id !== toolId);
+    this._toolsLoaded = true;
+    this.updatedAt = new Date();
   }
 
   public updateSystemPrompt(prompt: Prompt): void {
-    this.logger.debug(`Updating system prompt for agent ${this.id}. Previous prompt length: ${this.systemPrompt.content.length}, New prompt length: ${prompt.content.length}`);
     this.systemPrompt = prompt;
     this.updatedAt = new Date();
   }
 
-  public resetState(): void {
-    this.logger.debug(`Resetting state for agent ${this.id}. Previous conversation ID: ${this.state.conversationId}, Previous history length: ${this.state.conversationHistory.length}`);
-    this.state = new AgentState({
-      agentId: this.id,
-      conversationId: uuidv4(),
-    });
-    this.updatedAt = new Date();
+  public resetConversation(_stateId: string): void {
+    throw new Error("Not implemented");
   }
 
-  public createNewConversation(conversationId?: string): void {
-    this.logger.debug(`Creating new conversation for agent ${this.id}. Previous conversation ID: ${this.state.conversationId}, Previous history length: ${this.state.conversationHistory.length}`);
-    this.state = new AgentState({
+  public createNewConversation(): AgentState {
+    this.logger.debug(`Creating new conversation for agent ${this.id}`);
+    const newState = new AgentState({
       agentId: this.id,
-      conversationId: conversationId || uuidv4(),
     });
+    this._states.push(newState);
     this.updatedAt = new Date();
+    return newState;
   }
 
-  public getConversationId(): string {
-    return this.state.conversationId;
+  public getConversationHistory(stateId: string): Message[] {
+    const state = this.getStateById(stateId);
+    if (!state) {
+      throw new Error(`No conversation found with ID: ${stateId}`);
+    }
+    return state.conversationHistory;
+  }
+
+  public getMostRecentState(): AgentState {
+    return this._states[this._states.length - 1];
   }
 }

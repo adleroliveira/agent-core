@@ -8,19 +8,17 @@ async function runStreamingExample(): Promise<void> {
 
   try {
     // Start a conversation with a specific ID
-    const conversationId = "test-conversation-1";
     // Create a new agent
     agent = await sdk.createAgent({
       name: "Streaming Agent",
       description: "An agent for testing streaming responses",
       systemPrompt:
         "You are a helpful AI assistant that provides detailed, thoughtful responses. When asked a complex question, break down your answer into clear sections.",
-        conversationId
     });
 
     console.log(`Agent created with ID: ${agent.id}`);
 
-    console.log(`\nStarting conversation with ID: ${conversationId}`);
+    console.log(`\nStarting conversation with ID: ${agent.mostRecentStateId}`);
     // First message
     const firstMessage = "Explain how neural networks work in detail.";
     console.log("\nSending first message:");

@@ -40,7 +40,6 @@ async function runStockMarketAgentStreamingExample(): Promise<void> {
         "getStockHistory",
         "getStockPrice",
       ], // Specify the stock market tool
-      conversationId
     });
 
     console.log(`Stock Market Agent created with ID: ${agent.id}`);
