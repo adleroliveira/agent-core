@@ -10,6 +10,7 @@ import {
 } from "@ports/model/model-service.port";
 import { Observable, Subject } from "rxjs";
 import { VectorDBPort } from "@ports/storage/vector-db.port";
+import { ModelRequestOptions } from "@ports/model/model-service.port";
 import { WorkspaceConfig } from "@core/config/workspace.config";
 import { Logger } from "@nestjs/common";
 
@@ -146,14 +147,14 @@ export class Agent {
   private async processStandardMessage(
     message: Message,
     state: AgentState,
-    options: any
+    options: ModelRequestOptions
   ): Promise<Message> {
     this.logger.debug(`Generating standard response for agent ${this.id}. Conversation history length: ${state.conversationHistory.length}, Available tools: ${this.tools.map(t => t.name).join(', ')}`);
     const response = await this.modelService!.generateResponse(
       state.conversationHistory,
       this.systemPrompt,
       this.tools,
-      options
+      { ...options, modelId: this.modelId }
     );
 
     // Create a message from the response
@@ -190,7 +191,7 @@ export class Agent {
   private processStreamingMessage(
     message: Message,
     state: AgentState,
-    options: any,
+    options: ModelRequestOptions,
     responseSubject?: Subject<Partial<Message>>
   ): Observable<Partial<Message>> {
     this.logger.debug(`Starting streaming response for agent ${this.id}. Options: ${JSON.stringify(options)}, Recursive call: ${!!responseSubject}`);
@@ -204,7 +205,7 @@ export class Agent {
       state.conversationHistory,
       this.systemPrompt,
       this.tools,
-      options
+      { ...options, modelId: this.modelId }
     );
 
     if (!streamingObs || typeof streamingObs.subscribe !== 'function') {
@@ -384,7 +385,7 @@ export class Agent {
     const recursiveStream = this.processStreamingMessage(
       assistantMessage,
       state,
-      { temperature: DEFAULT_TOOL_EXECUTION_TEMPERATURE },
+      { temperature: DEFAULT_TOOL_EXECUTION_TEMPERATURE, modelId: this.modelId },
       responseSubject
     );
 
@@ -467,7 +468,7 @@ export class Agent {
           state.conversationHistory,
           this.systemPrompt,
           this.tools,
-          { temperature: DEFAULT_TOOL_EXECUTION_TEMPERATURE }
+          { temperature: DEFAULT_TOOL_EXECUTION_TEMPERATURE, modelId: this.modelId }
         );
 
         const followUpMessage = new Message({

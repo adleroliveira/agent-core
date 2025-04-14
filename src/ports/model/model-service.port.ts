@@ -5,6 +5,7 @@ import { Tool } from "@core/domain/tool.entity";
 
 export interface ModelRequestOptions {
   maxTokens?: number;
+  modelId?: string;
   temperature?: number;
   topP?: number;
   topK?: number;
@@ -29,7 +30,34 @@ export interface ToolCallResult {
   arguments: any;
 }
 
+export type ModelModality = 'text' | 'image' | 'audio' | 'video' | 'embeddings' | 'speech';
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+  description?: string;
+  capabilities?: string[];
+  maxTokens?: number;
+  contextWindow?: number;
+  // Model capabilities
+  supportsStreaming: boolean;
+  supportsToolCalls: boolean;
+  inputModalities: ModelModality[];
+  outputModalities: ModelModality[];
+  // Pricing and metadata
+  pricing?: {
+    input?: number;
+    output?: number;
+  };
+  metadata?: Record<string, any>;
+  active?: boolean;
+  provider?: string;
+}
+
 export interface ModelServicePort {
+  // Model information methods
+  getAvailableModels(): Promise<ModelInfo[]>;
+
   // Core model interaction methods
   generateResponse(
     messages: Message[],

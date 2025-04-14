@@ -2,7 +2,7 @@ import { Injectable, Inject, Logger, forwardRef } from '@nestjs/common';
 import { Process } from '@core/domain/process.entity';
 import { ProcessRepositoryPort } from '@ports/storage/process-repository.port';
 import { WorkspaceConfig } from '@core/config/workspace.config';
-import { PROCESS_REPOSITORY } from '@adapters/adapters.module';
+import { PROCESS_REPOSITORY } from '../injection-tokens';
 import { spawn, ChildProcess } from 'child_process';
 import * as os from 'os';
 import * as path from 'path';

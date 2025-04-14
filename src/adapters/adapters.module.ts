@@ -13,6 +13,16 @@ import { ToolRegistryPort, TOOL_REGISTRY } from '@ports/tool/tool-registry.port'
 import { ToolMapper } from './storage/typeorm/mappers/tool.mapper';
 import { TypeOrmToolRegistryService } from './storage/typeorm/typeorm-tool-registry.service';
 import { StateMapper } from './storage/typeorm/mappers/state.mapper';
+import {
+  AGENT_REPOSITORY,
+  STATE_REPOSITORY,
+  PROCESS_REPOSITORY,
+  MODEL_SERVICE,
+  VECTOR_DB,
+  AGENT_SERVICE,
+  MESSAGE_REPOSITORY,
+  KNOWLEDGE_BASE_REPOSITORY,
+} from '@core/injection-tokens';
 
 // Storage entities
 import { AgentEntity } from "./storage/typeorm/entities/agent.entity";
@@ -37,20 +47,11 @@ import { BedrockConfigService } from "./model/bedrock/bedrock-config.service";
 // API interfaces
 import { AgentController } from "./api/rest/agent.controller";
 import { ToolsController } from "./api/rest/tools.controller";
+import { ModelsController } from "./api/rest/models.controller";
 import { DirectAgentAdapter } from "./api/direct/direct-agent.adapter";
 
 // Tools
 import { ProcessTool } from "@tools/default/process.tool";
-
-// Injection tokens
-export const AGENT_REPOSITORY = Symbol('AGENT_REPOSITORY');
-export const STATE_REPOSITORY = Symbol('STATE_REPOSITORY');
-export const PROCESS_REPOSITORY = "PROCESS_REPOSITORY";
-export const MODEL_SERVICE = Symbol('MODEL_SERVICE');
-export const VECTOR_DB = Symbol('VECTOR_DB');
-export const AGENT_SERVICE = "AGENT_SERVICE";
-export const MESSAGE_REPOSITORY = Symbol('MESSAGE_REPOSITORY');
-export const KNOWLEDGE_BASE_REPOSITORY = Symbol('KNOWLEDGE_BASE_REPOSITORY');
 
 @Module({
   imports: [
@@ -66,7 +67,7 @@ export const KNOWLEDGE_BASE_REPOSITORY = Symbol('KNOWLEDGE_BASE_REPOSITORY');
     forwardRef(() => CoreModule),
     ConfigModule,
   ],
-  controllers: [AgentController, ToolsController],
+  controllers: [AgentController, ToolsController, ModelsController],
   providers: [
     // Storage providers
     {

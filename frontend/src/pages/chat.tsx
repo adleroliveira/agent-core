@@ -52,10 +52,6 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     if (!agentId) return;
 
     const initialize = async () => {
-
-      // Reset state first
-      resetState();
-
       try {
         // Initialize services
         const chatService = new ChatService(agentId);
@@ -75,6 +71,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
 
         initializedRef.current = true;
       } catch (error) {
+        console.error('Error initializing chat:', error);
         dispatch({ type: 'SET_AGENT_NAME', payload: 'Agent' });
       }
     };
@@ -277,6 +274,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     });
     dispatch({ type: 'SET_INPUT_MESSAGE', payload: '' });
     dispatch({ type: 'SET_IS_LOADING', payload: true });
+    dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: true });
 
     try {
       if (state.isStreaming) {
@@ -285,6 +283,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           content,
           state.activeConversationId,
           chunk => {
+            dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
             for (const token of lexerRef.current!.processChunk(chunk)) {
               processToken(token);
             }
@@ -293,6 +292,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
             dispatch({ type: 'SET_IS_LOADING', payload: false });
             dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
             dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: false });
+            dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
             if (agentId && state.agentService) {
               refreshConversations(agentId, state.agentService);
             }
@@ -305,6 +305,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
             dispatch({ type: 'SET_IS_LOADING', payload: false });
             dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
             dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: false });
+            dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
             // Clear the current message ref on error
             currentMessageRef.current = null;
             currentBlockType.current = null;
@@ -312,6 +313,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         );
       } else {
         const response = await state.chatService.sendMessage(content, state.activeConversationId);
+        dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
         dispatch({
           type: 'ADD_MESSAGE',
           payload: { ...response, blockType: 'normal', isComplete: true }
@@ -325,6 +327,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
       console.error('Error sending message:', error);
       dispatch({ type: 'SET_IS_LOADING', payload: false });
       dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: false });
+      dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
     }
   };
 
@@ -410,31 +413,44 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
               <p>Start a conversation with your agent</p>
             </div>
           ) : (
-            state.messages.map((msg, idx) => (
-              <div
-                key={idx}
-                class={`message ${msg.role} ${msg.blockType === 'thinking' ? 'thinking' : ''} ${msg.blockType === 'thinking' && state.showThinkingBubbles ? 'show' : ''} ${msg.blockType === 'tool' ? 'tool-message' : ''}`}
-              >
-                <div class="message-content">
-                  {msg.blockType === 'thinking' && state.showThinkingBubbles ? (
-                    <div class="thinking-content">
-                      <div class="thinking-header">Thought Process</div>
-                      <div class="thinking-body">
-                        <span class="thinking-icon">🤔</span>
-                        {(msg.thinking || msg.content || '').trimStart()}
+            <>
+              {state.messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  class={`message ${msg.role} ${msg.blockType === 'thinking' ? 'thinking' : ''} ${msg.blockType === 'thinking' && state.showThinkingBubbles ? 'show' : ''} ${msg.blockType === 'tool' ? 'tool-message' : ''}`}
+                >
+                  <div class="message-content">
+                    {msg.blockType === 'thinking' && state.showThinkingBubbles ? (
+                      <div class="thinking-content">
+                        <div class="thinking-header">Thought Process</div>
+                        <div class="thinking-body">
+                          <span class="thinking-icon">🤔</span>
+                          {(msg.thinking || msg.content || '').trimStart()}
+                        </div>
                       </div>
-                    </div>
-                  ) : msg.blockType === 'tool' ? (
-                    <div class="tool-message-content">
-                      <span class="tool-icon">🔧</span>
-                      <span>Using {msg.toolName || 'tool'}...</span>
-                    </div>
-                  ) : (
-                    <div class="message-content" dangerouslySetInnerHTML={{ __html: renderMarkdown((msg.content || '').trimStart()) }} />
-                  )}
+                    ) : msg.blockType === 'tool' ? (
+                      <div class="tool-message-content">
+                        <span class="tool-icon">🔧</span>
+                        <span>Using {msg.toolName || 'tool'}...</span>
+                      </div>
+                    ) : (
+                      <div class="message-content" dangerouslySetInnerHTML={{ __html: renderMarkdown((msg.content || '').trimStart()) }} />
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+              {state.showLoadingCue && (
+                <div class="message assistant">
+                  <div class="loading-cue">
+                    <div class="loading-dots">
+                      <div class="loading-dot"></div>
+                      <div class="loading-dot"></div>
+                      <div class="loading-dot"></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -448,7 +464,11 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
             class="chat-input"
             disabled={state.isLoading}
           />
-          <button type="submit" class="send-button" disabled={state.isLoading}>
+          <button
+            type="submit"
+            class="send-button"
+            disabled={state.isLoading}
+          >
             {state.isLoading ? 'Sending...' : 'Send'}
           </button>
         </form>

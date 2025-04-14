@@ -18,12 +18,6 @@ import {
 } from "@ports/model/model-service.port";
 import { ToolRegistryPort } from "@ports/tool/tool-registry.port";
 import { VectorDBPort } from "@ports/storage/vector-db.port";
-import {
-  AGENT_REPOSITORY,
-  STATE_REPOSITORY,
-  MODEL_SERVICE,
-  VECTOR_DB,
-} from "@adapters/adapters.module";
 import { TOOL_REGISTRY } from "@core/constants";
 import { DEFAULT_SYSTEM_PROMPT } from "@config/prompts.config";
 import { WorkspaceConfig } from "@core/config/workspace.config";
@@ -33,7 +27,12 @@ import { KnowledgeBase } from "@core/domain/knowledge-base.entity";
 import { KnowledgeBaseRepositoryPort } from "@ports/storage/knowledge-base-repository.port";
 import {
   KNOWLEDGE_BASE_REPOSITORY,
-} from "@adapters/adapters.module";
+  AGENT_REPOSITORY,
+  STATE_REPOSITORY,
+  MODEL_SERVICE,
+  VECTOR_DB,
+} from "@core/injection-tokens";
+
 
 @Injectable()
 export class AgentService implements OnModuleInit {

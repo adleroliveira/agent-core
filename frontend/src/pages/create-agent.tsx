@@ -2,6 +2,9 @@ import { useState, useEffect } from 'preact/hooks';
 import type { ComponentType } from 'preact';
 import { DefaultService } from '../api-client';
 import { route } from 'preact-router';
+import { ModelService } from '../services/models.service';
+import type { ModelInfoDto } from '../api-client/models/ModelInfoDto';
+import { ModelSelector } from '../components/ModelSelector';
 import '../styles/create-agent.css';
 
 interface Tool {
@@ -15,26 +18,40 @@ export const CreateAgent: ComponentType = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    modelId: 'us.amazon.nova-lite-v1:0',
+    modelId: '',
     systemPrompt: 'You are a helpful agent that assists users with their tasks. You are friendly, professional, and always aim to provide accurate and useful information.',
     tools: [] as string[],
   });
   const [availableTools, setAvailableTools] = useState<Tool[]>([]);
+  const [availableModels, setAvailableModels] = useState<ModelInfoDto[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchTools = async () => {
+    const fetchData = async () => {
+      setLoadingData(true);
+      setError(null);
       try {
-        const tools = await DefaultService.toolsControllerGetAllTools();
+        const [tools, models] = await Promise.all([
+          DefaultService.toolsControllerGetAllTools(),
+          ModelService.getInstance().getAvailableModels()
+        ]);
         setAvailableTools(tools);
+        setAvailableModels(models);
+        // Set default model if available
+        if (models.length > 0) {
+          setFormData(prev => ({ ...prev, modelId: models[0].id }));
+        }
       } catch (err) {
-        console.error('Error fetching tools:', err);
-        setError('Failed to load available tools');
+        console.error('Error fetching data:', err);
+        setError('Failed to load available tools and models');
+      } finally {
+        setLoadingData(false);
       }
     };
 
-    fetchTools();
+    fetchData();
   }, []);
 
   const handleSubmit = async (e: Event) => {
@@ -60,7 +77,7 @@ export const CreateAgent: ComponentType = () => {
   };
 
   const handleChange = (e: Event) => {
-    const target = e.target as HTMLInputElement | HTMLTextAreaElement;
+    const target = e.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
     setFormData(prev => ({
       ...prev,
       [target.name]: target.value
@@ -108,15 +125,10 @@ export const CreateAgent: ComponentType = () => {
         </div>
 
         <div class="form-group">
-          <label for="modelId">Model ID</label>
-          <input
-            type="text"
-            id="modelId"
-            name="modelId"
+          <label>Model</label>
+          <ModelSelector
             value={formData.modelId}
-            onChange={handleChange}
-            required
-            placeholder="Enter model ID"
+            onChange={(modelId) => setFormData(prev => ({ ...prev, modelId }))}
           />
         </div>
 
@@ -160,7 +172,11 @@ export const CreateAgent: ComponentType = () => {
           <button type="button" class="cancel-button" onClick={() => route('/')}>
             Cancel
           </button>
-          <button type="submit" class="submit-button" disabled={loading}>
+          <button
+            type="submit"
+            class="submit-button"
+            disabled={loading || loadingData}
+          >
             {loading ? 'Creating...' : 'Create Agent'}
           </button>
         </div>

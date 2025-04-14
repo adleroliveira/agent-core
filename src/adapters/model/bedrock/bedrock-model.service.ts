@@ -5,7 +5,13 @@ import {
   ConverseStreamCommand,
   InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime";
-import { v4 as uuidv4 } from "uuid";
+import {
+  BedrockClient,
+  ListFoundationModelsCommand,
+  ListFoundationModelsResponse,
+  FoundationModelSummary,
+  InferenceType
+} from "@aws-sdk/client-bedrock";
 import { Observable, Subject } from "rxjs";
 
 import {
@@ -13,6 +19,8 @@ import {
   ModelRequestOptions,
   ModelResponse,
   ToolCallResult,
+  ModelInfo,
+  ModelModality,
 } from "@ports/model/model-service.port";
 import { Message } from "@core/domain/message.entity";
 import { Prompt } from "@core/domain/prompt.entity";
@@ -23,9 +31,18 @@ import { BedrockConfigService } from "./bedrock-config.service";
 export class BedrockModelService implements ModelServicePort {
   private readonly logger = new Logger(BedrockModelService.name);
   private readonly bedrockClient: BedrockRuntimeClient;
+  private readonly bedrockControlClient: BedrockClient;
 
   constructor(private readonly configService: BedrockConfigService) {
     this.bedrockClient = new BedrockRuntimeClient({
+      region: this.configService.getRegion(),
+      credentials: {
+        accessKeyId: this.configService.getAccessKeyId(),
+        secretAccessKey: this.configService.getSecretAccessKey(),
+      },
+    });
+
+    this.bedrockControlClient = new BedrockClient({
       region: this.configService.getRegion(),
       credentials: {
         accessKeyId: this.configService.getAccessKeyId(),
@@ -40,7 +57,7 @@ export class BedrockModelService implements ModelServicePort {
     tools?: Tool[],
     options?: ModelRequestOptions
   ): Promise<ModelResponse> {
-    const modelId = this.configService.getModelId();
+    const modelId = options?.modelId || this.configService.getModelId();
 
     try {
       const requestBody = this.createConverseRequest(
@@ -75,7 +92,7 @@ export class BedrockModelService implements ModelServicePort {
     tools?: Tool[],
     options?: ModelRequestOptions
   ): Observable<Partial<ModelResponse>> {
-    const modelId = this.configService.getModelId();
+    const modelId = options?.modelId || this.configService.getModelId();
     const conversationId = messages[0].stateId;
     const subject = new Subject<Partial<ModelResponse>>();
 
@@ -562,5 +579,80 @@ export class BedrockModelService implements ModelServicePort {
     }
 
     return modelResponse;
+  }
+
+  async getAvailableModels(): Promise<ModelInfo[]> {
+    try {
+      const command = new ListFoundationModelsCommand({});
+      const response: ListFoundationModelsResponse = await this.bedrockControlClient.send(command);
+      
+      console.log(response.modelSummaries);
+      const modelSumaries = response.modelSummaries?.map((model: FoundationModelSummary) => {
+        let modelId = model.modelId || '';
+        
+        // Add "us." prefix if the only inference type is INFERENCE_PROFILE
+        if (model.inferenceTypesSupported?.length === 1) {
+          const inferenceType = model.inferenceTypesSupported[0] as string;
+          if (inferenceType === 'INFERENCE_PROFILE') {
+            modelId = `us.${modelId}`;
+          }
+        }
+
+        return {
+          id: modelId,
+          name: model.modelName || '',
+          description: '',
+          capabilities: [],
+          maxTokens: undefined,
+          contextWindow: undefined,
+          supportsStreaming: model.responseStreamingSupported || false,
+          supportsToolCalls: true,
+          inputModalities: this.mapModalities(model.inputModalities),
+          outputModalities: this.mapModalities(model.outputModalities),
+          pricing: {
+            input: undefined,
+            output: undefined,
+          },
+          provider: model.providerName || 'Unknown',
+          active: model.modelLifecycle?.status === 'ACTIVE',
+          metadata: {
+            provider: model.providerName || 'Unknown',
+            customizationType: undefined,
+            inferenceTypes: model.inferenceTypesSupported || [],
+          }
+        };
+      }) || [];
+
+      return modelSumaries;
+    } catch (error) {
+      this.logger.error(
+        `Error listing Bedrock models: ${error.message}`,
+        error.stack
+      );
+      throw new Error(`Failed to list available models: ${error.message}`);
+    }
+  }
+
+  private mapModalities(modalities?: string[]): ModelModality[] {
+    if (!modalities) return ['text']; // Default to text if no modalities specified
+    
+    return modalities.map(modality => {
+      switch (modality.toLowerCase()) {
+        case 'text':
+          return 'text';
+        case 'image':
+          return 'image';
+        case 'audio':
+          return 'audio';
+        case 'video':
+          return 'video';
+        case 'embedding':
+          return 'embeddings';
+        case 'speech':
+          return 'speech';
+        default:
+          return 'text';
+      }
+    });
   }
 }

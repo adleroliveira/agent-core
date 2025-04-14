@@ -6,10 +6,9 @@ import { StateRepositoryPort } from "@ports/storage/state-repository.port";
 import { StateEntity } from "./entities/state.entity";
 import { StateMapper } from "./mappers/state.mapper";
 import { VectorDBPort } from "@ports/storage/vector-db.port";
-import { VECTOR_DB } from "@adapters/adapters.module";
+import { VECTOR_DB } from "@core/injection-tokens";
 import { Logger } from "@nestjs/common";
 import { MessageService } from "@core/services/message.service";
-import { AgentEntity } from "./entities/agent.entity";
 import { MessageEntity } from "./entities/message.entity";
 import { AgentToolEntity } from "./entities/agent-tool.entity";
 

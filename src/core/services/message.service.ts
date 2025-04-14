@@ -2,7 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { MessageRepositoryPort } from '@ports/storage/message-repository.port';
 import { Message } from '@core/domain/message.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { MESSAGE_REPOSITORY } from '@adapters/adapters.module';
+import { MESSAGE_REPOSITORY } from "@core/injection-tokens";
 
 export class MessageAppendedEvent {
   constructor(public readonly message: Message) {}

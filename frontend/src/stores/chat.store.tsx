@@ -26,6 +26,7 @@ interface ChatState {
   isLoading: boolean;
   isUsingTool: boolean;
   showThinkingBubbles: boolean;
+  showLoadingCue: boolean;
   agentName: string;
   conversations: Conversation[];
   activeConversationId: string;
@@ -48,6 +49,7 @@ type ChatAction =
   | { type: 'SET_IS_LOADING'; payload: boolean }
   | { type: 'SET_IS_USING_TOOL'; payload: boolean }
   | { type: 'SET_SHOW_THINKING_BUBBLES'; payload: boolean }
+  | { type: 'SET_SHOW_LOADING_CUE'; payload: boolean }
   | { type: 'SET_AGENT_NAME'; payload: string }
   | { type: 'SET_CONVERSATIONS'; payload: Conversation[] }
   | { type: 'SET_ACTIVE_CONVERSATION_ID'; payload: string }
@@ -72,6 +74,7 @@ const initialState: ChatState = {
   isLoading: false,
   isUsingTool: false,
   showThinkingBubbles: true,
+  showLoadingCue: false,
   agentName: '',
   conversations: [],
   activeConversationId: '',
@@ -101,6 +104,8 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, isUsingTool: action.payload };
     case 'SET_SHOW_THINKING_BUBBLES':
       return { ...state, showThinkingBubbles: action.payload };
+    case 'SET_SHOW_LOADING_CUE':
+      return { ...state, showLoadingCue: action.payload };
     case 'SET_AGENT_NAME':
       return { ...state, agentName: action.payload };
     case 'SET_CONVERSATIONS':
@@ -170,6 +175,7 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
     dispatch({ type: 'SET_IS_LOADING', payload: false });
     dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
     dispatch({ type: 'SET_SHOW_THINKING_BUBBLES', payload: true });
+    dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
     dispatch({ type: 'SET_AGENT_NAME', payload: '' });
     dispatch({ type: 'SET_CONVERSATIONS', payload: [] });
     dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: '' });

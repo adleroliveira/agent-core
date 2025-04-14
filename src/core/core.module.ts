@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { AgentService } from './application/agent.service';
-import { AdaptersModule, AGENT_SERVICE, PROCESS_REPOSITORY, MESSAGE_REPOSITORY } from '@adapters/adapters.module';
+import { AdaptersModule } from '@adapters/adapters.module';
+import { AGENT_SERVICE, MESSAGE_REPOSITORY } from './injection-tokens';
 import { WorkspaceConfig } from './config/workspace.config';
 import { ProcessManagerService } from './application/process-manager.service';
 import { EventEmitterModule } from '@nestjs/event-emitter';

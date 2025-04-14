@@ -8,7 +8,7 @@ import { SDKConfig } from "./types";
 import { Tool, ToolParameter } from "@core/domain/tool.entity"; // Import your Tool entity
 import { ToolBuilder } from "./tool-builder";
 import { ModelServicePort } from "@ports/model/model-service.port";
-import { MODEL_SERVICE } from "@adapters/adapters.module";
+import { MODEL_SERVICE } from "@core/injection-tokens";
 import { NotFoundException } from "@nestjs/common";
 
 interface PropertySchema {

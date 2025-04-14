@@ -22,7 +22,7 @@ import { UpdatePromptDto } from "./dto/update-prompt.dto";
 import { AddToolDto } from "./dto/add-tool.dto";
 import { Message } from "@core/domain/message.entity";
 import { MessageDto } from "./dto/message.dto";
-import { AGENT_SERVICE } from "@adapters/adapters.module";
+import { AGENT_SERVICE } from "@core/injection-tokens";
 import { ToolRegistryService } from "@core/services/tool-registry.service";
 import { TOOL_REGISTRY } from "@core/constants";
 import { ApiQuery, ApiOperation, ApiParam, ApiResponse, ApiBody } from "@nestjs/swagger";

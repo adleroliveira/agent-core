@@ -6,7 +6,7 @@ import { KnowledgeBaseRepositoryPort } from "@ports/storage/knowledge-base-repos
 import { KnowledgeBaseEntity } from "./entities/knowledge-base.entity";
 import { ModelServicePort } from "@ports/model/model-service.port";
 import { VectorDBPort } from "@ports/storage/vector-db.port";
-import { MODEL_SERVICE, VECTOR_DB } from "@adapters/adapters.module";
+import { MODEL_SERVICE, VECTOR_DB } from "@core/injection-tokens";
 import { KnowledgeBaseMapper } from "./mappers/knowledge-base.mapper";
 
 @Injectable()
