@@ -51,10 +51,8 @@ async function runSimpleExample() {
     console.log(`Conversation has ${history.length} messages`);
 
     // Start a new conversation
-    const newConversationId = "test-conversation-2";
+    const newConversationId = await agent.createNewConversation();
     console.log(`\nStarting new conversation with ID: ${newConversationId}`);
-
-    agent.createNewConversation();
 
     const newMessage = "Hello, this is a new conversation";
     console.log("\nSending message in new conversation:");

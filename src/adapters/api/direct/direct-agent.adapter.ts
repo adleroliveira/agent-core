@@ -113,13 +113,13 @@ export class DirectAgentAdapter {
   async sendMessageSync(
     agentId: string,
     message: string,
-    conversationId?: string,
+    stateId?: string,
     options?: MessageOptions
   ): Promise<Message> {
     const response = await this.agentService.processMessage(
       agentId,
       message,
-      conversationId,
+      stateId,
       { ...options, stream: false }
     );
 
@@ -174,6 +174,11 @@ export class DirectAgentAdapter {
     await this.agentService.resetAgentState(agentId);
   }
 
+  async createNewConversation(agentId: string): Promise<string> {
+    const agentWithNewConversation = await this.agentService.createNewConversation(agentId);
+    return agentWithNewConversation.getMostRecentState()?.id;
+  }
+
   /**
    * Get the current conversation ID for an agent
    */
@@ -186,7 +191,7 @@ export class DirectAgentAdapter {
    * Get all conversation IDs for an agent
    */
   async getConversationIds(agentId: string): Promise<string[]> {
-    const agent = await this.agentService.findAgentById(agentId);
+    const agent = await this.agentService.findAgentById(agentId, true);
     return agent.states.map((state: AgentState) => state.id);
   }
 }

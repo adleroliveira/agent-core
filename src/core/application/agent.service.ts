@@ -109,14 +109,10 @@ export class AgentService implements OnModuleInit {
     }
 
     try {
-      // First save the agent to get its ID
+      // Save the agent (which will also save its state)
       const savedAgent = await this.agentRepository.save(agent);
       this.logger.debug(`Saved new agent with ID: ${savedAgent.id}`);
       
-      // Then save the state
-      await this.stateRepository.save(agent.states[0]);
-      this.logger.debug(`Saved initial state for agent ${savedAgent.id}`);
-
       // Create and save the knowledge base with the agent's ID
       const knowledgeBase = new KnowledgeBase({
         agentId: savedAgent.id,
@@ -302,14 +298,11 @@ export class AgentService implements OnModuleInit {
       throw new NotFoundException(`Agent with ID ${agentId} not found`);
     }
     
-    const newState = agentEntity.createNewConversation();
+    agentEntity.createNewConversation();
     
-    // Save the new state first
-    await this.stateRepository.save(newState);
-
     // Save the agent with the new state
     const savedAgent = await this.agentRepository.save(agentEntity);
-    this.logger.debug(`Successfully saved agent with new state`);
+    this.logger.debug(`Successfully saved agent with new state: ${savedAgent.getMostRecentState().id}`);
     
     return savedAgent;
   }

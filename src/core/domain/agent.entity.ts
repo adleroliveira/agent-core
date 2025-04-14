@@ -77,6 +77,7 @@ export class Agent {
         agentId: this.id,
       });
       this._states = [defaultState];
+      this.logger.debug(`No states provided for agent ${this.id}, creating a default one: ${defaultState.id}`);
     }
 
     this._knowledgeBase = params.knowledgeBase || new KnowledgeBase({

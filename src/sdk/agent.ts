@@ -153,8 +153,13 @@ export class Agent {
     });
   }
 
-  public createNewConversation(): void {
-    this._conversationId = this.entity.createNewConversation().id;
+  /**
+   * Create a new conversation
+   * @returns The ID of the new conversation
+   */
+  public async createNewConversation(): Promise<string> {
+    this._conversationId = await this.adapter.createNewConversation(this.id);
+    return this._conversationId;
   }
 
   /**

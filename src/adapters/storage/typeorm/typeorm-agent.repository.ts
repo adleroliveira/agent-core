@@ -67,11 +67,17 @@ export class TypeOrmAgentRepository implements AgentRepositoryPort {
         // Convert domain to persistence
         const agentEntity = this.agentMapper.toPersistence(agent);
         
-        // Create a new object without the agentTools property
-        const { agentTools: _, ...agentEntityWithoutTools } = agentEntity;
+        // Create a new object without the relations
+        const { agentTools: toolsToIgnore, states: statesToIgnore, ...agentEntityWithoutRelations } = agentEntity;
         
-        // Save the agent without the tools first
-        const savedAgentEntity = await manager.save(AgentEntity, agentEntityWithoutTools);
+        // Save the agent without the relations first
+        const savedAgentEntity = await manager.save(AgentEntity, agentEntityWithoutRelations);
+
+        // Save states if they exist
+        if (agent.states && agent.states.length > 0) {
+          const stateEntities = agent.states.map(state => StateMapper.toPersistence(state, savedAgentEntity.id));
+          await manager.save(StateEntity, stateEntities);
+        }
 
         // If the agent has tools, save them
         if (agent.areToolsLoaded() && agent.tools) {
