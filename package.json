@@ -1,6 +1,6 @@
 {
   "name": "agent-core",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "",
   "main": "dist/sdk/index.js",
   "types": "dist/sdk/index.d.ts",
@@ -29,7 +29,7 @@
     "@nestjs/core": "^11.0.11",
     "@nestjs/event-emitter": "^3.0.1",
     "@nestjs/platform-express": "^11.0.11",
-    "@nestjs/swagger": "^7.3.0",
+    "@nestjs/swagger": "^11.1.0",
     "@nestjs/typeorm": "^11.0.0",
     "@types/uuid": "^10.0.0",
     "class-transformer": "^0.5.1",
@@ -44,8 +44,8 @@
     "vectra": "^0.9.0"
   },
   "devDependencies": {
-    "@nestjs/cli": "^11.0.5",
-    "@nestjs/schematics": "^11.0.2",
+    "@nestjs/cli": "^11.0.6",
+    "@nestjs/schematics": "^11.0.5",
     "@nestjs/testing": "^11.0.11",
     "@types/express": "^5.0.0",
     "@types/jest": "^29.5.14",
@@ -67,6 +67,7 @@
     ],
     "onlyBuiltDependencies": [
       "@nestjs/core",
+      "@scarf/scarf",
       "sqlite3"
     ]
   }
