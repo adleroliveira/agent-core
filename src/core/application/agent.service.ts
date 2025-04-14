@@ -307,6 +307,22 @@ export class AgentService implements OnModuleInit {
     return savedAgent;
   }
 
+  async deleteConversation(agentId: string, stateId: string): Promise<Agent> {
+    this.logger.debug(`Deleting conversation ${stateId} for agent ${agentId}`);
+    const agent = await this.findAgentById(agentId, true);
+    if (!agent) {
+      throw new NotFoundException(`Agent with ID ${agentId} not found`);
+    }
+    agent.deleteConversation(stateId);
+    await this.stateRepository.delete(stateId);
+
+    if (agent.states.length === 0) {
+      agent.createNewConversation();
+    }
+    
+    return this.agentRepository.save(agent);
+  }
+
   async getConversationHistory(
     agentId: string,
     stateId?: string,

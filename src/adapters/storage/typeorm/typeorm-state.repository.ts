@@ -96,8 +96,16 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
   }
 
   async delete(id: string): Promise<boolean> {
-    const result = await this.stateRepository.delete(id);
-    return result.affected ? result.affected > 0 : false;
+    // Start a transaction
+    await this.stateRepository.manager.transaction(async (manager) => {
+      // 1. Delete all messages associated with this state first
+      await manager.delete(MessageEntity, { stateId: id });
+      
+      // 2. Delete the state
+      await manager.delete(StateEntity, { id });
+    });
+
+    return true;
   }
 
   async deleteByAgentId(agentId: string): Promise<void> {

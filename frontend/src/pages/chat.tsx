@@ -5,7 +5,7 @@ import { marked } from 'marked';
 import { useChatStore, ExtendedMessage } from '../stores/chat.store';
 import { GenAIStreamLexer } from '../utils/StreamLexer';
 import { ChatService } from '@/services/chat.service';
-import { AgentService } from '@/services/agent.service';
+import { FrontendAgentService } from '@/services/agent.service';
 import '@preact/compat';
 
 interface ChatProps {
@@ -55,7 +55,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
       try {
         // Initialize services
         const chatService = new ChatService(agentId);
-        const agentService = new AgentService();
+        const agentService = new FrontendAgentService();
 
         // Set services in state first
         dispatch({ type: 'SET_CHAT_SERVICE', payload: chatService });
@@ -368,6 +368,33 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
                 <div class="conversation-date">
                   {new Date(conv.createdAt).toLocaleDateString()}
                 </div>
+                <button
+                  class="delete-conversation-button"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (!agentId || !state.agentService) return;
+
+                    try {
+                      dispatch({ type: 'SET_IS_LOADING', payload: true });
+                      await state.agentService.deleteConversation(agentId, conv.stateId);
+
+                      // If we're deleting the active conversation, clear the messages
+                      if (conv.stateId === state.activeConversationId) {
+                        dispatch({ type: 'SET_MESSAGES', payload: [] });
+                      }
+
+                      // Refresh the conversations list and let it handle setting the active conversation
+                      await refreshConversations(agentId, state.agentService);
+                    } catch (error) {
+                      console.error('Error deleting conversation:', error);
+                    } finally {
+                      dispatch({ type: 'SET_IS_LOADING', payload: false });
+                    }
+                  }}
+                  disabled={state.isLoading}
+                >
+                  ×
+                </button>
               </li>
             ))
           ) : (

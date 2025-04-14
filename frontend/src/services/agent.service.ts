@@ -1,9 +1,9 @@
-import { DefaultService } from '../api-client/services/DefaultService';
+import { AgentService } from '../api-client/services/AgentService';
 
-export class AgentService {
+export class FrontendAgentService {
   async createAgent(name: string, description: string, systemPrompt?: string, tools?: string[]): Promise<string> {
     try {
-      const response = await DefaultService.agentControllerCreateAgent({
+      const response = await AgentService.agentControllerCreateAgent({
         name,
         description,
         systemPrompt,
@@ -19,7 +19,7 @@ export class AgentService {
 
   async getAgentDetails(agentId: string) {
     try {
-      const agent = await DefaultService.agentControllerGetAgent(agentId);
+      const agent = await AgentService.agentControllerGetAgent(agentId);
       return agent;
     } catch (error) {
       console.error('Error fetching agent details:', error);
@@ -29,7 +29,7 @@ export class AgentService {
 
   async createNewConversation(agentId: string, conversationId?: string) {
     try {
-      const response = await DefaultService.agentControllerCreateNewConversation(agentId, conversationId);
+      const response = await AgentService.agentControllerCreateNewConversation(agentId, conversationId);
       return response;
     } catch (error) {
       console.error('Error creating new conversation:', error);
@@ -37,9 +37,19 @@ export class AgentService {
     }
   }
 
+  async deleteConversation(agentId: string, conversationId: string) {
+    try {
+      const response = await AgentService.agentControllerDeleteConversation(agentId, conversationId);
+      return response;
+    } catch (error) {
+      console.error('Error deleting conversation:', error); 
+      throw error;
+    }
+  }
+
   async getConversations(agentId: string) {
     try {
-      const response = await DefaultService.agentControllerGetConversations(agentId);
+      const response = await AgentService.agentControllerGetConversations(agentId);
       return response;
     } catch (error) {
       console.error('Error loading conversations:', error);
@@ -49,7 +59,7 @@ export class AgentService {
 
   async getConversationHistory(agentId: string, conversationId: string) {
     try {
-      const response = await DefaultService.agentControllerGetConversationHistory(agentId, conversationId);
+      const response = await AgentService.agentControllerGetConversationHistory(agentId, conversationId);
       
       return response.messages
         .map((message: { role: string; content: string | { text: string } }) => ({

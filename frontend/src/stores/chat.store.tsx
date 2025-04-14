@@ -1,7 +1,7 @@
 import { createContext } from 'preact';
 import { useContext, useReducer } from 'preact/hooks';
 import { ChatService } from '../services/chat.service';
-import { AgentService } from '../services/agent.service';
+import { FrontendAgentService } from '../services/agent.service';
 
 interface Conversation {
   id: string;
@@ -31,7 +31,7 @@ interface ChatState {
   conversations: Conversation[];
   activeConversationId: string;
   chatService: ChatService | null;
-  agentService: AgentService | null;
+  agentService: FrontendAgentService | null;
   sessionId: string;
   conversationTitle: string;
   conversationId: string | null;
@@ -54,7 +54,7 @@ type ChatAction =
   | { type: 'SET_CONVERSATIONS'; payload: Conversation[] }
   | { type: 'SET_ACTIVE_CONVERSATION_ID'; payload: string }
   | { type: 'SET_CHAT_SERVICE'; payload: ChatService }
-  | { type: 'SET_AGENT_SERVICE'; payload: AgentService }
+  | { type: 'SET_AGENT_SERVICE'; payload: FrontendAgentService }
   | { type: 'SET_SESSION_ID'; payload: string }
   | { type: 'SET_CONVERSATION_TITLE'; payload: string }
   | { type: 'SET_CONVERSATION_ID'; payload: string | null }
@@ -159,9 +159,9 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
 const ChatContext = createContext<{
   state: ChatState;
   dispatch: (action: ChatAction) => void;
-  loadConversation: (agentId: string, conversationId: string, agentService: AgentService) => Promise<void>;
-  initializeConversations: (agentId: string, agentService: AgentService) => Promise<void>;
-  refreshConversations: (agentId: string, agentService: AgentService) => Promise<void>;
+  loadConversation: (agentId: string, conversationId: string, agentService: FrontendAgentService) => Promise<void>;
+  initializeConversations: (agentId: string, agentService: FrontendAgentService) => Promise<void>;
+  refreshConversations: (agentId: string, agentService: FrontendAgentService) => Promise<void>;
   resetState: () => void;
 } | null>(null);
 
@@ -180,7 +180,7 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
     dispatch({ type: 'SET_CONVERSATIONS', payload: [] });
     dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: '' });
     dispatch({ type: 'SET_CHAT_SERVICE', payload: null as unknown as ChatService });
-    dispatch({ type: 'SET_AGENT_SERVICE', payload: null as unknown as AgentService });
+    dispatch({ type: 'SET_AGENT_SERVICE', payload: null as unknown as FrontendAgentService });
     dispatch({ type: 'SET_SESSION_ID', payload: '' });
     dispatch({ type: 'SET_CONVERSATION_TITLE', payload: 'New Conversation' });
     dispatch({ type: 'SET_CONVERSATION_ID', payload: null });
@@ -191,7 +191,7 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
     dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: false });
   };
 
-  const loadConversation = async (agentId: string, conversationId: string, agentService: AgentService) => {
+  const loadConversation = async (agentId: string, conversationId: string, agentService: FrontendAgentService) => {
     if (!agentService || state.isStreamingActive) {
       return;
     }
@@ -259,7 +259,7 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
     }
   };
 
-  const refreshConversations = async (agentId: string, agentService: AgentService) => {
+  const refreshConversations = async (agentId: string, agentService: FrontendAgentService) => {
     if (!agentService) {
       console.warn("Agent service not provided");
       return;
@@ -268,12 +268,19 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
     try {
       const conversationsList = await agentService.getConversations(agentId);
       dispatch({ type: 'SET_CONVERSATIONS', payload: conversationsList });
+
+      // If we have conversations, always set and load the first one
+      if (conversationsList.length > 0) {
+        const firstConversation = conversationsList[0];
+        dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: firstConversation.stateId });
+        await loadConversation(agentId, firstConversation.stateId, agentService);
+      }
     } catch (error) {
       console.error("Error refreshing conversations:", error);
     }
   };
 
-  const initializeConversations = async (agentId: string, agentService: AgentService) => {
+  const initializeConversations = async (agentId: string, agentService: FrontendAgentService) => {
     if (!agentService) {
       console.warn("Agent service not provided");
       return;

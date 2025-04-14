@@ -596,6 +596,11 @@ export class Agent {
     return newState;
   }
 
+  public deleteConversation(stateId: string): void {
+    this._states = this._states.filter((state) => state.id !== stateId);
+    this.updatedAt = new Date();
+  }
+
   public getConversationHistory(stateId: string): Message[] {
     const state = this.getStateById(stateId);
     if (!state) {

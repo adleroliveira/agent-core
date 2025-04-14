@@ -1,4 +1,4 @@
-import { DefaultService } from '../api-client/services/DefaultService';
+import { AgentService } from '../api-client';
 import type { SendMessageDto } from '../api-client/models/SendMessageDto';
 
 export interface ToolCall {
@@ -41,7 +41,7 @@ export class ChatService {
     };
 
     try {
-      const response = await DefaultService.agentControllerSendMessage(
+      const response = await AgentService.agentControllerSendMessage(
         this.agentId,
         messageDto
       );

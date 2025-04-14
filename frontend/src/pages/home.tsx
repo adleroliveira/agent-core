@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { ComponentType } from 'preact';
-import { DefaultService } from '../api-client';
+import { AgentService } from '../api-client';
 import { route } from 'preact-router';
 import '../styles/home.css';
 
@@ -13,7 +13,7 @@ export const Home: ComponentType = () => {
   useEffect(() => {
     const fetchAgents = async () => {
       try {
-        const response = await DefaultService.agentControllerGetAllAgents();
+        const response = await AgentService.agentControllerGetAllAgents();
         setAgents(response);
       } catch (err) {
         setError('Failed to fetch agents. Please try again later.');
@@ -32,7 +32,7 @@ export const Home: ComponentType = () => {
 
   const handleDeleteAgent = async (agentId: string) => {
     try {
-      await DefaultService.agentControllerDeleteAgent(agentId);
+      await AgentService.agentControllerDeleteAgent(agentId);
       setAgents(agents.filter(agent => agent.id !== agentId));
       setDeleteConfirmId(null);
     } catch (err) {

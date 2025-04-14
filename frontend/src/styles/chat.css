@@ -767,32 +767,59 @@ input:checked + .toggle-slider:before {
 }
 
 .conversation-item {
-  padding: 15px 20px;
-  margin: 0;
-  background-color: white;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
   cursor: pointer;
-  transition: all 0.2s;
-  border-bottom: 1px solid #f0f0f0;
+  position: relative;
 }
 
 .conversation-item:hover {
-  background-color: #f8f9fa;
+  background-color: #f5f5f5;
 }
 
 .conversation-item.active {
   background-color: #e3f2fd;
-  border-left: 4px solid #2c5282;
 }
 
-.conversation-item .conversation-title {
+.conversation-title {
   font-weight: 500;
-  color: #1a365d;
   margin-bottom: 4px;
 }
 
-.conversation-item .conversation-date {
-  font-size: 0.8rem;
-  color: #64748b;
+.conversation-date {
+  font-size: 0.8em;
+  color: #666;
+}
+
+.delete-conversation-button {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 1.2em;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: none;
+}
+
+.conversation-item:hover .delete-conversation-button {
+  display: block;
+}
+
+.delete-conversation-button:hover {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.delete-conversation-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .conversation-item .conversation-message-count {

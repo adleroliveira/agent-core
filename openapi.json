@@ -3,9 +3,8 @@
   "paths": {
     "/api/agents": {
       "post": {
-        "operationId": "AgentController_createAgent",
-        "summary": "Create a new agent",
         "description": "Creates a new agent with the specified configuration",
+        "operationId": "AgentController_createAgent",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -25,12 +24,15 @@
           "400": {
             "description": "Invalid request parameters"
           }
-        }
+        },
+        "summary": "Create a new agent",
+        "tags": [
+          "Agent"
+        ]
       },
       "get": {
-        "operationId": "AgentController_getAllAgents",
-        "summary": "Get all agents",
         "description": "Retrieves a list of all available agents",
+        "operationId": "AgentController_getAllAgents",
         "parameters": [],
         "responses": {
           "200": {
@@ -39,14 +41,17 @@
           "500": {
             "description": "Internal server error"
           }
-        }
+        },
+        "summary": "Get all agents",
+        "tags": [
+          "Agent"
+        ]
       }
     },
     "/api/agents/{id}": {
       "get": {
-        "operationId": "AgentController_getAgent",
-        "summary": "Get agent by ID",
         "description": "Retrieves detailed information about a specific agent",
+        "operationId": "AgentController_getAgent",
         "parameters": [
           {
             "name": "id",
@@ -66,12 +71,15 @@
           "404": {
             "description": "Agent not found"
           }
-        }
+        },
+        "summary": "Get agent by ID",
+        "tags": [
+          "Agent"
+        ]
       },
       "delete": {
-        "operationId": "AgentController_deleteAgent",
-        "summary": "Delete an agent",
         "description": "Deletes a specific agent by ID",
+        "operationId": "AgentController_deleteAgent",
         "parameters": [
           {
             "name": "id",
@@ -94,14 +102,17 @@
           "500": {
             "description": "Internal server error"
           }
-        }
+        },
+        "summary": "Delete an agent",
+        "tags": [
+          "Agent"
+        ]
       }
     },
     "/api/agents/{id}/message": {
       "post": {
-        "operationId": "AgentController_sendMessage",
-        "summary": "Send a message to an agent",
         "description": "Send a message to an agent. The StateId is required to identify the conversation.",
+        "operationId": "AgentController_sendMessage",
         "parameters": [
           {
             "name": "id",
@@ -150,14 +161,17 @@
           "404": {
             "description": "Agent not found"
           }
-        }
+        },
+        "summary": "Send a message to an agent",
+        "tags": [
+          "Agent"
+        ]
       }
     },
     "/api/agents/{id}/prompt": {
       "put": {
-        "operationId": "AgentController_updateSystemPrompt",
-        "summary": "Update system prompt",
         "description": "Updates the system prompt for a specific agent",
+        "operationId": "AgentController_updateSystemPrompt",
         "parameters": [
           {
             "name": "id",
@@ -191,14 +205,17 @@
           "500": {
             "description": "Internal server error"
           }
-        }
+        },
+        "summary": "Update system prompt",
+        "tags": [
+          "Agent"
+        ]
       }
     },
     "/api/agents/{id}/tools": {
       "post": {
-        "operationId": "AgentController_addTool",
-        "summary": "Add tool to agent",
         "description": "Adds a new tool to the agent's capabilities",
+        "operationId": "AgentController_addTool",
         "parameters": [
           {
             "name": "id",
@@ -232,14 +249,17 @@
           "500": {
             "description": "Internal server error"
           }
-        }
+        },
+        "summary": "Add tool to agent",
+        "tags": [
+          "Agent"
+        ]
       }
     },
     "/api/agents/{id}/tools/{toolId}": {
       "delete": {
-        "operationId": "AgentController_removeTool",
-        "summary": "Remove tool from agent",
         "description": "Removes a tool from the agent's capabilities",
+        "operationId": "AgentController_removeTool",
         "parameters": [
           {
             "name": "id",
@@ -272,14 +292,17 @@
           "500": {
             "description": "Internal server error"
           }
-        }
+        },
+        "summary": "Remove tool from agent",
+        "tags": [
+          "Agent"
+        ]
       }
     },
     "/api/agents/{id}/reset": {
       "post": {
-        "operationId": "AgentController_resetState",
-        "summary": "Reset agent state",
         "description": "Resets the state of a specific agent",
+        "operationId": "AgentController_resetState",
         "parameters": [
           {
             "name": "id",
@@ -302,14 +325,17 @@
           "500": {
             "description": "Internal server error"
           }
-        }
+        },
+        "summary": "Reset agent state",
+        "tags": [
+          "Agent"
+        ]
       }
     },
     "/api/agents/{id}/new-conversation": {
       "post": {
-        "operationId": "AgentController_createNewConversation",
-        "summary": "Create new conversation",
         "description": "Creates a new conversation for a specific agent",
+        "operationId": "AgentController_createNewConversation",
         "parameters": [
           {
             "name": "id",
@@ -341,14 +367,17 @@
           "500": {
             "description": "Internal server error"
           }
-        }
+        },
+        "summary": "Create new conversation",
+        "tags": [
+          "Agent"
+        ]
       }
     },
     "/api/agents/{id}/conversations": {
       "get": {
-        "operationId": "AgentController_getConversations",
-        "summary": "Get agent conversations",
         "description": "Retrieves all conversations for a specific agent",
+        "operationId": "AgentController_getConversations",
         "parameters": [
           {
             "name": "id",
@@ -371,7 +400,54 @@
           "500": {
             "description": "Internal server error"
           }
-        }
+        },
+        "summary": "Get agent conversations",
+        "tags": [
+          "Agent"
+        ]
+      }
+    },
+    "/api/agents/{id}/conversations/{stateId}": {
+      "delete": {
+        "description": "Deletes a specific conversation for an agent",
+        "operationId": "AgentController_deleteConversation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the agent",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          },
+          {
+            "name": "stateId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the conversation to delete",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conversation deleted successfully"
+          },
+          "404": {
+            "description": "Agent or conversation not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Delete conversation",
+        "tags": [
+          "Agent"
+        ]
       }
     },
     "/api/agents/{id}/conversation-history": {
@@ -416,25 +492,30 @@
           "200": {
             "description": ""
           }
-        }
+        },
+        "tags": [
+          "Agent"
+        ]
       }
     },
     "/api/tools": {
       "get": {
         "operationId": "ToolsController_getAllTools",
-        "summary": "Get all available tools",
         "parameters": [],
         "responses": {
           "200": {
             "description": "List of all available tools"
           }
-        }
+        },
+        "summary": "Get all available tools",
+        "tags": [
+          "Tools"
+        ]
       }
     },
     "/api/models": {
       "get": {
         "operationId": "ModelsController_getAvailableModels",
-        "summary": "Get all available models",
         "parameters": [],
         "responses": {
           "200": {
@@ -454,6 +535,7 @@
             "description": "Internal server error while fetching models"
           }
         },
+        "summary": "Get all available models",
         "tags": [
           "Models"
         ]

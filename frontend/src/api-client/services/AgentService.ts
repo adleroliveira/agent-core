@@ -10,7 +10,7 @@ import type { UpdatePromptDto } from '../models/UpdatePromptDto';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
-export class DefaultService {
+export class AgentService {
     /**
      * Create a new agent
      * Creates a new agent with the specified configuration
@@ -269,6 +269,31 @@ export class DefaultService {
         });
     }
     /**
+     * Delete conversation
+     * Deletes a specific conversation for an agent
+     * @param id The ID of the agent
+     * @param stateId The ID of the conversation to delete
+     * @returns any Conversation deleted successfully
+     * @throws ApiError
+     */
+    public static agentControllerDeleteConversation(
+        id: string,
+        stateId: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/agents/{id}/conversations/{stateId}',
+            path: {
+                'id': id,
+                'stateId': stateId,
+            },
+            errors: {
+                404: `Agent or conversation not found`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
      * @param id
      * @param stateId
      * @param limit
@@ -293,17 +318,6 @@ export class DefaultService {
                 'limit': limit,
                 'beforeTimestamp': beforeTimestamp,
             },
-        });
-    }
-    /**
-     * Get all available tools
-     * @returns any List of all available tools
-     * @throws ApiError
-     */
-    public static toolsControllerGetAllTools(): CancelablePromise<any> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/tools',
         });
     }
 }

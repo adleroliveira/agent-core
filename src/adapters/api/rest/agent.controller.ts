@@ -575,6 +575,52 @@ export class AgentController {
     }
   }
 
+  @Delete(":id/conversations/:stateId")
+  @ApiOperation({ 
+    summary: 'Delete conversation',
+    description: 'Deletes a specific conversation for an agent'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'The ID of the agent',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiParam({ 
+    name: 'stateId', 
+    description: 'The ID of the conversation to delete',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Conversation deleted successfully'
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent or conversation not found'
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error'
+  })
+  async deleteConversation(
+    @Param("id") id: string,
+    @Param("stateId") stateId: string
+  ) {
+    try {
+      const agent = await this.agentService.deleteConversation(id, stateId);
+      return {
+        id: agent.id,
+        name: agent.name,
+        success: true
+      };
+    } catch (error) {
+      throw new HttpException(
+        `Failed to delete conversation: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
   @Get(":id/conversation-history")
   @ApiQuery({ name: 'stateId', required: true, type: String })
   @ApiQuery({ name: 'limit', required: false, type: Number })

@@ -17,5 +17,6 @@ export type { ToolCallDto } from './models/ToolCallDto';
 export type { ToolResultDto } from './models/ToolResultDto';
 export type { UpdatePromptDto } from './models/UpdatePromptDto';
 
-export { DefaultService } from './services/DefaultService';
+export { AgentService } from './services/AgentService';
 export { ModelsService } from './services/ModelsService';
+export { ToolsService } from './services/ToolsService';

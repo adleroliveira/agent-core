@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import type { ComponentType } from 'preact';
-import { DefaultService } from '../api-client';
+import { AgentService, ToolsService } from '../api-client';
 import { route } from 'preact-router';
 import { ModelService } from '../services/models.service';
 import type { ModelInfoDto } from '../api-client/models/ModelInfoDto';
@@ -34,7 +34,7 @@ export const CreateAgent: ComponentType = () => {
       setError(null);
       try {
         const [tools, models] = await Promise.all([
-          DefaultService.toolsControllerGetAllTools(),
+          ToolsService.toolsControllerGetAllTools(),
           ModelService.getInstance().getAvailableModels()
         ]);
         setAvailableTools(tools);
@@ -60,7 +60,7 @@ export const CreateAgent: ComponentType = () => {
     setError(null);
 
     try {
-      await DefaultService.agentControllerCreateAgent({
+      await AgentService.agentControllerCreateAgent({
         name: formData.name,
         description: formData.description,
         modelId: formData.modelId,
