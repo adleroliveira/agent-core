@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/agents": {
+    "/api/agents": {
       "post": {
         "operationId": "AgentController_createAgent",
         "summary": "Create a new agent",
@@ -42,7 +42,7 @@
         }
       }
     },
-    "/agents/{id}": {
+    "/api/agents/{id}": {
       "get": {
         "operationId": "AgentController_getAgent",
         "summary": "Get agent by ID",
@@ -97,7 +97,7 @@
         }
       }
     },
-    "/agents/{id}/message": {
+    "/api/agents/{id}/message": {
       "post": {
         "operationId": "AgentController_sendMessage",
         "summary": "Send a message to an agent",
@@ -153,7 +153,7 @@
         }
       }
     },
-    "/agents/{id}/prompt": {
+    "/api/agents/{id}/prompt": {
       "put": {
         "operationId": "AgentController_updateSystemPrompt",
         "summary": "Update system prompt",
@@ -194,7 +194,7 @@
         }
       }
     },
-    "/agents/{id}/tools": {
+    "/api/agents/{id}/tools": {
       "post": {
         "operationId": "AgentController_addTool",
         "summary": "Add tool to agent",
@@ -235,7 +235,7 @@
         }
       }
     },
-    "/agents/{id}/tools/{toolId}": {
+    "/api/agents/{id}/tools/{toolId}": {
       "delete": {
         "operationId": "AgentController_removeTool",
         "summary": "Remove tool from agent",
@@ -275,7 +275,7 @@
         }
       }
     },
-    "/agents/{id}/reset": {
+    "/api/agents/{id}/reset": {
       "post": {
         "operationId": "AgentController_resetState",
         "summary": "Reset agent state",
@@ -305,7 +305,7 @@
         }
       }
     },
-    "/agents/{id}/new-conversation": {
+    "/api/agents/{id}/new-conversation": {
       "post": {
         "operationId": "AgentController_createNewConversation",
         "summary": "Create new conversation",
@@ -344,7 +344,7 @@
         }
       }
     },
-    "/agents/{id}/conversations": {
+    "/api/agents/{id}/conversations": {
       "get": {
         "operationId": "AgentController_getConversations",
         "summary": "Get agent conversations",
@@ -374,7 +374,7 @@
         }
       }
     },
-    "/agents/{id}/conversation-history": {
+    "/api/agents/{id}/conversation-history": {
       "get": {
         "operationId": "AgentController_getConversationHistory",
         "parameters": [
@@ -419,7 +419,7 @@
         }
       }
     },
-    "/tools": {
+    "/api/tools": {
       "get": {
         "operationId": "ToolsController_getAllTools",
         "summary": "Get all available tools",
@@ -429,6 +429,34 @@
             "description": "List of all available tools"
           }
         }
+      }
+    },
+    "/api/models": {
+      "get": {
+        "operationId": "ModelsController_getAvailableModels",
+        "summary": "Get all available models",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "List of all available models",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModelInfoDto"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error while fetching models"
+          }
+        },
+        "tags": [
+          "Models"
+        ]
       }
     }
   },
@@ -444,11 +472,7 @@
       "description": ""
     }
   ],
-  "servers": [
-    {
-      "url": "/api"
-    }
-  ],
+  "servers": [],
   "components": {
     "schemas": {
       "CreateAgentDto": {
@@ -598,6 +622,101 @@
       "AddToolDto": {
         "type": "object",
         "properties": {}
+      },
+      "ModelPricingDto": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "number",
+            "description": "Price per input token"
+          },
+          "output": {
+            "type": "number",
+            "description": "Price per output token"
+          }
+        }
+      },
+      "ModelInfoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier of the model"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name of the model"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the model"
+          },
+          "capabilities": {
+            "description": "List of model capabilities",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxTokens": {
+            "type": "number",
+            "description": "Maximum number of tokens the model can process"
+          },
+          "contextWindow": {
+            "type": "number",
+            "description": "Context window size in tokens"
+          },
+          "supportsStreaming": {
+            "type": "boolean",
+            "description": "Whether the model supports streaming responses"
+          },
+          "supportsToolCalls": {
+            "type": "boolean",
+            "description": "Whether the model supports tool calls"
+          },
+          "inputModalities": {
+            "description": "Input modalities supported by the model",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outputModalities": {
+            "description": "Output modalities supported by the model",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pricing": {
+            "description": "Pricing information",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ModelPricingDto"
+              }
+            ]
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Additional metadata about the model"
+          },
+          "provider": {
+            "type": "string",
+            "description": "Provider of the model"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether the model is active"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "supportsStreaming",
+          "supportsToolCalls",
+          "inputModalities",
+          "outputModalities"
+        ]
       }
     }
   }

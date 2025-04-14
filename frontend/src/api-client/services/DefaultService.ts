@@ -23,7 +23,7 @@ export class DefaultService {
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/agents',
+            url: '/api/agents',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -40,7 +40,7 @@ export class DefaultService {
     public static agentControllerGetAllAgents(): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/agents',
+            url: '/api/agents',
             errors: {
                 500: `Internal server error`,
             },
@@ -58,7 +58,7 @@ export class DefaultService {
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/agents/{id}',
+            url: '/api/agents/{id}',
             path: {
                 'id': id,
             },
@@ -79,7 +79,7 @@ export class DefaultService {
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'DELETE',
-            url: '/agents/{id}',
+            url: '/api/agents/{id}',
             path: {
                 'id': id,
             },
@@ -105,7 +105,7 @@ export class DefaultService {
     ): CancelablePromise<MessageDto> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/agents/{id}/message',
+            url: '/api/agents/{id}/message',
             path: {
                 'id': id,
             },
@@ -134,7 +134,7 @@ export class DefaultService {
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'PUT',
-            url: '/agents/{id}/prompt',
+            url: '/api/agents/{id}/prompt',
             path: {
                 'id': id,
             },
@@ -160,7 +160,7 @@ export class DefaultService {
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/agents/{id}/tools',
+            url: '/api/agents/{id}/tools',
             path: {
                 'id': id,
             },
@@ -186,7 +186,7 @@ export class DefaultService {
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'DELETE',
-            url: '/agents/{id}/tools/{toolId}',
+            url: '/api/agents/{id}/tools/{toolId}',
             path: {
                 'id': id,
                 'toolId': toolId,
@@ -209,7 +209,7 @@ export class DefaultService {
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/agents/{id}/reset',
+            url: '/api/agents/{id}/reset',
             path: {
                 'id': id,
             },
@@ -233,7 +233,7 @@ export class DefaultService {
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/agents/{id}/new-conversation',
+            url: '/api/agents/{id}/new-conversation',
             path: {
                 'id': id,
             },
@@ -258,7 +258,7 @@ export class DefaultService {
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/agents/{id}/conversations',
+            url: '/api/agents/{id}/conversations',
             path: {
                 'id': id,
             },
@@ -284,7 +284,7 @@ export class DefaultService {
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/agents/{id}/conversation-history',
+            url: '/api/agents/{id}/conversation-history',
             path: {
                 'id': id,
             },
@@ -303,7 +303,7 @@ export class DefaultService {
     public static toolsControllerGetAllTools(): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/tools',
+            url: '/api/tools',
         });
     }
 }

@@ -23,7 +23,7 @@ export const CreateAgent: ComponentType = () => {
     tools: [] as string[],
   });
   const [availableTools, setAvailableTools] = useState<Tool[]>([]);
-  const [availableModels, setAvailableModels] = useState<ModelInfoDto[]>([]);
+  const [_availableModels, setAvailableModels] = useState<ModelInfoDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);

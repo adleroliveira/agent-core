@@ -13,7 +13,7 @@ interface ChatProps {
 }
 
 export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
-  const { state, dispatch, loadConversation, initializeConversations, refreshConversations, resetState } = useChatStore();
+  const { state, dispatch, loadConversation, initializeConversations, refreshConversations } = useChatStore();
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lexerRef = useRef<GenAIStreamLexer | null>(null);

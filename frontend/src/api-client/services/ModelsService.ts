@@ -15,7 +15,7 @@ export class ModelsService {
     public static modelsControllerGetAvailableModels(): CancelablePromise<Array<ModelInfoDto>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/models',
+            url: '/api/models',
             errors: {
                 500: `Internal server error while fetching models`,
             },

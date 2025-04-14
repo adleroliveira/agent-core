@@ -585,8 +585,7 @@ export class BedrockModelService implements ModelServicePort {
     try {
       const command = new ListFoundationModelsCommand({});
       const response: ListFoundationModelsResponse = await this.bedrockControlClient.send(command);
-      
-      console.log(response.modelSummaries);
+
       const modelSumaries = response.modelSummaries?.map((model: FoundationModelSummary) => {
         let modelId = model.modelId || '';
         
