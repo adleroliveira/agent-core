@@ -193,10 +193,10 @@ export class AgentSDK {
         jsonSchema: toolSpec.toolSpec.inputSchema.json,
       });
 
-      this.toolRegistry.registerTool(newTool);
+      await this.toolRegistry.registerTool(newTool);
     } else if (tool instanceof Tool) {
       // It's already a Tool instance
-      this.toolRegistry.registerTool(tool);
+      await this.toolRegistry.registerTool(tool);
     } else {
       throw new Error("Invalid tool format provided to registerTool");
     }

@@ -60,10 +60,10 @@ export class ToolsModule implements OnModuleInit {
 
   async onModuleInit() {
     // Register stock market tools (using getTool())
-    await this.toolRegistry.registerTool(this.getStockPriceTool.getTool());
-    await this.toolRegistry.registerTool(this.getStockHistoryTool.getTool());
-    await this.toolRegistry.registerTool(this.analyzeStockTool.getTool());
-    await this.toolRegistry.registerTool(this.forecastStockTool.getTool());
+    // await this.toolRegistry.registerTool(this.getStockPriceTool.getTool());
+    // await this.toolRegistry.registerTool(this.getStockHistoryTool.getTool());
+    // await this.toolRegistry.registerTool(this.analyzeStockTool.getTool());
+    // await this.toolRegistry.registerTool(this.forecastStockTool.getTool());
 
     // Register tools with getTool() method
     await this.toolRegistry.registerTool(this.internetSearchTool.getTool());

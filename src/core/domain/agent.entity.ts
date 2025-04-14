@@ -91,7 +91,7 @@ export class Agent {
     this.createdAt = new Date();
     this.updatedAt = new Date();
 
-    this.logger.debug(`Agent initialized: ${this.name} (${this.id}) with ${this._tools.length} tools. Model: ${this.modelId}, Description: ${this.description}`);
+    // this.logger.debug(`Agent initialized: ${this.name} (${this.id}) with ${this._tools.length} tools. Model: ${this.modelId}, Description: ${this.description}`);
   }
 
   public get states(): AgentState[] {
@@ -177,7 +177,6 @@ export class Agent {
 
     // Handle any tool calls and get the final response
     if (response.toolCalls && response.toolCalls.length > 0) {
-      this.logger.debug(`Executing ${response.toolCalls.length} tool calls for agent ${this.id}. Tools: ${response.toolCalls.map(tc => `${tc.toolName}(${JSON.stringify(tc.arguments)})`).join(', ')}`);
       return this.executeToolCalls(
         responseMessage,
         state,
