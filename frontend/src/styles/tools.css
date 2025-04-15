@@ -1,0 +1,96 @@
+.tools-container {
+  padding: 1rem;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.tools-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tools-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.tools-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.tool-item {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+  border: none;
+}
+
+.tool-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.tool-main h4 {
+  color: #1a365d;
+  margin: 0 0 0.5rem 0;
+  font-weight: 600;
+}
+
+.tool-description {
+  color: #64748b;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0 0 1rem 0;
+}
+
+.tool-parameters {
+  margin-top: 0.5rem;
+}
+
+.parameters-header {
+  font-weight: 500;
+  color: #1a365d;
+  margin-bottom: 0.5rem;
+}
+
+.parameters-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.parameters-table th,
+.parameters-table td {
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.parameters-table th {
+  font-weight: 500;
+  color: #1a365d;
+}
+
+.parameters-table td {
+  color: #64748b;
+}
+
+.tool-separator {
+  border: none;
+  border-top: 2px solid #1a365d;
+  margin: 0;
+}
+
+.no-tools {
+  text-align: center;
+  padding: 2rem;
+  color: #64748b;
+} 

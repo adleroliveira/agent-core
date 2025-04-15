@@ -23,6 +23,7 @@ import 'prismjs/components/prism-json';
 import 'prismjs/components/prism-bash';
 import 'prismjs/components/prism-yaml';
 import 'prismjs/components/prism-markdown';
+import { WrenchScrewdriverIcon } from '@heroicons/react/24/outline';
 
 interface ChatProps {
   agentId?: string;
@@ -602,6 +603,18 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
                 agentId={agentId}
                 conversationId={state.activeConversationId}
                 agentService={state.agentService}
+              />
+            ) : null
+          },
+          {
+            id: 'tools',
+            icon: <WrenchScrewdriverIcon className="w-5 h-5" />,
+            title: 'Tools',
+            content: agentId && state.agentService ? (
+              <AgentInformation
+                agentId={agentId}
+                agentService={state.agentService}
+                showToolsOnly={true}
               />
             ) : null
           }

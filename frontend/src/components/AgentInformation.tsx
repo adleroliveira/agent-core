@@ -1,15 +1,28 @@
 import { useEffect, useState } from 'preact/hooks';
 import { FrontendAgentService } from '@/services/agent.service';
-import { CreateAgentDto } from '@/api-client';
+import { ToolDto } from '@/api-client/models/ToolDto';
 import '../styles/agent-information.css';
+import { Tools } from './Tools';
+
+interface AgentResponse {
+  id: string;
+  name: string;
+  description: string;
+  modelId?: string;
+  systemPrompt: string;
+  tools?: ToolDto[];
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 interface AgentInformationProps {
   agentId: string;
   agentService: FrontendAgentService;
+  showToolsOnly?: boolean;
 }
 
-export const AgentInformation = ({ agentId, agentService }: AgentInformationProps) => {
-  const [agent, setAgent] = useState<CreateAgentDto | null>(null);
+export const AgentInformation = ({ agentId, agentService, showToolsOnly = false }: AgentInformationProps) => {
+  const [agent, setAgent] = useState<AgentResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -43,6 +56,14 @@ export const AgentInformation = ({ agentId, agentService }: AgentInformationProp
     );
   }
 
+  if (showToolsOnly) {
+    return agent.tools && agent.tools.length > 0 ? (
+      <Tools tools={agent.tools} />
+    ) : (
+      <div className="no-tools">No tools available</div>
+    );
+  }
+
   return (
     <div className="agent-information">
       <div className="content">
@@ -66,11 +87,7 @@ export const AgentInformation = ({ agentId, agentService }: AgentInformationProp
           {agent.tools && agent.tools.length > 0 && (
             <div className="info-section">
               <label>Available Tools</label>
-              <ul className="tools-list">
-                {agent.tools.map((tool, index) => (
-                  <li key={index}>{tool}</li>
-                ))}
-              </ul>
+              <Tools tools={agent.tools} />
             </div>
           )}
         </div>

@@ -138,7 +138,7 @@ export class AgentController {
   })
   async getAgent(@Param("id") id: string) {
     try {
-      const agent = await this.agentService.findAgentById(id);
+      const agent = await this.agentService.findAgentById(id, true);
       return {
         id: agent.id,
         name: agent.name,
@@ -149,6 +149,8 @@ export class AgentController {
           id: tool.id,
           name: tool.name,
           description: tool.description,
+          parameters: tool.parameters,
+          systemPrompt: tool.systemPrompt,
         })),
         createdAt: agent.createdAt,
         updatedAt: agent.updatedAt,
