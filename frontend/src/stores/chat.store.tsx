@@ -2,21 +2,13 @@ import { createContext } from 'preact';
 import { useContext, useReducer } from 'preact/hooks';
 import { ChatService } from '../services/chat.service';
 import { FrontendAgentService } from '../services/agent.service';
+import { MessageDto } from '../api-client/models/MessageDto';
+import { ConversationDto } from '../api-client/models/ConversationDto';
 
-interface Conversation {
-  id: string;
-  stateId: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ExtendedMessage {
-  role: 'user' | 'assistant' | 'tool';
-  content?: string;
+export interface ExtendedMessage extends Partial<MessageDto> {
   thinking?: string;
   blockType: 'normal' | 'thinking' | 'tool';
   isComplete: boolean;
-  toolName?: string;
 }
 
 interface ChatState {
@@ -28,7 +20,7 @@ interface ChatState {
   showThinkingBubbles: boolean;
   showLoadingCue: boolean;
   agentName: string;
-  conversations: Conversation[];
+  conversations: ConversationDto[];
   activeConversationId: string;
   chatService: ChatService | null;
   agentService: FrontendAgentService | null;
@@ -51,7 +43,7 @@ type ChatAction =
   | { type: 'SET_SHOW_THINKING_BUBBLES'; payload: boolean }
   | { type: 'SET_SHOW_LOADING_CUE'; payload: boolean }
   | { type: 'SET_AGENT_NAME'; payload: string }
-  | { type: 'SET_CONVERSATIONS'; payload: Conversation[] }
+  | { type: 'SET_CONVERSATIONS'; payload: ConversationDto[] }
   | { type: 'SET_ACTIVE_CONVERSATION_ID'; payload: string }
   | { type: 'SET_CHAT_SERVICE'; payload: ChatService }
   | { type: 'SET_AGENT_SERVICE'; payload: FrontendAgentService }
@@ -205,9 +197,10 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
       const processedMessages: ExtendedMessage[] = [];
 
       for (const message of history) {
-        if (message.role === 'tool') {
+        if (message.role === MessageDto.role.TOOL) {
           processedMessages.push({
             ...message,
+            role: MessageDto.role.TOOL,
             blockType: 'tool' as const,
             isComplete: true
           });
@@ -222,7 +215,8 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
         while ((match = thinkingRegex.exec(content)) !== null) {
           if (match.index > lastIndex) {
             processedMessages.push({
-              role: message.role,
+              ...message,
+              role: message.role as MessageDto.role,
               content: content.slice(lastIndex, match.index).trim(),
               blockType: 'normal' as const,
               isComplete: true
@@ -230,7 +224,8 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
           }
 
           processedMessages.push({
-            role: message.role,
+            ...message,
+            role: message.role as MessageDto.role,
             content: '',
             thinking: match[1].trim(),
             blockType: 'thinking' as const,
@@ -244,7 +239,8 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
           const remainingContent = content.slice(lastIndex).trim();
           if (remainingContent) {
             processedMessages.push({
-              role: message.role,
+              ...message,
+              role: message.role as MessageDto.role,
               content: remainingContent,
               blockType: 'normal' as const,
               isComplete: true

@@ -25,8 +25,10 @@ import { MessageDto } from "./dto/message.dto";
 import { AGENT_SERVICE } from "@core/injection-tokens";
 import { ToolRegistryService } from "@core/services/tool-registry.service";
 import { TOOL_REGISTRY } from "@core/constants";
-import { ApiQuery, ApiOperation, ApiParam, ApiResponse, ApiBody } from "@nestjs/swagger";
+import { ApiQuery, ApiOperation, ApiParam, ApiResponse, ApiBody, ApiTags } from "@nestjs/swagger";
+import { ConversationDto } from "./dto/conversation.dto";
 
+@ApiTags('agents')
 @Controller("agents")
 export class AgentController {
   constructor(
@@ -548,7 +550,8 @@ export class AgentController {
   })
   @ApiResponse({ 
     status: 200, 
-    description: 'Conversations retrieved successfully'
+    description: 'Conversations retrieved successfully',
+    type: [ConversationDto]
   })
   @ApiResponse({ 
     status: 404, 
@@ -558,14 +561,17 @@ export class AgentController {
     status: 500, 
     description: 'Internal server error'
   })
-  async getConversations(@Param("id") id: string) {
+  async getConversations(@Param("id") id: string): Promise<ConversationDto[]> {
     try {
       const conversations = await this.agentService.getConversations(id);
+      if (!conversations) {
+        throw new HttpException("No conversations found", HttpStatus.NOT_FOUND);
+      }
       return conversations.map((conversation) => ({
-        id: conversation.id,
+        agentId: conversation.agentId,
         stateId: conversation.id,
-        createdAt: conversation.createdAt,
-        updatedAt: conversation.updatedAt,
+        createdAt: conversation.createdAt.toISOString(),
+        updatedAt: conversation.updatedAt.toISOString(),
       }));
     } catch (error) {
       throw new HttpException(
@@ -622,9 +628,63 @@ export class AgentController {
   }
 
   @Get(":id/conversation-history")
-  @ApiQuery({ name: 'stateId', required: true, type: String })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'beforeTimestamp', required: false, type: Date })
+  @ApiOperation({ 
+    summary: 'Get conversation history',
+    description: 'Retrieves the conversation history for a specific agent and state'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'The ID of the agent',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiQuery({ 
+    name: 'stateId', 
+    description: 'The ID of the conversation state',
+    required: true,
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiQuery({ 
+    name: 'limit', 
+    description: 'Maximum number of messages to retrieve',
+    required: false,
+    type: Number,
+    example: 50
+  })
+  @ApiQuery({ 
+    name: 'beforeTimestamp', 
+    description: 'Retrieve messages before this timestamp',
+    required: false,
+    type: Date,
+    example: '2024-04-15T08:00:00.000Z'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Conversation history retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        messages: {
+          type: 'array',
+          items: {
+            $ref: '#/components/schemas/MessageDto'
+          }
+        },
+        hasMore: {
+          type: 'boolean',
+          description: 'Whether there are more messages available',
+          example: false
+        }
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent or state not found'
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error'
+  })
   async getConversationHistory(
     @Param("id") id: string,
     @Query("stateId") stateId: string,
@@ -656,6 +716,72 @@ export class AgentController {
     } catch (error) {
       throw new HttpException(
         `Failed to retrieve conversation history: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Get(":id/memory/:stateId")
+  @ApiOperation({ 
+    summary: 'Get agent memory',
+    description: 'Retrieves the memory state for a specific agent and conversation state'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'The ID of the agent',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiParam({ 
+    name: 'stateId', 
+    description: 'The ID of the conversation state',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Memory retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        agentId: {
+          type: 'string',
+          description: 'The ID of the agent',
+          example: '123e4567-e89b-12d3-a456-426614174000'
+        },
+        stateId: {
+          type: 'string',
+          description: 'The ID of the conversation state',
+          example: '123e4567-e89b-12d3-a456-426614174000'
+        },
+        memory: {
+          type: 'object',
+          description: 'The memory state of the agent',
+          additionalProperties: true
+        }
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent or state not found'
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error'
+  })
+  async getMemory(
+    @Param("id") id: string,
+    @Param("stateId") stateId: string
+  ) {
+    try {
+      const memory = await this.agentService.getMemory(id, stateId);
+      return {
+        agentId: id,
+        stateId: stateId,
+        memory: memory
+      };
+    } catch (error) {
+      throw new HttpException(
+        `Failed to retrieve memory: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }

@@ -27,7 +27,7 @@
         },
         "summary": "Create a new agent",
         "tags": [
-          "Agent"
+          "agents"
         ]
       },
       "get": {
@@ -44,7 +44,7 @@
         },
         "summary": "Get all agents",
         "tags": [
-          "Agent"
+          "agents"
         ]
       }
     },
@@ -74,7 +74,7 @@
         },
         "summary": "Get agent by ID",
         "tags": [
-          "Agent"
+          "agents"
         ]
       },
       "delete": {
@@ -105,7 +105,7 @@
         },
         "summary": "Delete an agent",
         "tags": [
-          "Agent"
+          "agents"
         ]
       }
     },
@@ -164,7 +164,7 @@
         },
         "summary": "Send a message to an agent",
         "tags": [
-          "Agent"
+          "agents"
         ]
       }
     },
@@ -208,7 +208,7 @@
         },
         "summary": "Update system prompt",
         "tags": [
-          "Agent"
+          "agents"
         ]
       }
     },
@@ -252,7 +252,7 @@
         },
         "summary": "Add tool to agent",
         "tags": [
-          "Agent"
+          "agents"
         ]
       }
     },
@@ -295,7 +295,7 @@
         },
         "summary": "Remove tool from agent",
         "tags": [
-          "Agent"
+          "agents"
         ]
       }
     },
@@ -328,7 +328,7 @@
         },
         "summary": "Reset agent state",
         "tags": [
-          "Agent"
+          "agents"
         ]
       }
     },
@@ -370,7 +370,7 @@
         },
         "summary": "Create new conversation",
         "tags": [
-          "Agent"
+          "agents"
         ]
       }
     },
@@ -392,7 +392,17 @@
         ],
         "responses": {
           "200": {
-            "description": "Conversations retrieved successfully"
+            "description": "Conversations retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConversationDto"
+                  }
+                }
+              }
+            }
           },
           "404": {
             "description": "Agent not found"
@@ -403,7 +413,7 @@
         },
         "summary": "Get agent conversations",
         "tags": [
-          "Agent"
+          "agents"
         ]
       }
     },
@@ -446,19 +456,22 @@
         },
         "summary": "Delete conversation",
         "tags": [
-          "Agent"
+          "agents"
         ]
       }
     },
     "/api/agents/{id}/conversation-history": {
       "get": {
+        "description": "Retrieves the conversation history for a specific agent and state",
         "operationId": "AgentController_getConversationHistory",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "The ID of the agent",
             "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
               "type": "string"
             }
           },
@@ -466,7 +479,9 @@
             "name": "stateId",
             "required": true,
             "in": "query",
+            "description": "The ID of the conversation state",
             "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
               "type": "string"
             }
           },
@@ -474,7 +489,9 @@
             "name": "limit",
             "required": false,
             "in": "query",
+            "description": "Maximum number of messages to retrieve",
             "schema": {
+              "example": 50,
               "type": "number"
             }
           },
@@ -482,19 +499,115 @@
             "name": "beforeTimestamp",
             "required": false,
             "in": "query",
+            "description": "Retrieve messages before this timestamp",
             "schema": {
               "format": "date-time",
+              "example": "2024-04-15T08:00:00.000Z",
               "type": "string"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Conversation history retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MessageDto"
+                      }
+                    },
+                    "hasMore": {
+                      "type": "boolean",
+                      "description": "Whether there are more messages available",
+                      "example": false
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent or state not found"
+          },
+          "500": {
+            "description": "Internal server error"
           }
         },
+        "summary": "Get conversation history",
         "tags": [
-          "Agent"
+          "agents"
+        ]
+      }
+    },
+    "/api/agents/{id}/memory/{stateId}": {
+      "get": {
+        "description": "Retrieves the memory state for a specific agent and conversation state",
+        "operationId": "AgentController_getMemory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the agent",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          },
+          {
+            "name": "stateId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the conversation state",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Memory retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agentId": {
+                      "type": "string",
+                      "description": "The ID of the agent",
+                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                    },
+                    "stateId": {
+                      "type": "string",
+                      "description": "The ID of the conversation state",
+                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                    },
+                    "memory": {
+                      "type": "object",
+                      "description": "The memory state of the agent",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent or state not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Get agent memory",
+        "tags": [
+          "agents"
         ]
       }
     },
@@ -559,7 +672,44 @@
     "schemas": {
       "CreateAgentDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name of the agent",
+            "example": "My Assistant"
+          },
+          "description": {
+            "type": "string",
+            "description": "A description of what the agent does",
+            "example": "An AI assistant that helps with daily tasks"
+          },
+          "modelId": {
+            "type": "string",
+            "description": "The ID of the model to use for this agent",
+            "example": "gpt-4"
+          },
+          "systemPrompt": {
+            "type": "string",
+            "description": "The system prompt that defines the agent's behavior",
+            "example": "You are a helpful AI assistant..."
+          },
+          "tools": {
+            "description": "List of tool IDs that the agent can use",
+            "example": [
+              "tool1",
+              "tool2"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "systemPrompt"
+        ]
       },
       "SendMessageDto": {
         "type": "object",
@@ -656,7 +806,8 @@
             "description": "The role of the message sender",
             "enum": [
               "user",
-              "assistant"
+              "assistant",
+              "tool"
             ],
             "example": "assistant"
           },
@@ -703,7 +854,47 @@
       },
       "AddToolDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "toolName": {
+            "type": "string",
+            "description": "The name of the tool to add to the agent",
+            "example": "search"
+          }
+        },
+        "required": [
+          "toolName"
+        ]
+      },
+      "ConversationDto": {
+        "type": "object",
+        "properties": {
+          "agentId": {
+            "type": "string",
+            "description": "The ID of the agent",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "stateId": {
+            "type": "string",
+            "description": "The ID of the conversation state",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the conversation was created",
+            "example": "2024-04-15T08:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "When the conversation was last updated",
+            "example": "2024-04-15T08:00:00.000Z"
+          }
+        },
+        "required": [
+          "agentId",
+          "stateId",
+          "createdAt",
+          "updatedAt"
+        ]
       },
       "ModelPricingDto": {
         "type": "object",

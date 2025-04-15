@@ -7,6 +7,7 @@ import { GenAIStreamLexer } from '../utils/StreamLexer';
 import { ChatService } from '@/services/chat.service';
 import { FrontendAgentService } from '@/services/agent.service';
 import '@preact/compat';
+import { MessageDto } from '../api-client/models/MessageDto';
 
 interface ChatProps {
   agentId?: string;
@@ -118,7 +119,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         } else {
           // Create a new message if we don't have one being streamed
           const newMessage = {
-            role: 'assistant' as const,
+            role: MessageDto.role.ASSISTANT,
             content: currentBlockType.current === 'thinking' ? '' : token.value,
             thinking: currentBlockType.current === 'thinking' ? token.value : undefined,
             blockType: currentBlockType.current || 'normal',
@@ -148,7 +149,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
 
         // Create a new message for the new block
         const newBlockMessage = {
-          role: 'assistant' as const,
+          role: MessageDto.role.ASSISTANT,
           content: '',
           thinking: blockType === 'thinking' ? '' : undefined,
           blockType,
@@ -177,7 +178,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         break;
 
       case 'TOOL_CALL':
-        if (currentMessageRef.current?.role === 'assistant' && !currentMessageRef.current.isComplete) {
+        if (currentMessageRef.current?.role === MessageDto.role.ASSISTANT && !currentMessageRef.current.isComplete) {
           dispatch({
             type: 'UPDATE_LAST_MESSAGE',
             payload: msg => ({ ...msg, isComplete: true })
@@ -189,17 +190,16 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         dispatch({
           type: 'ADD_MESSAGE',
           payload: {
-            role: 'assistant',
+            role: MessageDto.role.ASSISTANT,
             content: '',
             blockType: 'tool',
-            isComplete: false,
-            toolName: token.toolInfo?.name
+            isComplete: false
           }
         });
         break;
 
       case 'TOOL_RESULT':
-        if (currentMessageRef.current?.role === 'assistant' && currentMessageRef.current.blockType === 'tool' && !currentMessageRef.current.isComplete) {
+        if (currentMessageRef.current?.role === MessageDto.role.ASSISTANT && currentMessageRef.current.blockType === 'tool' && !currentMessageRef.current.isComplete) {
           dispatch({
             type: 'UPDATE_LAST_MESSAGE',
             payload: msg => ({
@@ -212,11 +212,10 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           dispatch({
             type: 'ADD_MESSAGE',
             payload: {
-              role: 'assistant',
+              role: MessageDto.role.ASSISTANT,
               content: token.value || '',
               blockType: 'tool',
-              isComplete: true,
-              toolName: token.toolInfo?.name
+              isComplete: true
             }
           });
         }
@@ -238,7 +237,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
 
       case 'UNPARSEABLE':
         console.warn('Unparseable content:', token.value);
-        if (currentMessageRef.current?.role === 'assistant' && currentMessageRef.current.blockType === (currentBlockType.current || 'normal') && !currentMessageRef.current.isComplete) {
+        if (currentMessageRef.current?.role === MessageDto.role.ASSISTANT && currentMessageRef.current.blockType === (currentBlockType.current || 'normal') && !currentMessageRef.current.isComplete) {
           dispatch({
             type: 'UPDATE_LAST_MESSAGE',
             payload: msg => ({
@@ -251,7 +250,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           dispatch({
             type: 'ADD_MESSAGE',
             payload: {
-              role: 'assistant',
+              role: MessageDto.role.ASSISTANT,
               content: currentBlockType.current === 'thinking' ? '' : (token.value || ''),
               thinking: currentBlockType.current === 'thinking' ? (token.value || '') : undefined,
               blockType: currentBlockType.current || 'normal',
@@ -270,7 +269,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     const content = state.inputMessage;
     dispatch({
       type: 'ADD_MESSAGE',
-      payload: { role: 'user', content, blockType: 'normal', isComplete: true }
+      payload: { role: MessageDto.role.USER, content, blockType: 'normal', isComplete: true }
     });
     dispatch({ type: 'SET_INPUT_MESSAGE', payload: '' });
     dispatch({ type: 'SET_IS_LOADING', payload: true });
@@ -316,7 +315,12 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
         dispatch({
           type: 'ADD_MESSAGE',
-          payload: { ...response, blockType: 'normal', isComplete: true }
+          payload: {
+            role: MessageDto.role.ASSISTANT,
+            content: response.content,
+            blockType: 'normal',
+            isComplete: true
+          }
         });
         dispatch({ type: 'SET_IS_LOADING', payload: false });
         if (agentId && state.agentService) {
@@ -353,7 +357,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           {state.conversations.length > 0 ? (
             state.conversations.map(conv => (
               <li
-                key={conv.id}
+                key={conv.stateId}
                 class={`conversation-item ${conv.stateId === state.activeConversationId ? 'active' : ''}`}
                 onClick={() => {
                   if (agentId && state.agentService) {
@@ -458,7 +462,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
                     ) : msg.blockType === 'tool' ? (
                       <div class="tool-message-content">
                         <span class="tool-icon">🔧</span>
-                        <span>Using {msg.toolName || 'tool'}...</span>
+                        <span>Using tool...</span>
                       </div>
                     ) : (
                       <div class="message-content" dangerouslySetInnerHTML={{ __html: renderMarkdown((msg.content || '').trimStart()) }} />

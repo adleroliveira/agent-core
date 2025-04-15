@@ -5,8 +5,7 @@ import {
   Inject,
   OnModuleInit,
 } from "@nestjs/common";
-import { v4 as uuidv4 } from "uuid";
-import { Observable, Subject } from "rxjs";
+import { Observable } from "rxjs";
 
 import { Agent } from "@core/domain/agent.entity";
 import { Message } from "@core/domain/message.entity";
@@ -307,6 +306,17 @@ export class AgentService implements OnModuleInit {
     this.logger.debug(`Successfully saved agent with new state: ${savedAgent.getMostRecentState().id}`);
     
     return savedAgent;
+  }
+
+  async getMemory(agentId: string, stateId: string): Promise<Record<string, any>> {
+    const state = await this.stateRepository.findById(stateId, true);
+    if (!state) {
+      throw new NotFoundException(`No state found with ID ${stateId}`);
+    }
+    if (state.agentId !== agentId) {
+      throw new NotFoundException(`No state found with ID ${stateId} for agent ${agentId}`);
+    }
+    return state.memory;
   }
 
   async deleteConversation(agentId: string, stateId: string): Promise<Agent> {

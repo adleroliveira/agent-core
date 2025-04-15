@@ -8,6 +8,7 @@ export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
 export type { AddToolDto } from './models/AddToolDto';
+export type { ConversationDto } from './models/ConversationDto';
 export type { CreateAgentDto } from './models/CreateAgentDto';
 export { MessageDto } from './models/MessageDto';
 export type { ModelInfoDto } from './models/ModelInfoDto';
@@ -17,6 +18,6 @@ export type { ToolCallDto } from './models/ToolCallDto';
 export type { ToolResultDto } from './models/ToolResultDto';
 export type { UpdatePromptDto } from './models/UpdatePromptDto';
 
-export { AgentService } from './services/AgentService';
+export { AgentsService } from './services/AgentsService';
 export { ModelsService } from './services/ModelsService';
 export { ToolsService } from './services/ToolsService';

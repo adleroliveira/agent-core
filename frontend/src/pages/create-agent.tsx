@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import type { ComponentType } from 'preact';
-import { AgentService, ToolsService } from '../api-client';
+import { AgentsService, ToolsService } from '../api-client';
 import { route } from 'preact-router';
 import { ModelService } from '../services/models.service';
 import type { ModelInfoDto } from '../api-client/models/ModelInfoDto';
@@ -60,7 +60,7 @@ export const CreateAgent: ComponentType = () => {
     setError(null);
 
     try {
-      await AgentService.agentControllerCreateAgent({
+      await AgentsService.agentControllerCreateAgent({
         name: formData.name,
         description: formData.description,
         modelId: formData.modelId,

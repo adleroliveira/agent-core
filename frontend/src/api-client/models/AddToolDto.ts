@@ -3,5 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type AddToolDto = {
+    /**
+     * The name of the tool to add to the agent
+     */
+    toolName: string;
 };
 

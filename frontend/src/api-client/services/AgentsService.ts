@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { AddToolDto } from '../models/AddToolDto';
+import type { ConversationDto } from '../models/ConversationDto';
 import type { CreateAgentDto } from '../models/CreateAgentDto';
 import type { MessageDto } from '../models/MessageDto';
 import type { SendMessageDto } from '../models/SendMessageDto';
@@ -10,7 +11,7 @@ import type { UpdatePromptDto } from '../models/UpdatePromptDto';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
-export class AgentService {
+export class AgentsService {
     /**
      * Create a new agent
      * Creates a new agent with the specified configuration
@@ -250,12 +251,12 @@ export class AgentService {
      * Get agent conversations
      * Retrieves all conversations for a specific agent
      * @param id The ID of the agent
-     * @returns any Conversations retrieved successfully
+     * @returns ConversationDto Conversations retrieved successfully
      * @throws ApiError
      */
     public static agentControllerGetConversations(
         id: string,
-    ): CancelablePromise<any> {
+    ): CancelablePromise<Array<ConversationDto>> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/agents/{id}/conversations',
@@ -294,11 +295,13 @@ export class AgentService {
         });
     }
     /**
-     * @param id
-     * @param stateId
-     * @param limit
-     * @param beforeTimestamp
-     * @returns any
+     * Get conversation history
+     * Retrieves the conversation history for a specific agent and state
+     * @param id The ID of the agent
+     * @param stateId The ID of the conversation state
+     * @param limit Maximum number of messages to retrieve
+     * @param beforeTimestamp Retrieve messages before this timestamp
+     * @returns any Conversation history retrieved successfully
      * @throws ApiError
      */
     public static agentControllerGetConversationHistory(
@@ -306,7 +309,13 @@ export class AgentService {
         stateId: string,
         limit?: number,
         beforeTimestamp?: string,
-    ): CancelablePromise<any> {
+    ): CancelablePromise<{
+        messages?: Array<MessageDto>;
+        /**
+         * Whether there are more messages available
+         */
+        hasMore?: boolean;
+    }> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/agents/{id}/conversation-history',
@@ -317,6 +326,48 @@ export class AgentService {
                 'stateId': stateId,
                 'limit': limit,
                 'beforeTimestamp': beforeTimestamp,
+            },
+            errors: {
+                404: `Agent or state not found`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Get agent memory
+     * Retrieves the memory state for a specific agent and conversation state
+     * @param id The ID of the agent
+     * @param stateId The ID of the conversation state
+     * @returns any Memory retrieved successfully
+     * @throws ApiError
+     */
+    public static agentControllerGetMemory(
+        id: string,
+        stateId: string,
+    ): CancelablePromise<{
+        /**
+         * The ID of the agent
+         */
+        agentId?: string;
+        /**
+         * The ID of the conversation state
+         */
+        stateId?: string;
+        /**
+         * The memory state of the agent
+         */
+        memory?: Record<string, any>;
+    }> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/agents/{id}/memory/{stateId}',
+            path: {
+                'id': id,
+                'stateId': stateId,
+            },
+            errors: {
+                404: `Agent or state not found`,
+                500: `Internal server error`,
             },
         });
     }

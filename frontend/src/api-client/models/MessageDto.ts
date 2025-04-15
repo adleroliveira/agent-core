@@ -45,6 +45,7 @@ export namespace MessageDto {
     export enum role {
         USER = 'user',
         ASSISTANT = 'assistant',
+        TOOL = 'tool',
     }
 }
 

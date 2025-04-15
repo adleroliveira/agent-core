@@ -49,10 +49,10 @@ export class MessageDto {
 
   @ApiProperty({
     description: 'The role of the message sender',
-    enum: ['user', 'assistant'],
+    enum: ['user', 'assistant', 'tool'],
     example: 'assistant'
   })
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'tool';
 
   @ApiProperty({
     description: 'The ID of the conversation this message belongs to',
