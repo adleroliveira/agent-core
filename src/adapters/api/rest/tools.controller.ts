@@ -1,8 +1,10 @@
 import { Controller, Get, Inject, HttpException, HttpStatus } from "@nestjs/common";
 import { ToolRegistryService } from "@core/services/tool-registry.service";
 import { TOOL_REGISTRY } from "@core/constants";
-import { ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
+import { ToolDto } from "./dto/tool.dto";
 
+@ApiTags('tools')
 @Controller("tools")
 export class ToolsController {
   constructor(
@@ -11,16 +13,28 @@ export class ToolsController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all available tools' })
-  @ApiResponse({ status: 200, description: 'List of all available tools' })
-  async getAllTools() {
+  @ApiOperation({ 
+    summary: 'Get all available tools',
+    description: 'Retrieves a list of all available tools that can be used by agents'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'List of all available tools',
+    type: [ToolDto]
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error'
+  })
+  async getAllTools(): Promise<ToolDto[]> {
     try {
       const tools = await this.toolRegistry.getAllTools();
       return tools.map(tool => ({
         id: tool.id,
         name: tool.name,
         description: tool.description,
-        parameters: tool.parameters
+        parameters: tool.parameters,
+        systemPrompt: tool.systemPrompt
       }));
     } catch (error) {
       throw new HttpException(

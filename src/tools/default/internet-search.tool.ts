@@ -36,6 +36,18 @@ export class InternetSearchTool {
       description: "Search the internet for information using DuckDuckGo.",
       parameters,
       handler: this.searchHandler.bind(this),
+      systemPrompt: `Use this tool when you need to find information that is:
+- Not in your knowledge base
+- Time-sensitive or current (e.g., news, recent events)
+- Requires verification from multiple sources
+- About topics that change frequently (e.g., software versions, current events)
+- General knowledge that might be too broad for your knowledge base
+
+Do NOT use this tool for:
+- Information you already have in your knowledge base
+- Simple calculations or conversions
+- Tasks that can be done with other tools
+- When you already have the information from previous interactions`
     });
   }
 

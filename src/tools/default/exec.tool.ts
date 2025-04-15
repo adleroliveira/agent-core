@@ -63,7 +63,19 @@ export class CommandTool extends Tool {
       handler: async (args: Record<string, any>, agent: Agent) => {
         this.ensureWorkspaceExists(agent.workspaceConfig);
         return this.executeCommand(args, agent.workspaceConfig!);
-      }
+      },
+      systemPrompt: `Use this tool when you need to:
+- Execute quick, one-time commands
+- Run file operations or system commands
+- Execute scripts or simple programs
+- Run commands that complete quickly and don't need background execution
+
+Do NOT use this tool for:
+- Long-running processes or services
+- Operations that need to maintain state
+- When you need to monitor process status
+- For background services or servers
+- When process_manager would be more appropriate`
     });
 
     // Set up shell command based on platform

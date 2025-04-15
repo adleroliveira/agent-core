@@ -33,7 +33,20 @@ export class KnowledgeAddTool extends Tool {
 
         const entry = await agent.knowledgeBase.addKnowledge(args.content, args.metadata);
         return { id: entry.id };
-      }
+      },
+      systemPrompt: `Use this tool when you need to:
+- Add permanent information to your knowledge base
+- Store domain-specific knowledge for future reference
+- Save important documentation or instructions
+- Create a persistent reference for frequently needed information
+- Build up your knowledge about a specific topic or project
+
+Do NOT use this tool for:
+- Temporary or session-specific information
+- Information that's already in your knowledge base
+- When you can use memory_manager for short-term storage
+- For information that might change frequently
+- When the information is better suited for internet search`
     });
   }
 } 

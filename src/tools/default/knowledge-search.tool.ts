@@ -34,6 +34,19 @@ export class KnowledgeSearchTool extends Tool {
           score,
         }));
       },
+      systemPrompt: `Use this tool when you need to:
+- Find information that you know is in your knowledge base
+- Look up domain-specific knowledge or documentation
+- Reference previously stored instructions or procedures
+- Access permanent information that was added to your knowledge base
+- Find information that doesn't require current/real-time data
+
+Do NOT use this tool for:
+- Finding current or time-sensitive information
+- When you need to verify information from multiple sources
+- For information that might have changed since it was added
+- When you should use internet_search instead
+- For information that's better stored in memory_manager`
     });
   }
 } 

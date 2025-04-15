@@ -18,6 +18,9 @@ export class ToolEntity {
   @Column({ type: "json", nullable: true })
   metadata: Record<string, any>;
 
+  @Column({ type: "text", nullable: true })
+  systemPrompt: string;
+
   @Column({ type: "json", nullable: true })
   jsonSchema: Record<string, any>;
 

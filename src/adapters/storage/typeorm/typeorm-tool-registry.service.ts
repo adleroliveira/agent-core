@@ -52,7 +52,8 @@ export class TypeOrmToolRegistryService implements ToolRegistryPort {
       directive: tool.directive,
       handler: tool.handler,
       metadata: tool.metadata,
-      jsonSchema: tool.jsonSchema
+      jsonSchema: tool.jsonSchema,
+      systemPrompt: tool.systemPrompt
     });
 
     // Register in memory

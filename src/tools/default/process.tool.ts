@@ -63,7 +63,20 @@ For long-running processes like servers, omit the timeout parameter to let them 
       parameters,
       handler: async (args: Record<string, any>) => {
         return this.handleProcessCommand(args);
-      }
+      },
+      systemPrompt: `Use this tool when you need to:
+- Run long-running services or servers
+- Execute time-consuming operations that shouldn't block the conversation
+- Manage background processes that need to maintain state
+- Start development servers, databases, or other services
+- Run operations that might take longer than a typical command execution
+
+Do NOT use this tool for:
+- Simple, quick commands that can be executed with cmd_execute
+- One-time operations that complete quickly
+- When you don't need to monitor or manage the process
+- For operations that don't require background execution
+- When you can accomplish the task with a single command`
     });
   }
 

@@ -24,6 +24,7 @@ export class ToolMapper {
       directive: toolDefinition.directive,
       handler: toolDefinition.handler,
       metadata: entity.metadata || {},
+      systemPrompt: entity.systemPrompt || "",
       // jsonSchema: entity.jsonSchema || {}
     });
   }
@@ -38,6 +39,7 @@ export class ToolMapper {
     entity.jsonSchema = domain.jsonSchema || {};
     entity.createdAt = domain.createdAt;
     entity.updatedAt = domain.updatedAt;
+    entity.systemPrompt = domain.systemPrompt || "";
     return entity;
   }
 }

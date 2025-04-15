@@ -801,16 +801,30 @@
     },
     "/api/tools": {
       "get": {
+        "description": "Retrieves a list of all available tools that can be used by agents",
         "operationId": "ToolsController_getAllTools",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "List of all available tools"
+            "description": "List of all available tools",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ToolDto"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
           }
         },
         "summary": "Get all available tools",
         "tags": [
-          "Tools"
+          "tools"
         ]
       }
     },
@@ -1082,6 +1096,48 @@
           "stateId",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "ToolDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The unique identifier of the tool",
+            "example": "tool_123"
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the tool",
+            "example": "search"
+          },
+          "description": {
+            "type": "string",
+            "description": "A description of what the tool does",
+            "example": "Searches for information using a search engine"
+          },
+          "parameters": {
+            "type": "object",
+            "description": "The parameters that the tool accepts",
+            "example": {
+              "query": {
+                "type": "string",
+                "description": "The search query",
+                "required": true
+              }
+            }
+          },
+          "systemPrompt": {
+            "type": "string",
+            "description": "The system prompt that describes how to use the tool",
+            "example": "Use this tool to search for information on the web"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "parameters"
         ]
       },
       "ModelPricingDto": {

@@ -15,6 +15,7 @@ export type { ModelInfoDto } from './models/ModelInfoDto';
 export type { ModelPricingDto } from './models/ModelPricingDto';
 export type { SendMessageDto } from './models/SendMessageDto';
 export type { ToolCallDto } from './models/ToolCallDto';
+export type { ToolDto } from './models/ToolDto';
 export type { ToolResultDto } from './models/ToolResultDto';
 export type { UpdatePromptDto } from './models/UpdatePromptDto';
 

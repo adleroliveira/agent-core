@@ -43,6 +43,17 @@ Use the 'set' operation to completely replace your memory, or 'update' to merge 
       description: "Manage the agent's memory that is included in system prompts.",
       parameters,
       handler: this.memoryHandler.bind(this),
+      systemPrompt: `Use this tool when you need to:
+- Remember information across multiple interactions
+- Track progress in a multi-step task
+- Store user preferences or important details for future use
+- Maintain context in long conversations
+- Save intermediate results that will be needed later
+
+Do NOT use this tool for:
+- Information that's only needed for the current response
+- Storing information that's already in your knowledge base
+- When you can accomplish the task in a single interaction`
     });
   }
 

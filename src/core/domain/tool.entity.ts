@@ -19,6 +19,7 @@ export class Tool {
   public parameters: ToolParameter[];
   public handler: (args: Record<string, any>, agent: Agent) => Promise<any>;
   public metadata?: Record<string, any>;
+  public systemPrompt?: string;
   public createdAt: Date;
   public updatedAt: Date;
   public jsonSchema?: Record<string, any>;
@@ -31,6 +32,7 @@ export class Tool {
     parameters: ToolParameter[];
     handler: (args: Record<string, any>, agent: Agent) => Promise<any>;
     metadata?: Record<string, any>;
+    systemPrompt?: string;
     jsonSchema?: Record<string, any>;
   }) {
     this.id = params.id || uuidv4();
@@ -40,6 +42,7 @@ export class Tool {
     this.parameters = params.parameters;
     this.handler = params.handler;
     this.metadata = params.metadata;
+    this.systemPrompt = params.systemPrompt;
     this.jsonSchema = params.jsonSchema;
     this.createdAt = new Date();
     this.updatedAt = new Date();
