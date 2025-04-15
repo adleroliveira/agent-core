@@ -20,8 +20,6 @@ interface ChatState {
   showThinkingBubbles: boolean;
   showLoadingCue: boolean;
   agentName: string;
-  conversations: ConversationDto[];
-  activeConversationId: string;
   chatService: ChatService | null;
   agentService: FrontendAgentService | null;
   sessionId: string;
@@ -43,8 +41,6 @@ type ChatAction =
   | { type: 'SET_SHOW_THINKING_BUBBLES'; payload: boolean }
   | { type: 'SET_SHOW_LOADING_CUE'; payload: boolean }
   | { type: 'SET_AGENT_NAME'; payload: string }
-  | { type: 'SET_CONVERSATIONS'; payload: ConversationDto[] }
-  | { type: 'SET_ACTIVE_CONVERSATION_ID'; payload: string }
   | { type: 'SET_CHAT_SERVICE'; payload: ChatService }
   | { type: 'SET_AGENT_SERVICE'; payload: FrontendAgentService }
   | { type: 'SET_SESSION_ID'; payload: string }
@@ -68,8 +64,6 @@ const initialState: ChatState = {
   showThinkingBubbles: true,
   showLoadingCue: false,
   agentName: '',
-  conversations: [],
-  activeConversationId: '',
   chatService: null,
   agentService: null,
   sessionId: '',
@@ -100,10 +94,6 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, showLoadingCue: action.payload };
     case 'SET_AGENT_NAME':
       return { ...state, agentName: action.payload };
-    case 'SET_CONVERSATIONS':
-      return { ...state, conversations: [...action.payload] };
-    case 'SET_ACTIVE_CONVERSATION_ID':
-      return { ...state, activeConversationId: action.payload };
     case 'SET_CHAT_SERVICE':
       return { ...state, chatService: action.payload };
     case 'SET_AGENT_SERVICE':
@@ -152,8 +142,6 @@ const ChatContext = createContext<{
   state: ChatState;
   dispatch: (action: ChatAction) => void;
   loadConversation: (agentId: string, conversationId: string, agentService: FrontendAgentService) => Promise<void>;
-  initializeConversations: (agentId: string, agentService: FrontendAgentService) => Promise<void>;
-  refreshConversations: (agentId: string, agentService: FrontendAgentService) => Promise<void>;
   resetState: () => void;
 } | null>(null);
 
@@ -169,8 +157,6 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
     dispatch({ type: 'SET_SHOW_THINKING_BUBBLES', payload: true });
     dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
     dispatch({ type: 'SET_AGENT_NAME', payload: '' });
-    dispatch({ type: 'SET_CONVERSATIONS', payload: [] });
-    dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: '' });
     dispatch({ type: 'SET_CHAT_SERVICE', payload: null as unknown as ChatService });
     dispatch({ type: 'SET_AGENT_SERVICE', payload: null as unknown as FrontendAgentService });
     dispatch({ type: 'SET_SESSION_ID', payload: '' });
@@ -191,7 +177,6 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
     try {
       dispatch({ type: 'SET_MESSAGES', payload: [] });
       dispatch({ type: 'CLEAR_CURRENT_MESSAGE_REF', payload: null });
-      dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: conversationId });
 
       const history = await agentService.getConversationHistory(agentId, conversationId);
       const processedMessages: ExtendedMessage[] = [];
@@ -255,50 +240,8 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
     }
   };
 
-  const refreshConversations = async (agentId: string, agentService: FrontendAgentService) => {
-    if (!agentService) {
-      console.warn("Agent service not provided");
-      return;
-    }
-
-    try {
-      const conversationsList = await agentService.getConversations(agentId);
-      dispatch({ type: 'SET_CONVERSATIONS', payload: conversationsList });
-
-      // If we have conversations, always set and load the first one
-      if (conversationsList.length > 0) {
-        const firstConversation = conversationsList[0];
-        dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: firstConversation.stateId });
-        await loadConversation(agentId, firstConversation.stateId, agentService);
-      }
-    } catch (error) {
-      console.error("Error refreshing conversations:", error);
-    }
-  };
-
-  const initializeConversations = async (agentId: string, agentService: FrontendAgentService) => {
-    if (!agentService) {
-      console.warn("Agent service not provided");
-      return;
-    }
-
-    try {
-      const conversationsList = await agentService.getConversations(agentId);
-      dispatch({ type: 'SET_CONVERSATIONS', payload: conversationsList });
-
-      // If we have conversations, set and load the first one as active
-      if (conversationsList.length > 0) {
-        const firstConversation = conversationsList[0];
-        dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: firstConversation.stateId });
-        await loadConversation(agentId, firstConversation.stateId, agentService);
-      }
-    } catch (error) {
-      console.error("Error initializing conversations:", error);
-    }
-  };
-
   return (
-    <ChatContext.Provider value={{ state, dispatch, loadConversation, initializeConversations, refreshConversations, resetState }}>
+    <ChatContext.Provider value={{ state, dispatch, loadConversation, resetState }}>
       {children}
     </ChatContext.Provider>
   );

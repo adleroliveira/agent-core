@@ -2,44 +2,47 @@
   width: 400px;
   min-width: 400px;
   background: white;
-  border-left: 1px solid #e0e0e0;
+  border-left: none;
+  border-right: 1px solid #e0e0e0;
   display: flex;
   flex-direction: row;
   overflow: hidden;
   height: 100%;
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  transition: transform 0.3s ease;
-  box-shadow: -2px 0 4px rgba(0, 0, 0, 0.05);
-}
-
-.collapsible-panel::before {
-  content: '';
-  position: absolute;
+  position: relative;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 40px;
-  background: linear-gradient(180deg, #1a365d 0%, #2c5282 100%);
-  z-index: 0;
+  transition: width 0.3s ease, min-width 0.3s ease;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
 }
 
-.collapsible-panel.collapsed {
-  transform: translateX(calc(100% - 40px));
-}
-
-.collapsible-panel.collapsed .panel-content {
+.collapsible-panel::before {
   display: none;
 }
 
+.collapsible-panel.collapsed {
+  width: 60px;
+  min-width: 60px;
+}
+
+.collapsible-panel.collapsed .panel-content {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .panel-content {
-  flex: 1;
+  width: 100%;
   overflow-y: auto;
   padding: 0;
   display: flex;
   flex-direction: column;
+  opacity: 0;
+  pointer-events: auto;
+}
+
+.panel-content.content-visible {
+  opacity: 1;
+  transition: opacity 0.3s ease;
 }
 
 .panel-header {
@@ -52,12 +55,26 @@
   gap: 1rem;
   position: relative;
   margin: 0;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: none;
+  padding-bottom: 1.2rem;
+}
+
+.panel-header::after {
+  content: '';
+  display: block;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  transform: none;
+  width: 80%; /* Adjust as needed for desired length */
+  height: 3px;
+  background: #1a365d;
+  border-radius: 2px;
 }
 
 .panel-header h2 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.4rem;
   color: #1a365d;
   font-weight: 600;
   flex: 1;
@@ -88,42 +105,60 @@
 .menu-tabs {
   display: flex;
   flex-direction: column;
-  width: 40px;
-  height: 100%;
+  width: 60px;
   position: relative;
   z-index: 1;
-  background: linear-gradient(180deg, #1a365d 0%, #2c5282 100%);
+  background: #f0f7ff;
+  border-left: 1px solid #e0e0e0;
+  align-items: center;
+  padding: 12px 0 0 0;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.08);
+}
+
+.collapsible-panel.collapsed .menu-tabs {
+  display: flex;
 }
 
 .menu-tab {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: #1a365d;
   cursor: pointer;
   transition: all 0.2s ease;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  margin: 8px 0;
+  border: none;
+  background: none;
 }
 
 .menu-tab:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  border: 1px solid #1a365d;
 }
 
 .menu-tab.active {
-  background: rgba(255, 255, 255, 0.2);
+  background: #2c5282;
+  color: #fff;
+}
+
+.menu-tab.active:hover {
+  background: #2c5282;
+  color: #fff;
+  border: 0px;
 }
 
 .menu-tab .icon {
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .menu-tab .icon svg {
-  width: 1.2rem;
-  height: 1.2rem;
+  width: 1.5rem;
+  height: 1.5rem;
   color: currentColor;
 } 

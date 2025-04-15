@@ -3,6 +3,7 @@ import type { ComponentType } from 'preact';
 import '../styles/chat.css';
 import Markdown from 'markdown-to-jsx';
 import { useChatStore, ExtendedMessage } from '../stores/chat.store';
+import { useConversationStore } from '../stores/conversation.store';
 import { useMemoryStore } from '../stores/memory.store';
 import { GenAIStreamLexer } from '../utils/StreamLexer';
 import { ChatService } from '@/services/chat.service';
@@ -24,6 +25,8 @@ import 'prismjs/components/prism-bash';
 import 'prismjs/components/prism-yaml';
 import 'prismjs/components/prism-markdown';
 import { WrenchScrewdriverIcon } from '@heroicons/react/24/outline';
+import { ConversationList } from '@/components/ConversationList';
+import { ChatBubbleLeftEllipsisIcon } from '@heroicons/react/24/outline';
 
 interface ChatProps {
   agentId?: string;
@@ -47,7 +50,14 @@ const CodeBlock = ({ className, children }: { className?: string; children: stri
 };
 
 export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
-  const { state, dispatch, loadConversation, initializeConversations, refreshConversations } = useChatStore();
+  const { state, dispatch, loadConversation } = useChatStore();
+  const {
+    state: convState,
+    fetchConversations,
+    createConversation,
+    deleteConversation,
+    selectConversation
+  } = useConversationStore();
   const { fetchMemory } = useMemoryStore();
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -56,7 +66,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   const currentBlockType = useRef<'thinking' | 'tool' | 'normal' | null>(null);
   const currentMessageRef = useRef<ExtendedMessage | null>(null);
   const [isConfigPanelCollapsed, setIsConfigPanelCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState('agent');
+  const [activeTab, setActiveTab] = useState('conversations');
 
   if (!lexerRef.current) {
     lexerRef.current = new GenAIStreamLexer();
@@ -64,24 +74,8 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
 
   const newConversation = async () => {
     if (!agentId || !state.agentService) return;
-
-    try {
-      dispatch({ type: 'SET_IS_LOADING', payload: true });
-      const response = await state.agentService.createNewConversation(agentId);
-
-      // Update the active conversation and load its history only if not streaming
-      dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: response.stateId });
-
-      // Reset messages for the new conversation
-      dispatch({ type: 'SET_MESSAGES', payload: [] });
-
-      // Refresh the conversations list
-      await refreshConversations(agentId, state.agentService);
-    } catch (error) {
-      console.error('Error creating new conversation:', error);
-    } finally {
-      dispatch({ type: 'SET_IS_LOADING', payload: false });
-    }
+    await createConversation(agentId, state.agentService);
+    // No need to loadConversation here; handled by useEffect below
   };
 
   // Initialize services and component
@@ -103,8 +97,8 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         const agent = await agentService.getAgentDetails(agentId);
         dispatch({ type: 'SET_AGENT_NAME', payload: agent.name });
 
-        // Initialize conversations with the current agentId and service
-        await initializeConversations(agentId, agentService);
+        // Fetch conversations for this agent
+        await fetchConversations(agentId, agentService);
 
         initializedRef.current = true;
       } catch (error) {
@@ -313,10 +307,13 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
 
     try {
       if (state.isStreaming) {
+        if (!convState.activeConversationId) {
+          throw new Error('No active conversation ID');
+        }
         dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: true });
         await state.chatService.sendStreamingMessage(
           content,
-          state.activeConversationId,
+          convState.activeConversationId,
           chunk => {
             dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
             for (const token of lexerRef.current!.processChunk(chunk)) {
@@ -332,8 +329,8 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
             currentMessageRef.current = null;
             currentBlockType.current = null;
             // Refresh memory after streaming completes
-            if (agentId && state.activeConversationId && state.agentService) {
-              await fetchMemory(agentId, state.activeConversationId, state.agentService);
+            if (agentId && convState.activeConversationId && state.agentService) {
+              await fetchMemory(agentId, convState.activeConversationId, state.agentService);
             }
           },
           error => {
@@ -348,7 +345,12 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           }
         );
       } else {
-        const response = await state.chatService.sendMessage(content, state.activeConversationId);
+        let response;
+        if (convState.activeConversationId) {
+          response = await state.chatService.sendMessage(content, convState.activeConversationId);
+        } else {
+          throw new Error('No active conversation ID');
+        }
         dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
         dispatch({
           type: 'ADD_MESSAGE',
@@ -361,8 +363,8 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         });
         dispatch({ type: 'SET_IS_LOADING', payload: false });
         // Refresh memory after non-streaming message completes
-        if (agentId && state.activeConversationId && state.agentService) {
-          await fetchMemory(agentId, state.activeConversationId, state.agentService);
+        if (agentId && convState.activeConversationId && state.agentService) {
+          await fetchMemory(agentId, convState.activeConversationId, state.agentService);
         }
       }
     } catch (error) {
@@ -379,73 +381,89 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     return markdownContent.replace(/^---$/gm, '***');
   };
 
+  // Add this effect to always load conversation history when activeConversationId changes
+  useEffect(() => {
+    if (agentId && state.agentService && convState.activeConversationId) {
+      loadConversation(agentId, convState.activeConversationId, state.agentService);
+    } else if (!convState.activeConversationId) {
+      dispatch({ type: 'SET_MESSAGES', payload: [] });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convState.activeConversationId]);
+
   return (
     <div class="chat-page">
-      <div class="conversations-sidebar">
-        <div class="conversations-header">
-          <h2>Conversations</h2>
-          <button
-            class="new-conversation-button"
-            onClick={() => newConversation()}
-            disabled={state.isLoading}
-          >
-            <span>+</span> New
-          </button>
-        </div>
-        <ul class="conversation-list">
-          {state.conversations.length > 0 ? (
-            state.conversations.map(conv => (
-              <li
-                key={conv.stateId}
-                class={`conversation-item ${conv.stateId === state.activeConversationId ? 'active' : ''}`}
-                onClick={() => {
-                  if (agentId && state.agentService) {
-                    loadConversation(agentId, conv.stateId, state.agentService);
+      <CollapsiblePanel
+        isCollapsed={isConfigPanelCollapsed}
+        onToggle={() => setIsConfigPanelCollapsed(!isConfigPanelCollapsed)}
+        menuTabs={[
+          {
+            id: 'agent',
+            icon: <InformationCircleIcon className="w-5 h-5" />,
+            title: 'Agent Details',
+            content: agentId && state.agentService ? (
+              <AgentInformation
+                agentId={agentId}
+                agentService={state.agentService}
+              />
+            ) : null
+          },
+          {
+            id: 'conversations',
+            icon: <ChatBubbleLeftEllipsisIcon className="w-5 h-5" />,
+            title: 'Conversations',
+            content: (
+              <ConversationList
+                conversations={convState.conversations}
+                activeConversationId={convState.activeConversationId}
+                isLoading={convState.isLoading}
+                onSelectConversation={async (stateId) => {
+                  if (agentId && state.agentService && stateId) {
+                    selectConversation(stateId);
+                    await loadConversation(agentId, stateId, state.agentService);
                   }
                 }}
-              >
-                <div class="conversation-title">
-                  {conv.stateId === state.activeConversationId ? '✓ ' : ''}
-                  Conversation {conv.stateId.slice(0, 8)}...
-                </div>
-                <div class="conversation-date">
-                  {new Date(conv.createdAt).toLocaleDateString()}
-                </div>
-                <button
-                  class="delete-conversation-button"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    if (!agentId || !state.agentService) return;
-
-                    try {
-                      dispatch({ type: 'SET_IS_LOADING', payload: true });
-                      await state.agentService.deleteConversation(agentId, conv.stateId);
-
-                      // If we're deleting the active conversation, clear the messages
-                      if (conv.stateId === state.activeConversationId) {
-                        dispatch({ type: 'SET_MESSAGES', payload: [] });
-                      }
-
-                      // Refresh the conversations list and let it handle setting the active conversation
-                      await refreshConversations(agentId, state.agentService);
-                    } catch (error) {
-                      console.error('Error deleting conversation:', error);
-                    } finally {
-                      dispatch({ type: 'SET_IS_LOADING', payload: false });
-                    }
-                  }}
-                  disabled={state.isLoading}
-                >
-                  ×
-                </button>
-              </li>
-            ))
-          ) : (
-            <div class="no-conversations">No conversations yet</div>
-          )}
-        </ul>
-      </div>
-
+                onNewConversation={newConversation}
+                onDeleteConversation={async (stateId) => {
+                  if (!agentId || !state.agentService) return;
+                  const wasActive = stateId === convState.activeConversationId;
+                  await deleteConversation(agentId, stateId, state.agentService);
+                  // No need to loadConversation here; handled by useEffect below
+                  if (wasActive && !convState.activeConversationId) {
+                    dispatch({ type: 'SET_MESSAGES', payload: [] });
+                  }
+                }}
+              />
+            )
+          },
+          {
+            id: 'memory',
+            icon: <CircleStackIcon className="w-5 h-5" />,
+            title: 'Memory',
+            content: agentId && convState.activeConversationId && state.agentService ? (
+              <Memory
+                agentId={agentId}
+                conversationId={convState.activeConversationId}
+                agentService={state.agentService}
+              />
+            ) : null
+          },
+          {
+            id: 'tools',
+            icon: <WrenchScrewdriverIcon className="w-5 h-5" />,
+            title: 'Tools',
+            content: agentId && state.agentService ? (
+              <AgentInformation
+                agentId={agentId}
+                agentService={state.agentService}
+                showToolsOnly={true}
+              />
+            ) : null
+          }
+        ]}
+        activeTabId={activeTab}
+        onTabClick={(tabId) => setActiveTab(tabId)}
+      />
       <div class={`chat-container ${isConfigPanelCollapsed ? 'config-panel-collapsed' : ''}`}>
         <div class="chat-header">
           <h1>{state.agentName}</h1>
@@ -578,50 +596,6 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           </button>
         </form>
       </div>
-
-      <CollapsiblePanel
-        isCollapsed={isConfigPanelCollapsed}
-        onToggle={() => setIsConfigPanelCollapsed(!isConfigPanelCollapsed)}
-        menuTabs={[
-          {
-            id: 'agent',
-            icon: <InformationCircleIcon className="w-5 h-5" />,
-            title: 'Agent Details',
-            content: agentId && state.agentService ? (
-              <AgentInformation
-                agentId={agentId}
-                agentService={state.agentService}
-              />
-            ) : null
-          },
-          {
-            id: 'memory',
-            icon: <CircleStackIcon className="w-5 h-5" />,
-            title: 'Memory',
-            content: agentId && state.activeConversationId && state.agentService ? (
-              <Memory
-                agentId={agentId}
-                conversationId={state.activeConversationId}
-                agentService={state.agentService}
-              />
-            ) : null
-          },
-          {
-            id: 'tools',
-            icon: <WrenchScrewdriverIcon className="w-5 h-5" />,
-            title: 'Tools',
-            content: agentId && state.agentService ? (
-              <AgentInformation
-                agentId={agentId}
-                agentService={state.agentService}
-                showToolsOnly={true}
-              />
-            ) : null
-          }
-        ]}
-        activeTabId={activeTab}
-        onTabClick={(tabId) => setActiveTab(tabId)}
-      />
     </div>
   );
 };
