@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'preact/hooks';
 import type { ModelInfoDto } from '../api-client/models/ModelInfoDto';
 import { ModelService } from '../services/models.service';
+import '../styles/model-selector.css';
 
 interface ModelSelectorProps {
   value: string;
@@ -237,10 +238,11 @@ export const ModelSelector = ({ value, onChange }: ModelSelectorProps) => {
         <div class="model-table-header">
           <div class="model-id">Model ID</div>
           <div class="model-modalities">
-            Modalities <span class="modality-tag input">Input</span> <span class="modality-tag output">Output</span>
+            Modalities
           </div>
-          <div class="model-provider">Provider</div>
+          <div class="model-id">Provider</div>
           <div class="model-streaming">Streaming</div>
+          <div class="model-tools">Tools</div>
           <div class="model-status">Status</div>
         </div>
         {filteredModels.map(model => {
@@ -286,6 +288,13 @@ export const ModelSelector = ({ value, onChange }: ModelSelectorProps) => {
                   <span class="streaming-tag supported">Yes</span>
                 ) : (
                   <span class="streaming-tag unsupported">No</span>
+                )}
+              </div>
+              <div class="model-tools">
+                {model.supportsToolCalls ? (
+                  <span class="tools-tag supported">Yes</span>
+                ) : (
+                  <span class="tools-tag unsupported">No</span>
                 )}
               </div>
               <div class="model-status">

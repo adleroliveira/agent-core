@@ -23,10 +23,13 @@ export const CreateAgent: ComponentType = () => {
     tools: [] as string[],
   });
   const [availableTools, setAvailableTools] = useState<Tool[]>([]);
-  const [_availableModels, setAvailableModels] = useState<ModelInfoDto[]>([]);
+  const [availableModels, setAvailableModels] = useState<ModelInfoDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedModel = availableModels.find(model => model.id === formData.modelId);
+  const showToolsSection = selectedModel?.supportsToolCalls ?? false;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -128,9 +131,34 @@ export const CreateAgent: ComponentType = () => {
           <label>Model</label>
           <ModelSelector
             value={formData.modelId}
-            onChange={(modelId) => setFormData(prev => ({ ...prev, modelId }))}
+            onChange={(modelId) => {
+              setFormData(prev => ({ ...prev, modelId, tools: [] }));
+            }}
           />
         </div>
+
+        {showToolsSection && (
+          <div class="form-group">
+            <label>Available Tools</label>
+            <div class="tools-grid">
+              {availableTools.map(tool => (
+                <div key={tool.id} class="tool-card">
+                  <label class="tool-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={formData.tools.includes(tool.name)}
+                      onChange={() => handleToolToggle(tool.name)}
+                    />
+                    <div class="tool-info">
+                      <h4>{tool.name}</h4>
+                      <p>{tool.description}</p>
+                    </div>
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div class="form-group">
           <label for="systemPrompt">System Prompt</label>
@@ -143,27 +171,6 @@ export const CreateAgent: ComponentType = () => {
             placeholder="Enter the system prompt for the agent"
             rows={6}
           />
-        </div>
-
-        <div class="form-group">
-          <label>Available Tools</label>
-          <div class="tools-grid">
-            {availableTools.map(tool => (
-              <div key={tool.id} class="tool-card">
-                <label class="tool-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={formData.tools.includes(tool.name)}
-                    onChange={() => handleToolToggle(tool.name)}
-                  />
-                  <div class="tool-info">
-                    <h4>{tool.name}</h4>
-                    <p>{tool.description}</p>
-                  </div>
-                </label>
-              </div>
-            ))}
-          </div>
         </div>
 
         {error && <p class="error">{error}</p>}

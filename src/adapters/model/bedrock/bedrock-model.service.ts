@@ -611,7 +611,7 @@ export class BedrockModelService implements ModelServicePort {
           maxTokens: undefined,
           contextWindow: undefined,
           supportsStreaming: model.responseStreamingSupported || false,
-          supportsToolCalls: true,
+          supportsToolCalls: this.configService.supportsToolCalling(modelId),
           inputModalities: this.mapModalities(model.inputModalities),
           outputModalities: this.mapModalities(model.outputModalities),
           pricing: {
