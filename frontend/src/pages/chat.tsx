@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentType } from 'preact';
 import '../styles/chat.css';
 import { marked } from 'marked';
@@ -8,6 +8,9 @@ import { ChatService } from '@/services/chat.service';
 import { FrontendAgentService } from '@/services/agent.service';
 import '@preact/compat';
 import { MessageDto } from '../api-client/models/MessageDto';
+import { Memory } from '@/components/Memory';
+import { CollapsiblePanel } from '@/components/CollapsiblePanel';
+import { CircleStackIcon } from '@heroicons/react/24/outline';
 
 interface ChatProps {
   agentId?: string;
@@ -21,6 +24,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   const initializedRef = useRef(false);
   const currentBlockType = useRef<'thinking' | 'tool' | 'normal' | null>(null);
   const currentMessageRef = useRef<ExtendedMessage | null>(null);
+  const [isConfigPanelCollapsed, setIsConfigPanelCollapsed] = useState(false);
 
   if (!lexerRef.current) {
     lexerRef.current = new GenAIStreamLexer();
@@ -407,7 +411,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         </ul>
       </div>
 
-      <div class="chat-container">
+      <div class={`chat-container ${isConfigPanelCollapsed ? 'config-panel-collapsed' : ''}`}>
         <div class="chat-header">
           <h1>{state.agentName}</h1>
           <div class="chat-toggles">
@@ -505,14 +509,26 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         </form>
       </div>
 
-      <div class="configurations-panel">
-        <div class="configurations-header">
-          <h2>Configurations</h2>
-        </div>
-        <div class="config-placeholder">
-          <p>Configuration options will appear here</p>
-        </div>
-      </div>
+      <CollapsiblePanel
+        isCollapsed={isConfigPanelCollapsed}
+        onToggle={() => setIsConfigPanelCollapsed(!isConfigPanelCollapsed)}
+        menuTabs={[
+          {
+            id: 'memory',
+            icon: <CircleStackIcon className="w-5 h-5" />,
+            title: 'Memory',
+            content: agentId && state.activeConversationId && state.agentService ? (
+              <Memory
+                agentId={agentId}
+                conversationId={state.activeConversationId}
+                agentService={state.agentService}
+              />
+            ) : null
+          }
+        ]}
+        activeTabId="memory"
+        onTabClick={() => { }}
+      />
     </div>
   );
 };

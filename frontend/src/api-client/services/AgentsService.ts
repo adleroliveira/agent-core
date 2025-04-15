@@ -371,4 +371,111 @@ export class AgentsService {
             },
         });
     }
+    /**
+     * Set agent memory
+     * Sets the complete memory state for a specific agent and conversation state
+     * @param id The ID of the agent
+     * @param stateId The ID of the conversation state
+     * @param requestBody
+     * @returns any Memory set successfully
+     * @throws ApiError
+     */
+    public static agentControllerSetMemory(
+        id: string,
+        stateId: string,
+        requestBody: Record<string, any>,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'PUT',
+            url: '/api/agents/{id}/memory/{stateId}',
+            path: {
+                'id': id,
+                'stateId': stateId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                404: `Agent or state not found`,
+            },
+        });
+    }
+    /**
+     * Update agent memory
+     * Updates the memory state by merging new values with existing ones
+     * @param id The ID of the agent
+     * @param stateId The ID of the conversation state
+     * @param requestBody
+     * @returns any Memory updated successfully
+     * @throws ApiError
+     */
+    public static agentControllerUpdateMemory(
+        id: string,
+        stateId: string,
+        requestBody: Record<string, any>,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/agents/{id}/memory/{stateId}',
+            path: {
+                'id': id,
+                'stateId': stateId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                404: `Agent or state not found`,
+            },
+        });
+    }
+    /**
+     * Delete agent memory
+     * Clears all memory for a specific agent and conversation state
+     * @param id The ID of the agent
+     * @param stateId The ID of the conversation state
+     * @returns any Memory cleared successfully
+     * @throws ApiError
+     */
+    public static agentControllerDeleteMemory(
+        id: string,
+        stateId: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/agents/{id}/memory/{stateId}',
+            path: {
+                'id': id,
+                'stateId': stateId,
+            },
+            errors: {
+                404: `Agent or state not found`,
+            },
+        });
+    }
+    /**
+     * Delete memory entry
+     * Removes a specific key from the agent's memory
+     * @param id The ID of the agent
+     * @param stateId The ID of the conversation state
+     * @param key The key to remove from memory
+     * @returns any Memory entry deleted successfully
+     * @throws ApiError
+     */
+    public static agentControllerDeleteMemoryEntry(
+        id: string,
+        stateId: string,
+        key: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/agents/{id}/memory/{stateId}/{key}',
+            path: {
+                'id': id,
+                'stateId': stateId,
+                'key': key,
+            },
+            errors: {
+                404: `Agent or state not found`,
+            },
+        });
+    }
 }

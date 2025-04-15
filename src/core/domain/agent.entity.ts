@@ -207,6 +207,38 @@ export class Agent {
     return state.memory;
   }
 
+  public setStateMemory(stateId: string, memory: Record<string, any>): void {
+    const state = this.getStateById(stateId);
+    if (!state) {
+      throw new Error(`No state found with ID: ${stateId}`);
+    }
+    state.memory = memory;
+  }
+
+  public updateStateMemory(stateId: string, memory: Record<string, any>): void {
+    const state = this.getStateById(stateId);
+    if (!state) {
+      throw new Error(`No state found with ID: ${stateId}`);
+    }
+    state.memory = { ...state.memory, ...memory };
+  }
+
+  public deleteStateMemory(stateId: string): void {
+    const state = this.getStateById(stateId);
+    if (!state) {
+      throw new Error(`No state found with ID: ${stateId}`);
+    }
+    state.memory = {};
+  }
+
+  public deleteMemoryEntry(stateId: string, key: string): void {
+    const state = this.getStateById(stateId);
+    if (!state) {
+      throw new Error(`No state found with ID: ${stateId}`);
+    }
+    delete state.memory[key];
+  }
+
   private processStreamingMessage(
     message: Message,
     state: AgentState,
@@ -399,6 +431,9 @@ export class Agent {
       isToolError: hasErrors
     });
 
+    // Ensure the tool result message has a different timestamp than the assistant's message
+    // by adding 1 millisecond to the assistant's message timestamp
+    toolResponseMessage.createdAt = new Date(assistantMessage.createdAt.getTime() + 1);
     state.addToConversation(toolResponseMessage);
 
     if (hasErrors && recursionDepth >= MAX_RECURSION_DEPTH_ON_ERRORS) {

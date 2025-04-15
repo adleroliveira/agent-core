@@ -361,4 +361,52 @@ export class AgentService implements OnModuleInit {
       return this.messageService.getMessages(agent.getMostRecentState().id, options);
     }
   }
+
+  async setAgentMemory(agentId: string, stateId: string, memory: Record<string, any>): Promise<void> {
+    const state = await this.stateRepository.findById(stateId, true);
+    if (!state) {
+      throw new NotFoundException(`No state found with ID ${stateId}`);
+    }
+    if (state.agentId !== agentId) {
+      throw new NotFoundException(`No state found with ID ${stateId} for agent ${agentId}`);
+    }
+    state.memory = memory;
+    await this.stateRepository.save(state);
+  }
+
+  async updateAgentMemory(agentId: string, stateId: string, memory: Record<string, any>): Promise<void> {
+    const state = await this.stateRepository.findById(stateId, true);
+    if (!state) {
+      throw new NotFoundException(`No state found with ID ${stateId}`);
+    }
+    if (state.agentId !== agentId) {
+      throw new NotFoundException(`No state found with ID ${stateId} for agent ${agentId}`);
+    }
+    state.memory = { ...state.memory, ...memory };
+    await this.stateRepository.save(state);
+  }
+
+  async deleteAgentMemory(agentId: string, stateId: string): Promise<void> {
+    const state = await this.stateRepository.findById(stateId, true);
+    if (!state) {
+      throw new NotFoundException(`No state found with ID ${stateId}`);
+    }
+    if (state.agentId !== agentId) {
+      throw new NotFoundException(`No state found with ID ${stateId} for agent ${agentId}`);
+    }
+    state.memory = {};
+    await this.stateRepository.save(state);
+  }
+
+  async deleteAgentMemoryEntry(agentId: string, stateId: string, key: string): Promise<void> {
+    const state = await this.stateRepository.findById(stateId, true);
+    if (!state) {
+      throw new NotFoundException(`No state found with ID ${stateId}`);
+    }
+    if (state.agentId !== agentId) {
+      throw new NotFoundException(`No state found with ID ${stateId} for agent ${agentId}`);
+    }
+    delete state.memory[key];
+    await this.stateRepository.save(state);
+  }
 }

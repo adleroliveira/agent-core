@@ -51,16 +51,21 @@
   flex-direction: column;
   background: white;
   margin-left: 350px;
-  margin-right: 350px;
+  margin-right: 440px;
   overflow: hidden;
   min-height: 100%;
   width: auto;
   max-width: none;
+  transition: margin-right 0.3s ease;
 }
 
-.configurations-panel {
-  width: 300px;
-  min-width: 300px;
+.chat-container.config-panel-collapsed {
+  margin-right: 80px;
+}
+
+.collapsible-panel {
+  width: 350px;
+  min-width: 350px;
   background: white;
   border-left: 1px solid #e0e0e0;
   display: flex;
@@ -71,6 +76,49 @@
   right: 0;
   top: 0;
   bottom: 0;
+  transition: transform 0.3s ease;
+  box-shadow: -2px 0 4px rgba(0, 0, 0, 0.05);
+}
+
+.config-toggle-button {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  transition: all 0.2s ease;
+  z-index: 1;
+}
+
+.config-toggle-button:hover {
+  background: #f8fafc;
+  color: #1a365d;
+}
+
+.config-toggle-button .icon {
+  font-size: 1.2rem;
+  transition: transform 0.3s ease;
+}
+
+.configurations-panel.collapsed .config-toggle-button .icon {
+  transform: rotate(180deg);
+}
+
+.config-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  margin-left: 40px;
 }
 
 .chat-description {

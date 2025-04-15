@@ -12,6 +12,7 @@ import {
   forwardRef,
   Res,
   Query,
+  Patch,
 } from "@nestjs/common";
 import { Response } from "express";
 import { Observable } from "rxjs";
@@ -782,6 +783,180 @@ export class AgentController {
     } catch (error) {
       throw new HttpException(
         `Failed to retrieve memory: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Put(":id/memory/:stateId")
+  @ApiOperation({ 
+    summary: 'Set agent memory',
+    description: 'Sets the complete memory state for a specific agent and conversation state'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'The ID of the agent',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiParam({ 
+    name: 'stateId', 
+    description: 'The ID of the conversation state',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiBody({ 
+    schema: {
+      type: 'object',
+      additionalProperties: true,
+      description: 'The complete memory state to set'
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Memory set successfully'
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent or state not found'
+  })
+  async setMemory(
+    @Param("id") id: string,
+    @Param("stateId") stateId: string,
+    @Body() memory: Record<string, any>
+  ) {
+    try {
+      await this.agentService.setAgentMemory(id, stateId, memory);
+      return { success: true };
+    } catch (error) {
+      throw new HttpException(
+        `Failed to set memory: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Patch(":id/memory/:stateId")
+  @ApiOperation({ 
+    summary: 'Update agent memory',
+    description: 'Updates the memory state by merging new values with existing ones'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'The ID of the agent',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiParam({ 
+    name: 'stateId', 
+    description: 'The ID of the conversation state',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiBody({ 
+    schema: {
+      type: 'object',
+      additionalProperties: true,
+      description: 'The memory updates to merge with existing memory'
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Memory updated successfully'
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent or state not found'
+  })
+  async updateMemory(
+    @Param("id") id: string,
+    @Param("stateId") stateId: string,
+    @Body() memory: Record<string, any>
+  ) {
+    try {
+      await this.agentService.updateAgentMemory(id, stateId, memory);
+      return { success: true };
+    } catch (error) {
+      throw new HttpException(
+        `Failed to update memory: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Delete(":id/memory/:stateId")
+  @ApiOperation({ 
+    summary: 'Delete agent memory',
+    description: 'Clears all memory for a specific agent and conversation state'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'The ID of the agent',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiParam({ 
+    name: 'stateId', 
+    description: 'The ID of the conversation state',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Memory cleared successfully'
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent or state not found'
+  })
+  async deleteMemory(
+    @Param("id") id: string,
+    @Param("stateId") stateId: string
+  ) {
+    try {
+      await this.agentService.deleteAgentMemory(id, stateId);
+      return { success: true };
+    } catch (error) {
+      throw new HttpException(
+        `Failed to delete memory: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Delete(":id/memory/:stateId/:key")
+  @ApiOperation({ 
+    summary: 'Delete memory entry',
+    description: 'Removes a specific key from the agent\'s memory'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'The ID of the agent',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiParam({ 
+    name: 'stateId', 
+    description: 'The ID of the conversation state',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @ApiParam({ 
+    name: 'key', 
+    description: 'The key to remove from memory',
+    example: 'last_user_query'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Memory entry deleted successfully'
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Agent or state not found'
+  })
+  async deleteMemoryEntry(
+    @Param("id") id: string,
+    @Param("stateId") stateId: string,
+    @Param("key") key: string
+  ) {
+    try {
+      await this.agentService.deleteAgentMemoryEntry(id, stateId, key);
+      return { success: true };
+    } catch (error) {
+      throw new HttpException(
+        `Failed to delete memory entry: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }

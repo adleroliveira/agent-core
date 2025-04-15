@@ -4,6 +4,7 @@ import { Home } from './pages/home';
 import { CreateAgent } from './pages/create-agent';
 import { Chat } from './pages/chat';
 import { ChatProvider } from './stores/chat.store';
+import { MemoryProvider } from './stores/memory.store';
 import './styles/app.css';
 
 export function App() {
@@ -23,11 +24,13 @@ export function App() {
       </header>
       <main class="app-main">
         <ChatProvider>
-          <Router>
-            <Home path="/" />
-            <CreateAgent path="/create-agent" />
-            <Chat path="/chat/:agentId" />
-          </Router>
+          <MemoryProvider>
+            <Router>
+              <Home path="/" />
+              <CreateAgent path="/create-agent" />
+              <Chat path="/chat/:agentId" />
+            </Router>
+          </MemoryProvider>
         </ChatProvider>
       </main>
     </div>

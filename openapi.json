@@ -609,6 +609,194 @@
         "tags": [
           "agents"
         ]
+      },
+      "put": {
+        "description": "Sets the complete memory state for a specific agent and conversation state",
+        "operationId": "AgentController_setMemory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the agent",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          },
+          {
+            "name": "stateId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the conversation state",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "The complete memory state to set"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Memory set successfully"
+          },
+          "404": {
+            "description": "Agent or state not found"
+          }
+        },
+        "summary": "Set agent memory",
+        "tags": [
+          "agents"
+        ]
+      },
+      "patch": {
+        "description": "Updates the memory state by merging new values with existing ones",
+        "operationId": "AgentController_updateMemory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the agent",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          },
+          {
+            "name": "stateId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the conversation state",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "The memory updates to merge with existing memory"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Memory updated successfully"
+          },
+          "404": {
+            "description": "Agent or state not found"
+          }
+        },
+        "summary": "Update agent memory",
+        "tags": [
+          "agents"
+        ]
+      },
+      "delete": {
+        "description": "Clears all memory for a specific agent and conversation state",
+        "operationId": "AgentController_deleteMemory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the agent",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          },
+          {
+            "name": "stateId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the conversation state",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Memory cleared successfully"
+          },
+          "404": {
+            "description": "Agent or state not found"
+          }
+        },
+        "summary": "Delete agent memory",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/api/agents/{id}/memory/{stateId}/{key}": {
+      "delete": {
+        "description": "Removes a specific key from the agent's memory",
+        "operationId": "AgentController_deleteMemoryEntry",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the agent",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          },
+          {
+            "name": "stateId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the conversation state",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "description": "The key to remove from memory",
+            "schema": {
+              "example": "last_user_query",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Memory entry deleted successfully"
+          },
+          "404": {
+            "description": "Agent or state not found"
+          }
+        },
+        "summary": "Delete memory entry",
+        "tags": [
+          "agents"
+        ]
       }
     },
     "/api/tools": {

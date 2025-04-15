@@ -17,6 +17,56 @@ export class FrontendAgentService {
     }
   }
 
+  async getMemory(agentId: string, conversationId: string) {
+    try {
+      const response = await AgentsService.agentControllerGetMemory(agentId, conversationId);
+      return response;
+    } catch (error) {
+      console.error('Error fetching memory:', error);
+      throw error;
+    }
+  }
+
+  async setMemory(agentId: string, conversationId: string, memory: Record<string, any>) {
+    try {
+      const response = await AgentsService.agentControllerSetMemory(agentId, conversationId, memory);
+      return response;
+    } catch (error) {
+      console.error('Error setting memory:', error);  
+      throw error;
+    }
+  }
+
+  async updateMemory(agentId: string, conversationId: string, memory: Record<string, any>) {
+    try {
+      const response = await AgentsService.agentControllerUpdateMemory(agentId, conversationId, memory);
+      return response;
+    } catch (error) {
+      console.error('Error updating memory:', error);
+      throw error;
+    }
+  }
+
+  async deleteMemory(agentId: string, conversationId: string) {
+    try {
+      const response = await AgentsService.agentControllerDeleteMemory(agentId, conversationId);
+      return response;
+    } catch (error) {
+      console.error('Error deleting memory:', error); 
+      throw error;
+    }
+  }
+
+  async deleteMemoryEntry(agentId: string, conversationId: string, key: string) {
+    try {
+      const response = await AgentsService.agentControllerDeleteMemoryEntry(agentId, conversationId, key);
+      return response;
+    } catch (error) {
+      console.error('Error deleting memory entry:', error);
+      throw error;
+    }
+  }
+
   async getAgentDetails(agentId: string) {
     try {
       const agent = await AgentsService.agentControllerGetAgent(agentId);
