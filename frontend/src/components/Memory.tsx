@@ -24,6 +24,9 @@ const MemoryNode = ({ nodeKey, value, path, onUpdate, onDelete }: MemoryNodeProp
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newKey, setNewKey] = useState('');
+  const [newValue, setNewValue] = useState('');
 
   const handleUpdate = () => {
     onUpdate(path, editValue);
@@ -34,6 +37,16 @@ const MemoryNode = ({ nodeKey, value, path, onUpdate, onDelete }: MemoryNodeProp
     onDelete(path);
   };
 
+  const handleAdd = () => {
+    if (newKey && newValue) {
+      const newPath = path.concat([newKey]);
+      onUpdate(newPath, newValue);
+      setIsAdding(false);
+      setNewKey('');
+      setNewValue('');
+    }
+  };
+
   if (typeof value === 'object' && value !== null) {
     return (
       <div class="memory-node">
@@ -42,14 +55,35 @@ const MemoryNode = ({ nodeKey, value, path, onUpdate, onDelete }: MemoryNodeProp
             {isExpanded ? '▼' : '▶'}
           </button>
           <span class="memory-key">{nodeKey}:</span>
+          <button class="add-button" onClick={() => setIsAdding(true)}>+</button>
           <button class="delete-button" onClick={handleDelete}>×</button>
         </div>
         {isExpanded && (
           <div class="memory-children">
+            {isAdding && (
+              <div class="memory-node new-node">
+                <div class="memory-node-header">
+                  <input
+                    type="text"
+                    placeholder="Key"
+                    value={newKey}
+                    onChange={(e) => setNewKey((e.target as HTMLInputElement).value)}
+                    class="memory-input"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Value"
+                    value={newValue}
+                    onChange={(e) => setNewValue((e.target as HTMLInputElement).value)}
+                    class="memory-input"
+                  />
+                  <button class="save-button" onClick={handleAdd}>✓</button>
+                  <button class="cancel-button" onClick={() => setIsAdding(false)}>×</button>
+                </div>
+              </div>
+            )}
             {Object.entries(value).map(([childKey, childValue]) => {
-              // Create the new path correctly
               const newPath: PathType = path.concat([childKey]);
-
               return (
                 <MemoryNode
                   key={childKey}
@@ -95,6 +129,9 @@ const MemoryNode = ({ nodeKey, value, path, onUpdate, onDelete }: MemoryNodeProp
 
 export const Memory = ({ agentId, conversationId, agentService }: MemoryProps) => {
   const { state, fetchMemory, updateMemory } = useMemoryStore();
+  const [isAdding, setIsAdding] = useState(false);
+  const [newKey, setNewKey] = useState('');
+  const [newValue, setNewValue] = useState('');
 
   useEffect(() => {
     fetchMemory(agentId, conversationId, agentService);
@@ -134,6 +171,16 @@ export const Memory = ({ agentId, conversationId, agentService }: MemoryProps) =
     updateMemory(agentId, conversationId, updatedMemory, agentService);
   };
 
+  const handleAddRoot = () => {
+    if (newKey && newValue && state.memory) {
+      const updatedMemory = { ...state.memory, [newKey]: newValue };
+      updateMemory(agentId, conversationId, updatedMemory, agentService);
+      setIsAdding(false);
+      setNewKey('');
+      setNewValue('');
+    }
+  };
+
   if (state.isLoading) {
     return <div class="memory-container loading">Loading memory...</div>;
   }
@@ -147,16 +194,70 @@ export const Memory = ({ agentId, conversationId, agentService }: MemoryProps) =
   }
 
   if (Object.keys(state.memory).length === 0) {
-    return <div class="memory-container empty">Memory is empty</div>;
+    return (
+      <div class="memory-container">
+        <div class="memory-content">
+          <div class="memory-empty">
+            <p>Memory is empty</p>
+            <button class="add-button" onClick={() => setIsAdding(true)}>Add New Node</button>
+          </div>
+          {isAdding && (
+            <div class="memory-node new-node">
+              <div class="memory-node-header">
+                <input
+                  type="text"
+                  placeholder="Key"
+                  value={newKey}
+                  onChange={(e) => setNewKey((e.target as HTMLInputElement).value)}
+                  class="memory-input"
+                />
+                <input
+                  type="text"
+                  placeholder="Value"
+                  value={newValue}
+                  onChange={(e) => setNewValue((e.target as HTMLInputElement).value)}
+                  class="memory-input"
+                />
+                <button class="save-button" onClick={handleAddRoot}>✓</button>
+                <button class="cancel-button" onClick={() => setIsAdding(false)}>×</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div class="memory-container">
       <div class="memory-content">
+        <div class="memory-header">
+          <button class="add-button" onClick={() => setIsAdding(true)}>Add New Node</button>
+        </div>
+        {isAdding && (
+          <div class="memory-node new-node">
+            <div class="memory-node-header">
+              <input
+                type="text"
+                placeholder="Key"
+                value={newKey}
+                onChange={(e) => setNewKey((e.target as HTMLInputElement).value)}
+                class="memory-input"
+              />
+              <input
+                type="text"
+                placeholder="Value"
+                value={newValue}
+                onChange={(e) => setNewValue((e.target as HTMLInputElement).value)}
+                class="memory-input"
+              />
+              <button class="save-button" onClick={handleAddRoot}>✓</button>
+              <button class="cancel-button" onClick={() => setIsAdding(false)}>×</button>
+            </div>
+          </div>
+        )}
         {Object.entries(state.memory).map(([key, value]) => {
-          // Initialize the path correctly
           const initialPath: PathType = [key];
-
           return (
             <MemoryNode
               key={key}

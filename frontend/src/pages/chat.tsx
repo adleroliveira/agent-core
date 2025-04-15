@@ -456,26 +456,37 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
               {state.messages.map((msg, idx) => (
                 <div
                   key={idx}
-                  class={`message ${msg.role} ${msg.blockType === 'thinking' ? 'thinking' : ''} ${msg.blockType === 'thinking' && state.showThinkingBubbles ? 'show' : ''} ${msg.blockType === 'tool' ? 'tool-message' : ''}`}
+                  class={`message ${msg.role}`}
                 >
-                  <div class="message-content">
-                    {msg.blockType === 'thinking' && state.showThinkingBubbles ? (
-                      <div class="thinking-content">
-                        <div class="thinking-header">Thought Process</div>
-                        <div class="thinking-body">
-                          <span class="thinking-icon">🤔</span>
-                          {(msg.thinking || msg.content || '').trimStart()}
+                  {msg.role === MessageDto.role.USER ? (
+                    <div class="message-content">
+                      {msg.content}
+                    </div>
+                  ) : (
+                    <>
+                      {msg.blockType === 'thinking' && state.showThinkingBubbles && (
+                        <div class="message assistant thinking show">
+                          <div class="thinking-content">
+                            <div class="thinking-header">Thought Process</div>
+                            <div class="thinking-body">
+                              <span class="thinking-icon">🤔</span>
+                              {(msg.thinking || msg.content || '').trimStart()}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ) : msg.blockType === 'tool' ? (
-                      <div class="tool-message-content">
-                        <span class="tool-icon">🔧</span>
-                        <span>Using tool...</span>
-                      </div>
-                    ) : (
-                      <div class="message-content" dangerouslySetInnerHTML={{ __html: renderMarkdown((msg.content || '').trimStart()) }} />
-                    )}
-                  </div>
+                      )}
+                      {msg.blockType === 'tool' ? (
+                        <div class="message assistant tool-message">
+                          <div class="tool-message-content">
+                            <span class="tool-icon">🔧</span>
+                            <span>Using tool...</span>
+                          </div>
+                        </div>
+                      ) : msg.blockType === 'normal' && (
+                        <div class="message-content" dangerouslySetInnerHTML={{ __html: renderMarkdown((msg.content || '').trimStart()) }} />
+                      )}
+                    </>
+                  )}
                 </div>
               ))}
               {state.showLoadingCue && (

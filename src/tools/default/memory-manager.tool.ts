@@ -16,10 +16,10 @@ export class MemoryManagerTool {
       {
         name: "operation",
         type: "string",
-        description: "The operation to perform on the memory. Can be 'set' to replace the entire memory, or 'update' to merge with existing memory.",
+        description: "The operation to perform on the memory. Can be 'set' to replace the entire memory, 'update' to merge with existing memory, or 'get' to retrieve the current memory.",
         required: false,
         default: "update",
-        enum: ["set", "update"],
+        enum: ["set", "update", "get"],
       },
     ];
 
@@ -60,6 +60,11 @@ Do NOT use this tool for:
   private async memoryHandler(args: Record<string, any>, agent: Agent): Promise<string> {
     try {
       const stateId = agent.getMostRecentState().id;
+      
+      if (args.operation === "get") {
+        const memory = agent.getStateMemory(stateId);
+        return JSON.stringify(memory);
+      }
       
       if (args.operation === "set") {
         agent.updateMemory(stateId, args.memory);
