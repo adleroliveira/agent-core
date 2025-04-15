@@ -228,6 +228,7 @@ export class AgentService implements OnModuleInit {
           complete: async () => {
             try {
               // Save the final state after stream completes
+              await this.stateRepository.save(updatedState);
               await this.messageService.appendMessages(updatedState.conversationHistory);
               subscriber.complete();
             } catch (error) {
@@ -239,6 +240,7 @@ export class AgentService implements OnModuleInit {
       });
     } else {
       // For non-streaming responses, save state immediately
+      await this.stateRepository.save(updatedState);
       await this.messageService.appendMessages(updatedState.conversationHistory);
       return response as Message;
     }

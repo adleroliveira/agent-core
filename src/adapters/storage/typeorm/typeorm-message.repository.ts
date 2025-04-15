@@ -14,7 +14,7 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
   ) {}
 
   async appendMessages(messages: Message[]): Promise<void> {
-    const messageEntities = messages.map(msg => MessageMapper.toPersistence(msg));
+    const messageEntities = messages.filter(msg => msg.isNew).map(msg => MessageMapper.toPersistence(msg));
     await this.messageRepository.save(messageEntities);
   }
 
@@ -30,12 +30,13 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
     messages: Message[];
     hasMore: boolean;
   }> {
-    const { limit = 20, beforeTimestamp, afterTimestamp, role } = options;
+    const { limit = 50, beforeTimestamp, afterTimestamp, role } = options;
 
     const queryBuilder = this.messageRepository
       .createQueryBuilder('message')
       .where('message.stateId = :stateId', { stateId })
-      .orderBy('message.createdAt', 'ASC');
+      .orderBy('message.createdAt', 'DESC')
+      .addOrderBy('message.id', 'ASC');
 
     if (beforeTimestamp) {
       queryBuilder.andWhere('message.createdAt < :beforeTimestamp', { beforeTimestamp });
@@ -49,18 +50,37 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
       queryBuilder.andWhere('message.role = :role', { role });
     }
 
-    // Get one more message than the limit to determine if there are more
-    const messages = await queryBuilder
-      .take(limit + 1)
+    // First, get messages up to the limit
+    let messages = await queryBuilder
+      .take(limit)
       .getMany();
 
-    // Check if there are more messages
-    const hasMore = messages.length > limit;
-    
-    // If we have more, remove the extra message
-    if (hasMore) {
-      messages.pop();
+    // If we have messages, check if the last one is from a user
+    if (messages.length > 0 && messages[messages.length - 1].role !== 'user') {
+      // If not, get more messages until we find a user message or run out
+      const additionalMessages = await queryBuilder
+        .skip(limit)
+        .take(limit) // Get another batch of messages
+        .getMany();
+
+      // Find the first user message in the additional messages
+      const firstUserMessageIndex = additionalMessages.findIndex(msg => msg.role === 'user');
+      
+      if (firstUserMessageIndex !== -1) {
+        // If we found a user message, include all messages up to and including it
+        messages = [...messages, ...additionalMessages.slice(0, firstUserMessageIndex + 1)];
+      } else {
+        // If we didn't find a user message, include all additional messages
+        messages = [...messages, ...additionalMessages];
+      }
     }
+
+    // Check if there are more messages beyond what we've fetched
+    const totalCount = await queryBuilder.getCount();
+    const hasMore = messages.length < totalCount;
+
+    // Reverse the messages to get them in chronological order
+    messages.reverse();
 
     return {
       messages: messages.map(msg => MessageMapper.toDomain(msg)),

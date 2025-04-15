@@ -40,7 +40,7 @@ export class Message {
     toolName?: string;
     isToolError?: boolean;
     isStreaming?: boolean;
-  }) {
+  }, public isNew: boolean = true) {
     this.id = params.id || uuidv4();
     this.role = params.role;
     this.content = params.content;

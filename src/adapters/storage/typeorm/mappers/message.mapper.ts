@@ -39,7 +39,7 @@ export class MessageMapper {
       }
     }
 
-    return new Message({
+    const message = new Message({
       id: entity.id,
       role: entity.role as MessageRole,
       content: parsedContent,
@@ -49,7 +49,10 @@ export class MessageMapper {
       toolCallId: entity.toolCallId || undefined, // Convert null to undefined
       toolName: entity.toolName || undefined, // Convert null to undefined
       isStreaming: entity.isStreaming,
-    });
+    }, false);
+    message.createdAt = entity.createdAt;
+
+    return message;
   }
 
   static toPersistence(domain: Message): MessageEntity {

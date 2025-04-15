@@ -42,7 +42,7 @@ export class MessageEntity {
   @JoinColumn({ name: "stateId" })
   state: StateEntity;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ precision: 3 })
   createdAt: Date;
 
   @VersionColumn()
