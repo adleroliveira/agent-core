@@ -12,6 +12,8 @@ import { MessageDto } from '../api-client/models/MessageDto';
 import { Memory } from '@/components/Memory';
 import { CollapsiblePanel } from '@/components/CollapsiblePanel';
 import { CircleStackIcon } from '@heroicons/react/24/outline';
+import { AgentInformation } from '@/components/AgentInformation';
+import { InformationCircleIcon } from '@heroicons/react/24/outline';
 
 interface ChatProps {
   agentId?: string;
@@ -27,6 +29,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   const currentBlockType = useRef<'thinking' | 'tool' | 'normal' | null>(null);
   const currentMessageRef = useRef<ExtendedMessage | null>(null);
   const [isConfigPanelCollapsed, setIsConfigPanelCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState('agent');
 
   if (!lexerRef.current) {
     lexerRef.current = new GenAIStreamLexer();
@@ -343,9 +346,21 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     }
   };
 
+  const hasMarkdown = (content: string): boolean => {
+    // Check for code blocks or any markdown syntax
+    return /```|`|#|\[|\*|_|>/.test(content);
+  };
+
   const renderMarkdown = (content: string) => {
-    marked.setOptions({ breaks: true, gfm: true });
-    return marked.parse(content) as string;
+    // Configure marked with basic options
+    marked.setOptions({
+      gfm: true, // GitHub Flavored Markdown
+      breaks: true // Convert line breaks to <br>
+    });
+
+    // If content is wrapped in triple backticks, remove them
+    const markdownContent = content.trim().replace(/^```\n?/, '').replace(/\n?```$/, '');
+    return marked.parse(markdownContent) as string;
   };
 
   return (
@@ -483,7 +498,18 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
                           </div>
                         </div>
                       ) : msg.blockType === 'normal' && (
-                        <div class="message-content" dangerouslySetInnerHTML={{ __html: renderMarkdown((msg.content || '').trimStart()) }} />
+                        hasMarkdown(msg.content || '') ? (
+                          <div class="message assistant markdown-message">
+                            <div class="markdown-content">
+                              <div class="markdown-header">Formatted Response</div>
+                              <div class="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown((msg.content || '').trimStart()) }} />
+                            </div>
+                          </div>
+                        ) : (
+                          <div class="message assistant">
+                            <div class="message-content" dangerouslySetInnerHTML={{ __html: (msg.content || '').trimStart().replace(/\n/g, '<br>') }} />
+                          </div>
+                        )
                       )}
                     </>
                   )}
@@ -529,6 +555,17 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         onToggle={() => setIsConfigPanelCollapsed(!isConfigPanelCollapsed)}
         menuTabs={[
           {
+            id: 'agent',
+            icon: <InformationCircleIcon className="w-5 h-5" />,
+            title: 'Agent Details',
+            content: agentId && state.agentService ? (
+              <AgentInformation
+                agentId={agentId}
+                agentService={state.agentService}
+              />
+            ) : null
+          },
+          {
             id: 'memory',
             icon: <CircleStackIcon className="w-5 h-5" />,
             title: 'Memory',
@@ -541,8 +578,8 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
             ) : null
           }
         ]}
-        activeTabId="memory"
-        onTabClick={() => { }}
+        activeTabId={activeTab}
+        onTabClick={(tabId) => setActiveTab(tabId)}
       />
     </div>
   );

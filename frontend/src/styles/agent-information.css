@@ -1,0 +1,116 @@
+.agent-information {
+  background-color: #ffffff;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.agent-information .loading-state,
+.agent-information .error-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.agent-information .content {
+  padding: 1.5rem;
+}
+
+.agent-information .header {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.agent-information .header h3 {
+  color: #111827;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.agent-information .info-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+}
+
+.agent-information .info-section {
+  margin-bottom: 1.5rem;
+}
+
+.agent-information .info-section:last-child {
+  margin-bottom: 0;
+}
+
+.agent-information .info-section label {
+  display: block;
+  color: #4b5563;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.agent-information .info-section p {
+  color: #111827;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.agent-information .info-section .system-prompt {
+  background-color: #f8fafc;
+  padding: 1rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-left: 3px solid #e2e8f0;
+}
+
+.agent-information .tools-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-information .tools-list li {
+  color: #111827;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  padding: 0.25rem 0;
+  display: flex;
+  align-items: center;
+}
+
+.agent-information .tools-list li::before {
+  content: "•";
+  color: #6b7280;
+  margin-right: 0.75rem;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+/* Scrollbar styling */
+.agent-information::-webkit-scrollbar {
+  width: 6px;
+}
+
+.agent-information::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.agent-information::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.agent-information::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+} 
