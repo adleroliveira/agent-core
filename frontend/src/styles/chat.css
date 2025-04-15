@@ -392,33 +392,58 @@ input:checked + .toggle-slider:before {
 }
 
 .message-content code {
-  background-color: #f5f7f9;
+  background-color: transparent;
   padding: 0.2em 0.4em;
   border-radius: 4px;
   font-family: 'Fira Code', 'Consolas', monospace;
   font-size: 0.9em;
   color: #2d3748;
-  border: 1px solid #e2e8f0;
+  border: none;
   line-height: 1.2;
 }
 
 .message-content pre {
-  background-color: #f5f7f9;
-  padding: 0.75em;
-  border-radius: 6px;
+  margin: 0;
+  padding: 0;
+  border-radius: 0.5rem;
   overflow-x: auto;
-  margin: 0.5em 0;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border: none;
 }
 
 .message-content pre code {
-  background-color: transparent;
-  padding: 0;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  padding: 1rem;
+  display: block;
+  white-space: pre;
+  overflow-x: auto;
   border: none;
-  font-size: 0.9em;
-  line-height: 1.4;
-  color: #2d3748;
+}
+
+/* Remove the background override that was causing issues */
+.message-content pre code * {
+  /* Remove background override */
+}
+
+/* Only override the base styles, not the syntax highlighting */
+.message-content code[class*="language-"],
+.message-content pre[class*="language-"] {
+  text-shadow: none;
+  font-family: 'Fira Code', monospace;
+  direction: ltr;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  line-height: 1.5;
+  -moz-tab-size: 4;
+  -o-tab-size: 4;
+  tab-size: 4;
+  -webkit-hyphens: none;
+  -moz-hyphens: none;
+  -ms-hyphens: none;
+  hyphens: none;
 }
 
 .message-content ul, .message-content ol {

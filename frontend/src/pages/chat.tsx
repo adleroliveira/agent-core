@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentType } from 'preact';
 import '../styles/chat.css';
-import { marked } from 'marked';
+import Markdown from 'markdown-to-jsx';
 import { useChatStore, ExtendedMessage } from '../stores/chat.store';
 import { useMemoryStore } from '../stores/memory.store';
 import { GenAIStreamLexer } from '../utils/StreamLexer';
@@ -14,10 +14,36 @@ import { CollapsiblePanel } from '@/components/CollapsiblePanel';
 import { CircleStackIcon } from '@heroicons/react/24/outline';
 import { AgentInformation } from '@/components/AgentInformation';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
+import Prism from 'prismjs';
+import 'prism-themes/themes/prism-nord.css';
+import 'prismjs/components/prism-python';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-json';
+import 'prismjs/components/prism-bash';
+import 'prismjs/components/prism-yaml';
+import 'prismjs/components/prism-markdown';
 
 interface ChatProps {
   agentId?: string;
 }
+
+const CodeBlock = ({ className, children }: { className?: string; children: string }) => {
+  const language = className?.replace('lang-', '') || 'text';
+  const codeRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (codeRef.current) {
+      Prism.highlightElement(codeRef.current);
+    }
+  }, [children]);
+
+  return (
+    <code className={`language-${language}`} ref={codeRef}>
+      {children}
+    </code>
+  );
+};
 
 export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   const { state, dispatch, loadConversation, initializeConversations, refreshConversations } = useChatStore();
@@ -346,21 +372,10 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     }
   };
 
-  const hasMarkdown = (content: string): boolean => {
-    // Check for code blocks or any markdown syntax
-    return /```|`|#|\[|\*|_|>/.test(content);
-  };
-
   const renderMarkdown = (content: string) => {
-    // Configure marked with basic options
-    marked.setOptions({
-      gfm: true, // GitHub Flavored Markdown
-      breaks: true // Convert line breaks to <br>
-    });
-
     // If content is wrapped in triple backticks, remove them
     const markdownContent = content.trim().replace(/^```\n?/, '').replace(/\n?```$/, '');
-    return marked.parse(markdownContent) as string;
+    return markdownContent.replace(/^---$/gm, '***');
   };
 
   return (
@@ -497,19 +512,32 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
                             <span>Using tool...</span>
                           </div>
                         </div>
-                      ) : msg.blockType === 'normal' && (
-                        hasMarkdown(msg.content || '') ? (
-                          <div class="message assistant markdown-message">
-                            <div class="markdown-content">
-                              <div class="markdown-header">Formatted Response</div>
-                              <div class="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown((msg.content || '').trimStart()) }} />
-                            </div>
+                      ) : (
+                        <div class="message assistant">
+                          <div class="message-content">
+                            <Markdown options={{
+                              forceBlock: true,
+                              forceWrapper: true,
+                              wrapper: 'div',
+                              overrides: {
+                                p: {
+                                  component: 'p',
+                                  props: {
+                                    style: { marginBottom: '1em' }
+                                  }
+                                },
+                                code: ({ className, children }: { className?: string; children: string }) => {
+                                  if (className) {
+                                    return <CodeBlock className={className}>{children}</CodeBlock>;
+                                  }
+                                  return <code>{children}</code>;
+                                }
+                              }
+                            }}>
+                              {renderMarkdown((msg.content || '').trimStart())}
+                            </Markdown>
                           </div>
-                        ) : (
-                          <div class="message assistant">
-                            <div class="message-content" dangerouslySetInnerHTML={{ __html: (msg.content || '').trimStart().replace(/\n/g, '<br>') }} />
-                          </div>
-                        )
+                        </div>
                       )}
                     </>
                   )}

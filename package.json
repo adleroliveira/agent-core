@@ -1,6 +1,6 @@
 {
   "name": "agent-core",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "",
   "main": "dist/sdk/index.js",
   "types": "dist/sdk/index.d.ts",
@@ -31,11 +31,14 @@
     "@nestjs/platform-express": "^11.0.11",
     "@nestjs/swagger": "^11.1.0",
     "@nestjs/typeorm": "^11.0.0",
+    "@types/prismjs": "^1.26.5",
     "@types/uuid": "^10.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.7",
     "duck-duck-scrape": "^2.2.7",
+    "markdown-to-jsx": "^7.7.4",
+    "prismjs": "^1.30.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "sqlite3": "^5.1.7",
@@ -58,7 +61,7 @@
     "ts-jest": "^29.2.6",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.3"
   },
   "pnpm": {
     "ignoredBuiltDependencies": [
