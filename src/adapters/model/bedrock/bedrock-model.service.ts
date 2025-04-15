@@ -53,7 +53,7 @@ export class BedrockModelService implements ModelServicePort {
 
   async generateResponse(
     messages: Message[],
-    systemPrompt: Prompt,
+    systemPrompt: Prompt | Prompt[],
     tools?: Tool[],
     options?: ModelRequestOptions
   ): Promise<ModelResponse> {
@@ -88,7 +88,7 @@ export class BedrockModelService implements ModelServicePort {
 
   generateStreamingResponse(
     messages: Message[],
-    systemPrompt: Prompt,
+    systemPrompt: Prompt | Prompt[],
     tools?: Tool[],
     options?: ModelRequestOptions
   ): Observable<Partial<ModelResponse>> {
@@ -345,7 +345,7 @@ export class BedrockModelService implements ModelServicePort {
 
   private createConverseRequest(
     messages: Message[],
-    systemPrompt: Prompt,
+    systemPrompt: Prompt | Prompt[],
     tools?: Tool[],
     options?: ModelRequestOptions
   ): any {
@@ -444,11 +444,17 @@ export class BedrockModelService implements ModelServicePort {
       }
     });
 
-    const systemContent = typeof systemPrompt.content === "string"
-      ? [{ text: systemPrompt.content }]
-      : Array.isArray(systemPrompt.content)
-      ? systemPrompt.content
-      : [{ text: systemPrompt.content || "" }];
+    const systemContent = Array.isArray(systemPrompt)
+      ? systemPrompt.map(prompt => ({
+          text: typeof prompt.content === "string"
+            ? prompt.content
+            : JSON.stringify(prompt.content),
+        }))
+      : [{
+          text: typeof systemPrompt.content === "string"
+            ? systemPrompt.content
+            : JSON.stringify(systemPrompt.content),
+        }];
 
     const requestBody: any = {
       messages: bedrockMessages,

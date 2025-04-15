@@ -61,14 +61,14 @@ export interface ModelServicePort {
   // Core model interaction methods
   generateResponse(
     messages: Message[],
-    systemPrompt: Prompt,
+    systemPrompt: Prompt | Prompt[],
     tools?: Tool[],
     options?: ModelRequestOptions
   ): Promise<ModelResponse>;
 
   generateStreamingResponse(
     messages: Message[],
-    systemPrompt: Prompt,
+    systemPrompt: Prompt | Prompt[],
     tools?: Tool[],
     options?: ModelRequestOptions
   ): Observable<Partial<ModelResponse>>;

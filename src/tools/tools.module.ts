@@ -10,6 +10,7 @@ import { KnowledgeSearchTool } from "./default/knowledge-search.tool";
 import { InternetSearchTool } from "./default/internet-search.tool";
 import { CommandTool } from "./default/exec.tool";
 import { ProcessTool } from "./default/process.tool";
+import { MemoryManagerTool } from "./default/memory-manager.tool";
 import { TOOL_REGISTRY } from "@core/constants";
 import { ToolRegistryPort } from "@ports/tool/tool-registry.port";
 import { Tool } from "@core/domain/tool.entity";
@@ -28,6 +29,7 @@ import { Tool } from "@core/domain/tool.entity";
     InternetSearchTool,
     CommandTool,
     ProcessTool,
+    MemoryManagerTool,
   ],
   exports: [
     // Stock market tools
@@ -41,6 +43,7 @@ import { Tool } from "@core/domain/tool.entity";
     InternetSearchTool,
     CommandTool,
     ProcessTool,
+    MemoryManagerTool,
   ],
 })
 export class ToolsModule implements OnModuleInit {
@@ -56,6 +59,7 @@ export class ToolsModule implements OnModuleInit {
     private readonly internetSearchTool: InternetSearchTool,
     private readonly commandTool: CommandTool,
     private readonly processTool: ProcessTool,
+    private readonly memoryManagerTool: MemoryManagerTool,
   ) { }
 
   async onModuleInit() {
@@ -67,6 +71,7 @@ export class ToolsModule implements OnModuleInit {
 
     // Register tools with getTool() method
     await this.toolRegistry.registerTool(this.internetSearchTool.getTool());
+    await this.toolRegistry.registerTool(this.memoryManagerTool.getTool());
 
     // Register default tools (they extend Tool directly)
     await this.toolRegistry.registerTool(this.knowledgeAddTool as unknown as Tool);

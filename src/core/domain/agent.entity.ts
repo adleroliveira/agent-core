@@ -150,10 +150,21 @@ export class Agent {
     state: AgentState,
     options: ModelRequestOptions
   ): Promise<Message> {
+    const systemPrompt = [this.systemPrompt];
+    const stateMemory = this.getStateMemory(message.stateId);
+
+    systemPrompt.push(new Prompt({
+      content: `
+        <Memory>
+        ${JSON.stringify(stateMemory)}
+        </Memory>`,
+      type: "system",
+    }));
+
     this.logger.debug(`Generating standard response for agent ${this.id}. Conversation history length: ${state.conversationHistory.length}, Available tools: ${this.tools.map(t => t.name).join(', ')}`);
     const response = await this.modelService!.generateResponse(
       state.conversationHistory,
-      this.systemPrompt,
+      systemPrompt,
       this.tools,
       { ...options, modelId: this.modelId }
     );
@@ -188,6 +199,14 @@ export class Agent {
     return responseMessage;
   }
 
+  public getStateMemory(stateId: string): Record<string, any> {
+    const state = this.getStateById(stateId);
+    if (!state) {
+      throw new Error(`No state found with ID: ${stateId}`);
+    }
+    return state.memory;
+  }
+
   private processStreamingMessage(
     message: Message,
     state: AgentState,
@@ -200,10 +219,20 @@ export class Agent {
     const collectedToolCalls: ToolCallResult[] = [];
     let streamingContent = "";
 
+    const systemPrompt = [this.systemPrompt];
+    const stateMemory = this.getStateMemory(message.stateId);
+    systemPrompt.push(new Prompt({
+      content: `
+        <Memory>
+        ${JSON.stringify(stateMemory)}
+        </Memory>`,
+      type: "system",
+    }));
+
     // Ensure we have a valid Observable from the model service
     const streamingObs = this.modelService!.generateStreamingResponse(
       state.conversationHistory,
-      this.systemPrompt,
+      systemPrompt,
       this.tools,
       { ...options, modelId: this.modelId }
     );
@@ -463,10 +492,20 @@ export class Agent {
 
     if (toolResults.length > 0) {
       try {
+        const systemPrompt = [this.systemPrompt];
+        const stateMemory = this.getStateMemory(stateId);
+        systemPrompt.push(new Prompt({
+          content: `
+          <Memory>
+          ${JSON.stringify(stateMemory)}
+          </Memory>`,
+          type: "system",
+        }));
+
         this.logger.debug(`Generating follow-up response for agent ${this.id}. Previous content length: ${assistantMessage.content.length}, Tool results: ${toolResults.length}, Has errors: ${hasErrors}`);
         const followUpResponse = await this.modelService!.generateResponse(
           state.conversationHistory,
-          this.systemPrompt,
+          systemPrompt,
           this.tools,
           { temperature: DEFAULT_TOOL_EXECUTION_TEMPERATURE, modelId: this.modelId }
         );
@@ -551,6 +590,15 @@ export class Agent {
 
   public areServicesInitialized(): boolean {
     return !!this.modelService && !!this.vectorDB;
+  }
+
+  public updateMemory(stateId: string, memory: Record<string, any>): void {
+    const state = this.getStateById(stateId);
+    if (!state) {
+      throw new Error(`No state found with ID: ${stateId}`);
+    }
+    state.memory = { ...state.memory, ...memory };
+    this.updatedAt = new Date();
   }
 
   public async setServices(
