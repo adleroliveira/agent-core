@@ -3,7 +3,6 @@ import { useContext, useReducer } from 'preact/hooks';
 import { ChatService } from '../services/chat.service';
 import { FrontendAgentService } from '../services/agent.service';
 import { MessageDto } from '../api-client/models/MessageDto';
-import { ConversationDto } from '../api-client/models/ConversationDto';
 
 export interface ExtendedMessage extends Partial<MessageDto> {
   thinking?: string;
