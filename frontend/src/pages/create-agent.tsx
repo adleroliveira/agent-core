@@ -5,6 +5,7 @@ import { route } from 'preact-router';
 import { ModelService } from '../services/models.service';
 import type { ModelInfoDto } from '../api-client/models/ModelInfoDto';
 import { ModelSelector } from '../components/ModelSelector';
+import { SystemPromptEditor } from '../components/SystemPromptEditor';
 import '../styles/create-agent.css';
 
 interface Tool {
@@ -12,6 +13,7 @@ interface Tool {
   name: string;
   description: string;
   parameters: any;
+  systemPrompt?: string;
 }
 
 export const CreateAgent: ComponentType = () => {
@@ -19,7 +21,9 @@ export const CreateAgent: ComponentType = () => {
     name: '',
     description: '',
     modelId: '',
-    systemPrompt: 'You are a helpful agent that assists users with their tasks. You are friendly, professional, and always aim to provide accurate and useful information.',
+    primaryFunction: 'Assist users with their tasks by providing accurate, helpful, and professional responses. Focus on understanding user needs and delivering high-quality assistance.',
+    thinkingApproach: 'Break down complex problems into manageable steps. Consider multiple perspectives and verify information before providing answers. Always maintain a helpful and professional tone.\n\nWhen appropriate, use the available tools to enhance your capabilities. Evaluate each situation to determine if using a tool would provide better assistance. Read each tool\'s description carefully to understand when and how to use it effectively.',
+    limitations: [] as string[],
     tools: [] as string[],
   });
   const [availableTools, setAvailableTools] = useState<Tool[]>([]);
@@ -27,9 +31,11 @@ export const CreateAgent: ComponentType = () => {
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [systemPrompt, setSystemPrompt] = useState('');
 
   const selectedModel = availableModels.find(model => model.id === formData.modelId);
   const showToolsSection = selectedModel?.supportsToolCalls ?? false;
+  const selectedTools = availableTools.filter(tool => formData.tools.includes(tool.name));
 
   useEffect(() => {
     const fetchData = async () => {
@@ -67,7 +73,7 @@ export const CreateAgent: ComponentType = () => {
         name: formData.name,
         description: formData.description,
         modelId: formData.modelId,
-        systemPrompt: formData.systemPrompt,
+        systemPrompt,
         tools: formData.tools,
       });
       route('/');
@@ -128,6 +134,31 @@ export const CreateAgent: ComponentType = () => {
         </div>
 
         <div class="form-group">
+          <label for="primaryFunction">Primary Function</label>
+          <textarea
+            id="primaryFunction"
+            name="primaryFunction"
+            value={formData.primaryFunction}
+            onChange={handleChange}
+            required
+            placeholder="Describe the primary function of the agent"
+            rows={3}
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="thinkingApproach">Thinking Approach (Optional)</label>
+          <textarea
+            id="thinkingApproach"
+            name="thinkingApproach"
+            value={formData.thinkingApproach}
+            onChange={handleChange}
+            placeholder="Describe how the agent should approach tasks"
+            rows={3}
+          />
+        </div>
+
+        <div class="form-group">
           <label>Model</label>
           <ModelSelector
             value={formData.modelId}
@@ -161,15 +192,14 @@ export const CreateAgent: ComponentType = () => {
         )}
 
         <div class="form-group">
-          <label for="systemPrompt">System Prompt</label>
-          <textarea
-            id="systemPrompt"
-            name="systemPrompt"
-            value={formData.systemPrompt}
-            onChange={handleChange}
-            required
-            placeholder="Enter the system prompt for the agent"
-            rows={6}
+          <label>System Prompt</label>
+          <SystemPromptEditor
+            agentName={formData.name}
+            primaryFunction={formData.primaryFunction}
+            thinkingApproach={formData.thinkingApproach}
+            limitations={formData.limitations}
+            selectedTools={selectedTools}
+            onChange={setSystemPrompt}
           />
         </div>
 

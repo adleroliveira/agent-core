@@ -3,6 +3,7 @@ import type { ComponentType } from 'preact';
 import '../styles/chat.css';
 import { marked } from 'marked';
 import { useChatStore, ExtendedMessage } from '../stores/chat.store';
+import { useMemoryStore } from '../stores/memory.store';
 import { GenAIStreamLexer } from '../utils/StreamLexer';
 import { ChatService } from '@/services/chat.service';
 import { FrontendAgentService } from '@/services/agent.service';
@@ -18,6 +19,7 @@ interface ChatProps {
 
 export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   const { state, dispatch, loadConversation, initializeConversations, refreshConversations } = useChatStore();
+  const { fetchMemory } = useMemoryStore();
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lexerRef = useRef<GenAIStreamLexer | null>(null);
@@ -291,17 +293,18 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
               processToken(token);
             }
           },
-          () => {
+          async () => {
             dispatch({ type: 'SET_IS_LOADING', payload: false });
             dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
             dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: false });
             dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
-            if (agentId && state.agentService) {
-              refreshConversations(agentId, state.agentService);
-            }
             // Clear the current message ref after streaming is complete
             currentMessageRef.current = null;
             currentBlockType.current = null;
+            // Refresh memory after streaming completes
+            if (agentId && state.activeConversationId && state.agentService) {
+              await fetchMemory(agentId, state.activeConversationId, state.agentService);
+            }
           },
           error => {
             console.error('Streaming error:', error);
@@ -327,8 +330,9 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           }
         });
         dispatch({ type: 'SET_IS_LOADING', payload: false });
-        if (agentId && state.agentService) {
-          refreshConversations(agentId, state.agentService);
+        // Refresh memory after non-streaming message completes
+        if (agentId && state.activeConversationId && state.agentService) {
+          await fetchMemory(agentId, state.activeConversationId, state.agentService);
         }
       }
     } catch (error) {

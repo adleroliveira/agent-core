@@ -214,4 +214,27 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.system-prompt-editor {
+  margin: 1rem 0;
+}
+
+.system-prompt-textarea {
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 300px;
+  background-color: #f8f9fa;
+}
+
+.system-prompt-textarea:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 } 
