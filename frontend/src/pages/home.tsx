@@ -105,6 +105,10 @@ export const Home: ComponentType = () => {
                         <span class="info-value">{agent.modelId}</span>
                       </div>
                       <div class="info-item">
+                        <span class="info-label">Used Tokens</span>
+                        <span class="info-value"><b>{agent.totalTokens?.toLocaleString() || '0'}</b></span>
+                      </div>
+                      <div class="info-item">
                         <span class="info-label">Created</span>
                         <span class="info-value">{new Date(agent.createdAt).toLocaleDateString()}</span>
                       </div>

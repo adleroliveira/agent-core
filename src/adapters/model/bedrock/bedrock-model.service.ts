@@ -190,12 +190,11 @@ export class BedrockModelService implements ModelServicePort {
               break;
 
             case "messageStop":
-              subject.complete();
               break;
 
             case "metadata":
               if (eventValue?.usage) {
-                subject.next({
+                const usageBlock = {
                   usage: {
                     promptTokens: eventValue.usage.inputTokens || 0,
                     completionTokens: eventValue.usage.outputTokens || 0,
@@ -203,7 +202,9 @@ export class BedrockModelService implements ModelServicePort {
                       (eventValue.usage.inputTokens || 0) +
                       (eventValue.usage.outputTokens || 0),
                   },
-                });
+                }
+                subject.next(usageBlock);
+                subject.complete();
               }
               break;
 

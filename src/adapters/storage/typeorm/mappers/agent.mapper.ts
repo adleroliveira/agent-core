@@ -8,7 +8,7 @@ import { WorkspaceConfig } from '@core/config/workspace.config';
 import { ModelServicePort } from '@ports/model/model-service.port';
 import { VectorDBPort } from '@ports/storage/vector-db.port';
 import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { AgentToolEntity } from '../entities/agent-tool.entity';
 
 @Injectable()
@@ -59,7 +59,9 @@ export class AgentMapper {
       workspaceConfig,
       tools,
       knowledgeBase,
-      states
+      states,
+      inputTokens: entity.inputTokens,
+      outputTokens: entity.outputTokens
     });
 
     // Set services after creating the agent
@@ -88,6 +90,8 @@ export class AgentMapper {
     entity.workspaceConfig = { workspaceDir: domain.workspaceConfig.getWorkspacePath() };
     entity.createdAt = domain.createdAt;
     entity.updatedAt = domain.updatedAt;
+    entity.inputTokens = domain.inputTokens;
+    entity.outputTokens = domain.outputTokens;
 
     // Handle states
     if (domain.states) {

@@ -104,6 +104,9 @@ export class AgentController {
         description: agent.description,
         modelId: agent.modelId,
         createdAt: agent.createdAt,
+        inputTokens: agent.inputTokens,
+        outputTokens: agent.outputTokens,
+        totalTokens: agent.inputTokens + agent.outputTokens,
         tools: agent.areToolsLoaded() ? agent.tools.map((tool) => ({
           id: tool.id,
           name: tool.name,
@@ -152,6 +155,9 @@ export class AgentController {
           parameters: tool.parameters,
           systemPrompt: tool.systemPrompt,
         })),
+        inputTokens: agent.inputTokens,
+        outputTokens: agent.outputTokens,
+        totalTokens: agent.inputTokens + agent.outputTokens,
         createdAt: agent.createdAt,
         updatedAt: agent.updatedAt,
       };

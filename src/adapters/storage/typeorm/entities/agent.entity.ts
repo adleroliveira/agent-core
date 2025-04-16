@@ -32,6 +32,12 @@ export class AgentEntity {
   @Column('json', { default: '{"workspaceDir": "./workspace"}' })
   workspaceConfig: { workspaceDir: string };
 
+  @Column({ default: 0 })
+  inputTokens: number;
+
+  @Column({ default: 0 })
+  outputTokens: number;
+
   @OneToMany(() => StateEntity, state => state.agent)
   states: StateEntity[];
 

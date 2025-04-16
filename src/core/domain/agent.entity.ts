@@ -41,6 +41,8 @@ export class Agent {
   private _workspaceConfig: WorkspaceConfig;
   private _toolsLoaded: boolean = false;
   private _knowledgeBaseLoaded: boolean = false;
+  public inputTokens: number = 0;
+  public outputTokens: number = 0;
 
   constructor(
     params: {
@@ -55,6 +57,8 @@ export class Agent {
       knowledgeBase?: KnowledgeBase;
       workspaceConfig: WorkspaceConfig;
       states?: AgentState[];
+      inputTokens?: number;
+      outputTokens?: number;
     }
   ) {
     this.id = params.id || uuidv4();
@@ -67,6 +71,8 @@ export class Agent {
     this.modelService = params.modelService;
     this.vectorDB = params.vectorDB;
     this._workspaceConfig = params.workspaceConfig;
+    this.inputTokens = params.inputTokens || 0;
+    this.outputTokens = params.outputTokens || 0;
 
     // Initialize states
     this._states = params.states || [];
@@ -168,6 +174,11 @@ export class Agent {
       this.tools,
       { ...options, modelId: this.modelId }
     );
+
+    if (response.usage) {
+      this.inputTokens += response.usage.promptTokens;
+      this.outputTokens += response.usage.completionTokens;
+    }
 
     // Create a message from the response
     const responseMessage = new Message({
@@ -302,6 +313,11 @@ export class Agent {
 
           if (responseChunk.metadata) {
             messageChunk.metadata = responseChunk.metadata;
+          }
+
+          if (responseChunk.usage) {
+            this.inputTokens += responseChunk.usage.promptTokens;
+            this.outputTokens += responseChunk.usage.completionTokens;
           }
 
           if (messageChunk.content) {

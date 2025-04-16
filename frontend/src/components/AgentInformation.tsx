@@ -13,6 +13,9 @@ interface AgentResponse {
   tools?: ToolDto[];
   createdAt?: string;
   updatedAt?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
 }
 
 interface AgentInformationProps {
@@ -79,6 +82,10 @@ export const AgentInformation = ({ agentId, agentService, showToolsOnly = false 
           <div className="info-section">
             <label>Model</label>
             <p>{agent.modelId || 'Default'}</p>
+          </div>
+          <div className="info-section">
+            <label>Used Tokens</label>
+            <p><b>{agent.totalTokens}</b></p>
           </div>
           <div className="info-section">
             <label>System Prompt</label>
