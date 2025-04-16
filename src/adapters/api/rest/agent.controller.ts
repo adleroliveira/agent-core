@@ -28,6 +28,7 @@ import { ToolRegistryService } from "@core/services/tool-registry.service";
 import { TOOL_REGISTRY } from "@core/constants";
 import { ApiQuery, ApiOperation, ApiParam, ApiResponse, ApiBody, ApiTags } from "@nestjs/swagger";
 import { ConversationDto } from "./dto/conversation.dto";
+import { FileInfo } from "@ports/file-upload.port";
 
 @ApiTags('agents')
 @Controller("agents")
@@ -215,7 +216,7 @@ export class AgentController {
   @ApiQuery({ name: 'stream', required: false, type: Boolean, description: 'Whether to stream the response' })
   @ApiBody({ 
     type: SendMessageDto,
-    description: 'The message to send, including stateId to identify the conversation'
+    description: 'The message to send, including stateId to identify the conversation and optional file attachments'
   })
   @ApiResponse({ 
     status: 200, 
@@ -251,7 +252,14 @@ export class AgentController {
             temperature: messageDto.temperature,
             maxTokens: messageDto.maxTokens,
             stream: true,
-          }
+          },
+          messageDto.files?.map((file) => ({
+            id: file.id,
+            filename: file.filename,
+            originalName: file.originalName,
+            size: file.size,
+            mimetype: file.mimetype,
+          } as FileInfo))
         );
 
         // Ensure we're working with an Observable
@@ -288,7 +296,8 @@ export class AgentController {
           temperature: messageDto.temperature,
           maxTokens: messageDto.maxTokens,
           stream: false,
-        }
+        },
+        messageDto.files
       );
 
       // Ensure we're working with a Message object, not an Observable

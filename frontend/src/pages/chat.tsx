@@ -27,6 +27,7 @@ import 'prismjs/components/prism-markdown';
 import { WrenchScrewdriverIcon } from '@heroicons/react/24/outline';
 import { ConversationList } from '@/components/ConversationList';
 import { ChatBubbleLeftEllipsisIcon } from '@heroicons/react/24/outline';
+import { DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 interface ChatProps {
   agentId?: string;
@@ -50,7 +51,7 @@ const CodeBlock = ({ className, children }: { className?: string; children: stri
 };
 
 export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
-  const { state, dispatch, loadConversation } = useChatStore();
+  const { state, dispatch, loadConversation, uploadFile } = useChatStore();
   const {
     state: convState,
     fetchConversations,
@@ -67,6 +68,8 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   const currentMessageRef = useRef<ExtendedMessage | null>(null);
   const [isConfigPanelCollapsed, setIsConfigPanelCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('conversations');
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!lexerRef.current) {
     lexerRef.current = new GenAIStreamLexer();
@@ -314,6 +317,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         await state.chatService.sendStreamingMessage(
           content,
           convState.activeConversationId,
+          state.uploadedDocuments,
           chunk => {
             dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
             for (const token of lexerRef.current!.processChunk(chunk)) {
@@ -328,6 +332,8 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
             // Clear the current message ref after streaming is complete
             currentMessageRef.current = null;
             currentBlockType.current = null;
+            // Clear uploaded documents after message is sent
+            dispatch({ type: 'CLEAR_DOCUMENTS', payload: null });
             // Refresh memory after streaming completes
             if (agentId && convState.activeConversationId && state.agentService) {
               await fetchMemory(agentId, convState.activeConversationId, state.agentService);
@@ -347,7 +353,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
       } else {
         let response;
         if (convState.activeConversationId) {
-          response = await state.chatService.sendMessage(content, convState.activeConversationId);
+          response = await state.chatService.sendMessage(content, convState.activeConversationId, state.uploadedDocuments);
         } else {
           throw new Error('No active conversation ID');
         }
@@ -362,6 +368,8 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           }
         });
         dispatch({ type: 'SET_IS_LOADING', payload: false });
+        // Clear uploaded documents after message is sent
+        dispatch({ type: 'CLEAR_DOCUMENTS', payload: null });
         // Refresh memory after non-streaming message completes
         if (agentId && convState.activeConversationId && state.agentService) {
           await fetchMemory(agentId, convState.activeConversationId, state.agentService);
@@ -390,6 +398,51 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convState.activeConversationId]);
+
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    if (!e.dataTransfer?.files.length) return;
+
+    try {
+      for (const file of e.dataTransfer.files) {
+        await uploadFile(file);
+      }
+    } catch (error) {
+      console.error('Error handling dropped files:', error);
+      // You might want to show an error message to the user here
+    }
+  };
+
+  const handleFileInput = async (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    if (!input.files?.length) return;
+
+    try {
+      for (const file of input.files) {
+        await uploadFile(file);
+      }
+      input.value = ''; // Reset the input
+    } catch (error) {
+      console.error('Error handling file input:', error);
+      // You might want to show an error message to the user here
+    }
+  };
+
+  const handleRemoveDocument = (id: string) => {
+    dispatch({ type: 'REMOVE_DOCUMENT', payload: id });
+  };
 
   return (
     <div class="chat-page">
@@ -495,7 +548,13 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           </div>
         </div>
 
-        <div class="chat-messages" ref={messagesContainerRef}>
+        <div
+          class={`chat-messages ${isDragging ? 'dragging' : ''}`}
+          ref={messagesContainerRef}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           {state.messages.length === 0 ? (
             <div class="empty-chat">
               <p>Start a conversation with your agent</p>
@@ -578,22 +637,63 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         </div>
 
         <form class="chat-input-form" onSubmit={handleSendMessage}>
-          <input
-            ref={inputRef}
-            type="text"
-            value={state.inputMessage}
-            onInput={e => dispatch({ type: 'SET_INPUT_MESSAGE', payload: (e.target as HTMLInputElement).value })}
-            placeholder="Type your message..."
-            class="chat-input"
-            disabled={state.isLoading}
-          />
-          <button
-            type="submit"
-            class="send-button"
-            disabled={state.isLoading}
-          >
-            {state.isLoading ? 'Sending...' : 'Send'}
-          </button>
+          <div class="chat-input-container">
+            {state.uploadedDocuments.length > 0 && (
+              <div class="uploaded-documents-section">
+                {state.uploadedDocuments.slice(0, 3).map(doc => (
+                  <div key={doc.id} class="document-item">
+                    <DocumentIcon />
+                    <span class="document-name">{doc.originalName}</span>
+                    <button
+                      type="button"
+                      class="remove-document"
+                      onClick={() => handleRemoveDocument(doc.id)}
+                      title="Remove document"
+                    >
+                      <XMarkIcon />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div class="chat-input-wrapper">
+              <input
+                ref={inputRef}
+                type="text"
+                value={state.inputMessage}
+                onInput={e => dispatch({ type: 'SET_INPUT_MESSAGE', payload: (e.target as HTMLInputElement).value })}
+                placeholder="Type your message..."
+                class="chat-input"
+                disabled={state.isLoading}
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                class="file-input"
+                onChange={handleFileInput}
+                accept=".txt,.csv,.md,.json,.xml,.html,.css,.js,.py,.java,.c,.cpp,.cs,.php,.rb,.pl,.sh,.yaml,.toml,.ini,.properties,.log,.diff,.patch,.tex,.latex,.bibtex,.rst,.asciidoc,.org"
+              />
+              <button
+                type="button"
+                class="file-upload-button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={state.isLoading || state.isUploading}
+              >
+                {state.isUploading ? (
+                  <div class="uploading-spinner"></div>
+                ) : (
+                  <DocumentIcon />
+                )}
+              </button>
+              <button
+                type="submit"
+                class="send-button"
+                disabled={state.isLoading}
+              >
+                {state.isLoading ? 'Sending...' : 'Send'}
+              </button>
+            </div>
+          </div>
         </form>
       </div>
     </div>

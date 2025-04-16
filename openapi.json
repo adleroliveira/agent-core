@@ -135,7 +135,7 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "The message to send, including stateId to identify the conversation",
+          "description": "The message to send, including stateId to identify the conversation and optional file attachments",
           "content": {
             "application/json": {
               "schema": {
@@ -855,6 +855,56 @@
           "Models"
         ]
       }
+    },
+    "/api/files/upload/{type}": {
+      "post": {
+        "operationId": "FileUploadController_uploadFiles",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "files": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "File uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileUploadResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid file"
+          }
+        },
+        "summary": "Upload files",
+        "tags": [
+          "Files"
+        ]
+      }
     }
   },
   "info": {
@@ -913,6 +963,38 @@
           "systemPrompt"
         ]
       },
+      "FileInfoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique file identifier"
+          },
+          "filename": {
+            "type": "string",
+            "description": "Generated filename"
+          },
+          "originalName": {
+            "type": "string",
+            "description": "Original filename"
+          },
+          "size": {
+            "type": "number",
+            "description": "File size in bytes"
+          },
+          "mimetype": {
+            "type": "string",
+            "description": "File MIME type"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "originalName",
+          "size",
+          "mimetype"
+        ]
+      },
       "SendMessageDto": {
         "type": "object",
         "properties": {
@@ -937,7 +1019,14 @@
             "type": "number",
             "description": "Maximum number of tokens to generate",
             "minimum": 1,
-            "default": 1000
+            "default": 2000
+          },
+          "files": {
+            "description": "Array of files attached to the message",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileInfoDto"
+            }
           }
         },
         "required": [
@@ -1040,6 +1129,13 @@
           "metadata": {
             "type": "object",
             "description": "Additional metadata about the message"
+          },
+          "files": {
+            "description": "Files attached to the message",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileInfoDto"
+            }
           }
         },
         "required": [
@@ -1233,6 +1329,38 @@
           "supportsToolCalls",
           "inputModalities",
           "outputModalities"
+        ]
+      },
+      "FileUploadResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique file identifier"
+          },
+          "filename": {
+            "type": "string",
+            "description": "Generated filename"
+          },
+          "originalName": {
+            "type": "string",
+            "description": "Original filename"
+          },
+          "size": {
+            "type": "number",
+            "description": "File size in bytes"
+          },
+          "mimetype": {
+            "type": "string",
+            "description": "File MIME type"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "originalName",
+          "size",
+          "mimetype"
         ]
       }
     }

@@ -8,6 +8,7 @@ import {
   VersionColumn,
 } from "typeorm";
 import { StateEntity } from "./state.entity";
+import { FileInfo } from "@ports/file-upload.port";
 
 @Entity("messages")
 export class MessageEntity {
@@ -37,6 +38,9 @@ export class MessageEntity {
 
   @Column({ default: false })
   isStreaming: boolean;
+
+  @Column({ type: "text", nullable: true })
+  files: string | null; // Store as JSON string
 
   @ManyToOne(() => StateEntity, (state) => state.messages)
   @JoinColumn({ name: "stateId" })

@@ -35,12 +35,18 @@ importers:
       '@nestjs/typeorm':
         specifier: ^11.0.0
         version: 11.0.0(@nestjs/common@11.0.11(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.0.11)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@0.3.21(reflect-metadata@0.2.2)(sqlite3@5.1.7)(ts-node@10.9.2(@types/node@22.13.10)(typescript@5.8.3)))
+      '@types/busboy':
+        specifier: ^1.5.4
+        version: 1.5.4
       '@types/prismjs':
         specifier: ^1.26.5
         version: 1.26.5
       '@types/uuid':
         specifier: ^10.0.0
         version: 10.0.0
+      busboy:
+        specifier: ^1.6.0
+        version: 1.6.0
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1
@@ -1505,6 +1511,9 @@ packages:
 
   '@types/body-parser@1.19.5':
     resolution: {integrity: sha512-fB3Zu92ucau0iQ0JMCFQE7b/dv8Ot07NI3KaZIkIUNXq82k4eBAqUaneXfleGY9JWskeS9y+u0nXMyspcuQrCg==}
+
+  '@types/busboy@1.5.4':
+    resolution: {integrity: sha512-kG7WrUuAKK0NoyxfQHsVE6j1m01s6kMma64E+OZenQABMQyTJop1DumUWcLwAQ2JzpefU7PDYoRDKl8uZosFjw==}
 
   '@types/connect@3.4.38':
     resolution: {integrity: sha512-K6uROf1LD88uDQqJCktA4yzL1YYAK6NgfsI0v/mTgyPKWsX1CnJ0XPSDhViejru1GcRkLWb8RlzFYJRqGUbaug==}
@@ -5997,6 +6006,10 @@ snapshots:
   '@types/body-parser@1.19.5':
     dependencies:
       '@types/connect': 3.4.38
+      '@types/node': 22.13.10
+
+  '@types/busboy@1.5.4':
+    dependencies:
       '@types/node': 22.13.10
 
   '@types/connect@3.4.38':

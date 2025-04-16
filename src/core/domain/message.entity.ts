@@ -1,4 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
+import { FileInfo } from "@ports/file-upload.port";
+import * as fs from 'fs';
+import * as path from 'path';
 
 export type MessageRole = "user" | "assistant" | "system" | "tool";
 
@@ -25,6 +28,7 @@ export class Message {
   public toolCallId?: string;
   public toolName?: string;
   public isToolError?: boolean;
+  public files?: FileInfo[];
 
   public createdAt: Date;
   public isStreaming?: boolean;
@@ -40,6 +44,7 @@ export class Message {
     toolName?: string;
     isToolError?: boolean;
     isStreaming?: boolean;
+    files?: FileInfo[];
   }, public isNew: boolean = true) {
     this.id = params.id || uuidv4();
     this.role = params.role;
@@ -51,6 +56,7 @@ export class Message {
     this.toolName = params.toolName;
     this.isToolError = params.isToolError || false;
     this.isStreaming = params.isStreaming || false;
+    this.files = params.files;
     this.createdAt = new Date();
   }
 
@@ -98,5 +104,28 @@ export class Message {
 
   public completeStreaming(): void {
     this.isStreaming = false;
+  }
+
+  /**
+   * Reads the contents of all files from the files array as Buffers
+   * @param uploadsDir The directory where files are stored
+   * @returns A Promise that resolves to an array of file contents as Buffers
+   * @throws Error if any file cannot be read
+   */
+  public async getFileContents(uploadsDir: string): Promise<Buffer[]> {
+    if (!this.files || this.files.length === 0) {
+      return [];
+    }
+
+    try {
+      const fileContentsPromises = this.files.map(async (fileInfo) => {
+        const filePath = path.join(uploadsDir, fileInfo.filename);
+        return await fs.promises.readFile(filePath);
+      });
+
+      return await Promise.all(fileContentsPromises);
+    } catch (error) {
+      throw new Error(`Failed to read files: ${error.message}`);
+    }
   }
 }

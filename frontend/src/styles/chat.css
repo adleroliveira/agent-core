@@ -597,11 +597,88 @@ input:checked + .toggle-slider:before {
   flex-shrink: 0;
 }
 
+.chat-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.uploaded-documents-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.document-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.25rem;
+  width: 120px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.document-item svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.document-name {
+  font-size: 0.75rem;
+  color: #64748b;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 1.5rem;
+}
+
+.remove-document {
+  position: absolute;
+  right: 0.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.125rem;
+  color: #94a3b8;
+  cursor: pointer;
+  border: none;
+  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  z-index: 1;
+}
+
+.remove-document svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.remove-document:hover {
+  color: #ef4444;
+}
+
+.chat-input-wrapper {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 .chat-input {
   flex: 1;
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 0.5rem;
   font-size: 1rem;
   outline: none;
   transition: border-color 0.2s ease;
@@ -611,28 +688,67 @@ input:checked + .toggle-slider:before {
   border-color: #3b82f6;
 }
 
+.file-input {
+  display: none;
+}
+
+.file-upload-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  color: #64748b;
+  transition: all 0.2s;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.file-upload-button:hover:not(:disabled) {
+  background-color: #f1f5f9;
+  color: #3b82f6;
+}
+
+.file-upload-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.uploading-spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid #f1f5f9;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .send-button {
   background-color: #3b82f6;
   color: white;
   border: none;
-  padding: 0 1.5rem;
-  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.send-button:hover {
+.send-button:hover:not(:disabled) {
   background-color: #2563eb;
-  transform: translateY(-1px);
 }
 
 .send-button:disabled {
   background-color: #94a3b8;
   cursor: not-allowed;
-  transform: none;
-  opacity: 0.7;
 }
 
 .config-section {
@@ -1064,4 +1180,99 @@ input:checked + .toggle-slider:before {
 
 .markdown-body sub {
   bottom: -0.25em;
+}
+
+.chat-messages.dragging {
+  border: 2px dashed #4a90e2;
+  background-color: rgba(74, 144, 226, 0.1);
+}
+
+.uploaded-documents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background-color: #f3f4f6;
+  border-radius: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.document-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background-color: white;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.document-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove-document {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.125rem;
+  border-radius: 0.25rem;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.remove-document:hover {
+  background-color: #f3f4f6;
+  color: #ef4444;
+}
+
+.chat-input-wrapper {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-upload-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  color: #6b7280;
+  transition: all 0.2s;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.file-upload-button:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  color: #4a90e2;
+}
+
+.file-upload-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.uploading-spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid #f3f4f6;
+  border-top-color: #4a90e2;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 } 

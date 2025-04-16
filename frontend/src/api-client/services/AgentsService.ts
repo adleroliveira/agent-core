@@ -94,7 +94,7 @@ export class AgentsService {
      * Send a message to an agent
      * Send a message to an agent. The StateId is required to identify the conversation.
      * @param id The ID of the agent
-     * @param requestBody The message to send, including stateId to identify the conversation
+     * @param requestBody The message to send, including stateId to identify the conversation and optional file attachments
      * @param stream Whether to stream the response
      * @returns MessageDto Message processed successfully
      * @throws ApiError

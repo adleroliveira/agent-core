@@ -10,7 +10,6 @@ import {
   ListFoundationModelsCommand,
   ListFoundationModelsResponse,
   FoundationModelSummary,
-  InferenceType
 } from "@aws-sdk/client-bedrock";
 import { Observable, Subject } from "rxjs";
 
@@ -26,6 +25,7 @@ import { Message } from "@core/domain/message.entity";
 import { Prompt } from "@core/domain/prompt.entity";
 import { Tool } from "@core/domain/tool.entity";
 import { BedrockConfigService } from "./bedrock-config.service";
+import { FileService } from "@core/services/file.service";
 
 @Injectable()
 export class BedrockModelService implements ModelServicePort {
@@ -33,7 +33,10 @@ export class BedrockModelService implements ModelServicePort {
   private readonly bedrockClient: BedrockRuntimeClient;
   private readonly bedrockControlClient: BedrockClient;
 
-  constructor(private readonly configService: BedrockConfigService) {
+  constructor(
+    private readonly configService: BedrockConfigService,
+    private readonly fileService: FileService
+  ) {
     this.bedrockClient = new BedrockRuntimeClient({
       region: this.configService.getRegion(),
       credentials: {
@@ -58,14 +61,16 @@ export class BedrockModelService implements ModelServicePort {
     options?: ModelRequestOptions
   ): Promise<ModelResponse> {
     const modelId = options?.modelId || this.configService.getModelId();
-
+    
+    console.log(JSON.stringify(messages, null, 2));
     try {
-      const requestBody = this.createConverseRequest(
+      const requestBody = await this.createConverseRequest(
         messages,
         systemPrompt,
         tools,
         options
       );
+
 
       const conversationId = messages[0].stateId;
 
@@ -96,28 +101,20 @@ export class BedrockModelService implements ModelServicePort {
     const conversationId = messages[0].stateId;
     const subject = new Subject<Partial<ModelResponse>>();
 
-    const requestBody = this.createConverseRequest(
-      messages,
-      systemPrompt,
-      tools,
-      options
-    );
-
-    const command = new ConverseStreamCommand({
-      modelId,
-      conversationId,
-      ...requestBody,
-    });
-
-    let currentContent = "";
-    let pendingToolUse: {
-      toolName: string;
-      toolId: string;
-      arguments: string;
-    } | null = null;
-
-    const streamingProcess = async () => {
+    (async () => {
       try {
+        const requestBody = await this.createConverseRequest(
+          messages,
+          systemPrompt,
+          tools,
+          options
+        );
+
+        const command = new ConverseStreamCommand({
+          modelId,
+          ...requestBody,
+        });
+
         const response = await this.bedrockClient.send(command);
 
         if (!response || !response.stream) {
@@ -125,6 +122,13 @@ export class BedrockModelService implements ModelServicePort {
           subject.error(new Error('Invalid streaming response from Bedrock'));
           return;
         }
+
+        let currentContent = "";
+        let pendingToolUse: {
+          toolName: string;
+          toolId: string;
+          arguments: string;
+        } | null = null;
 
         for await (const event of response.stream) {
           if (!event) continue;
@@ -233,14 +237,11 @@ export class BedrockModelService implements ModelServicePort {
           `Error in streaming response: ${error.message}`,
           error.stack
         );
-        console.error(JSON.stringify(command.input.toolConfig?.tools, null, 2));
         subject.error(
           new Error(`Failed to generate streaming response: ${error.message}`)
         );
       }
-    };
-
-    streamingProcess();
+    })();
 
     return subject.asObservable();
   }
@@ -344,15 +345,52 @@ export class BedrockModelService implements ModelServicePort {
     return embeddings;
   }
 
-  private createConverseRequest(
+  private sanitizeFileName(originalName: string): string {
+    // Remove file extension
+    const nameWithoutExt = originalName.replace(/\.[^/.]+$/, "");
+    
+    // Replace invalid characters with hyphens
+    let sanitized = nameWithoutExt.replace(/[^a-zA-Z0-9\s\-\(\)\[\]]/g, '-');
+    
+    // Replace multiple consecutive spaces with a single space
+    sanitized = sanitized.replace(/\s+/g, ' ');
+    
+    // Trim whitespace
+    sanitized = sanitized.trim();
+    
+    // If the name is empty after sanitization, use a default name
+    if (!sanitized) {
+      sanitized = 'document';
+    }
+    
+    return sanitized;
+  }
+
+  private async createConverseRequest(
     messages: Message[],
     systemPrompt: Prompt | Prompt[],
     tools?: Tool[],
     options?: ModelRequestOptions
-  ): any {
-    const bedrockMessages = messages.map((message) => {
+  ): Promise<any> {
+    const bedrockMessages = await Promise.all(messages.map(async (message) => {
       if (message.role === "assistant") {
         const content: any[] = [];
+
+        if (message.files) {
+          const fileContents = await this.fileService.getMessageFileContents(message);
+          message.files.forEach((file, index) => {
+            const fileExtension = file.originalName.split('.').pop()?.toLowerCase();
+            content.push({
+              document: {
+                format: fileExtension || 'unknown',
+                name: this.sanitizeFileName(file.originalName),
+                source: {
+                  bytes: fileContents[index].toString('base64')
+                }
+              }
+            });
+          });
+        }
         
         if (message.content) {
           content.push({
@@ -379,15 +417,33 @@ export class BedrockModelService implements ModelServicePort {
           content,
         };
       } else if (message.role === "user") {
+        const content: any[] = [];
+
+        if (message.files) {
+          const fileContents = await this.fileService.getMessageFileContents(message);
+          message.files.forEach((file, index) => {
+            const fileExtension = file.originalName.split('.').pop()?.toLowerCase();
+            content.push({
+              document: {
+                format: fileExtension || 'unknown',
+                name: this.sanitizeFileName(file.originalName),
+                source: {
+                  bytes: fileContents[index].toString('base64')
+                }
+              }
+            });
+          });
+        }
+
+        content.push({
+          text: typeof message.content === "string"
+            ? message.content
+            : JSON.stringify(message.content),
+        });
+
         return {
           role: "user",
-          content: [
-            {
-              text: typeof message.content === "string"
-                ? message.content
-                : JSON.stringify(message.content),
-            },
-          ],
+          content,
         };
       } else if (message.role === "tool") {
         try {
@@ -443,7 +499,7 @@ export class BedrockModelService implements ModelServicePort {
           };
         }
       }
-    });
+    }));
 
     const systemContent = Array.isArray(systemPrompt)
       ? systemPrompt.map(prompt => ({

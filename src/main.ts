@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, json, urlencoded } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AppModule } from './app.module';
@@ -15,7 +15,30 @@ async function bootstrap() {
     fs.mkdirSync(dataDir, { recursive: true });
   }
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Ensure uploads directory exists
+  const uploadsDir = path.resolve('./uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  // Create app with specific rawBody config
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+    bodyParser: false, // Disable built-in body parser
+  });
+
+  // Configure body parsing middleware
+  app.use(json({ limit: '1mb' }));
+  app.use(urlencoded({ extended: true, limit: '1mb' }));
+  
+  // Skip body parsing for multipart requests to let multer/busboy handle them
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.headers['content-type']?.includes('multipart/form-data')) {
+      next();
+    } else {
+      json()(req, res, next);
+    }
+  });
   
   // Get configuration
   const configService = app.get(ConfigService);
@@ -30,6 +53,9 @@ async function bootstrap() {
       whitelist: true,
       transform: true,
       forbidNonWhitelisted: true,
+      skipMissingProperties: true,
+      skipNullProperties: true,
+      skipUndefinedProperties: true,
     }),
   );
   
@@ -60,11 +86,13 @@ async function bootstrap() {
 
   // Serve index.html for all other routes
   app.use((req: Request, res: Response, next: NextFunction) => {
-    if (!req.path.startsWith('/api')) {
-      res.sendFile(path.join(__dirname, '../dist/public/index.html'));
-    } else {
-      next();
+    // Skip middleware for API requests and multipart/form-data
+    if (req.path.startsWith('/api') || req.headers['content-type']?.includes('multipart/form-data')) {
+      return next();
     }
+    
+    // Serve SPA for all other routes
+    res.sendFile(path.join(__dirname, '../dist/public/index.html'));
   });
   
   await app.listen(port);

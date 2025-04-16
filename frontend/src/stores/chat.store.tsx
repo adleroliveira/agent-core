@@ -10,6 +10,14 @@ export interface ExtendedMessage extends Partial<MessageDto> {
   isComplete: boolean;
 }
 
+interface UploadedDocument {
+  id: string;
+  filename: string;
+  originalName: string;
+  size: number;
+  mimetype: string;
+}
+
 interface ChatState {
   messages: ExtendedMessage[];
   inputMessage: string;
@@ -29,6 +37,8 @@ interface ChatState {
   currentBlockType: 'normal' | 'thinking' | 'tool' | null;
   agentId: string | undefined;
   isStreamingActive: boolean;
+  uploadedDocuments: UploadedDocument[];
+  isUploading: boolean;
 }
 
 type ChatAction =
@@ -52,7 +62,11 @@ type ChatAction =
   | { type: 'ADD_MESSAGE'; payload: ExtendedMessage }
   | { type: 'UPDATE_LAST_MESSAGE'; payload: (message: ExtendedMessage) => ExtendedMessage }
   | { type: 'SET_IS_STREAMING_ACTIVE'; payload: boolean }
-  | { type: 'CLEAR_CURRENT_MESSAGE_REF'; payload: null };
+  | { type: 'CLEAR_CURRENT_MESSAGE_REF'; payload: null }
+  | { type: 'ADD_DOCUMENT'; payload: UploadedDocument }
+  | { type: 'REMOVE_DOCUMENT'; payload: string }
+  | { type: 'SET_IS_UPLOADING'; payload: boolean }
+  | { type: 'CLEAR_DOCUMENTS'; payload: null };
 
 const initialState: ChatState = {
   messages: [],
@@ -73,6 +87,8 @@ const initialState: ChatState = {
   currentBlockType: null,
   agentId: undefined,
   isStreamingActive: false,
+  uploadedDocuments: [],
+  isUploading: false,
 };
 
 function chatReducer(state: ChatState, action: ChatAction): ChatState {
@@ -132,6 +148,14 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, isStreamingActive: action.payload };
     case 'CLEAR_CURRENT_MESSAGE_REF':
       return { ...state, messages: [], currentBlockType: null };
+    case 'ADD_DOCUMENT':
+      return { ...state, uploadedDocuments: [...state.uploadedDocuments, action.payload] };
+    case 'REMOVE_DOCUMENT':
+      return { ...state, uploadedDocuments: state.uploadedDocuments.filter(doc => doc.id !== action.payload) };
+    case 'SET_IS_UPLOADING':
+      return { ...state, isUploading: action.payload };
+    case 'CLEAR_DOCUMENTS':
+      return { ...state, uploadedDocuments: [] };
     default:
       return state;
   }
@@ -142,6 +166,7 @@ const ChatContext = createContext<{
   dispatch: (action: ChatAction) => void;
   loadConversation: (agentId: string, conversationId: string, agentService: FrontendAgentService) => Promise<void>;
   resetState: () => void;
+  uploadFile: (file: File) => Promise<void>;
 } | null>(null);
 
 export function ChatProvider({ children }: { children: preact.ComponentChildren }) {
@@ -166,6 +191,8 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
     dispatch({ type: 'SET_CURRENT_BLOCK_TYPE', payload: null });
     dispatch({ type: 'SET_AGENT_ID', payload: '' });
     dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: false });
+    dispatch({ type: 'ADD_DOCUMENT', payload: { id: '', filename: '', originalName: '', size: 0, mimetype: '' } });
+    dispatch({ type: 'SET_IS_UPLOADING', payload: false });
   };
 
   const loadConversation = async (agentId: string, conversationId: string, agentService: FrontendAgentService) => {
@@ -239,8 +266,111 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
     }
   };
 
+  const uploadFile = async (file: File) => {
+    if (file.size > 4 * 1024 * 1024) { // 4MB limit
+      throw new Error('File size exceeds 4MB limit');
+    }
+
+    const allowedTypes = [
+      'text/plain',
+      'text/csv',
+      'text/markdown',
+      'text/x-markdown',
+      'application/json',
+      'application/xml',
+      'text/xml',
+      'text/html',
+      'text/css',
+      'text/javascript',
+      'application/javascript',
+      'application/x-javascript',
+      'text/x-javascript',
+      'text/x-js',
+      'text/x-python',
+      'text/x-java',
+      'text/x-c',
+      'text/x-c++',
+      'text/x-csharp',
+      'text/x-php',
+      'text/x-ruby',
+      'text/x-perl',
+      'text/x-shellscript',
+      'text/x-yaml',
+      'text/x-toml',
+      'text/x-ini',
+      'text/x-properties',
+      'text/x-log',
+      'text/x-diff',
+      'text/x-patch',
+      'text/x-tex',
+      'text/x-latex',
+      'text/x-bibtex',
+      'text/x-rst',
+      'text/x-asciidoc',
+      'text/x-org',
+      'text/x-org-agenda',
+      'text/x-org-journal',
+      'text/x-org-todo',
+      'text/x-org-checklist',
+      'text/x-org-table',
+      'text/x-org-drawer',
+      'text/x-org-property',
+      'text/x-org-block',
+      'text/x-org-src',
+      'text/x-org-example',
+      'text/x-org-export',
+      'text/x-org-macro',
+      'text/x-org-footnote',
+      'text/x-org-link',
+      'text/x-org-radio',
+      'text/x-org-checkbox',
+      'text/x-org-timestamp',
+      'text/x-org-planning',
+      'text/x-org-property-drawer'
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error('File type not allowed. Only text-based documents are supported.');
+    }
+
+    try {
+      dispatch({ type: 'SET_IS_UPLOADING', payload: true });
+
+      // Create a new FormData instance and append the file
+      const formData = new FormData();
+      formData.append('files', file);
+
+      const apiUrl = '/api/files/upload/chat'
+
+      // Make a direct fetch request with explicit CORS settings
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+        mode: 'cors',
+        headers: {
+          'Accept': '*/*',
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Upload error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      dispatch({ type: 'ADD_DOCUMENT', payload: result[0] });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_IS_UPLOADING', payload: false });
+    }
+  };
+
   return (
-    <ChatContext.Provider value={{ state, dispatch, loadConversation, resetState }}>
+    <ChatContext.Provider value={{ state, dispatch, loadConversation, resetState, uploadFile }}>
       {children}
     </ChatContext.Provider>
   );

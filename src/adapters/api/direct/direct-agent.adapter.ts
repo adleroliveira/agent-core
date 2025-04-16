@@ -2,12 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { AgentService } from '@core/services/agent.service';
 import { Agent } from '@core/domain/agent.entity';
 import { Message } from '@core/domain/message.entity';
-import { Tool } from '@core/domain/tool.entity';
-import { Prompt } from '@core/domain/prompt.entity';
 import { Observable } from 'rxjs';
 import { NotFoundException } from '@nestjs/common';
 import { StateRepositoryPort } from '@ports/storage/state-repository.port';
 import { AgentState } from '@core/domain/agent-state.entity';
+import { FileInfo } from '@ports/file-upload.port';
 
 export interface MessageOptions {
   temperature?: number;
@@ -20,6 +19,7 @@ export interface MessageOptions {
    */
   memorySize?: number;
   conversationHistory?: Message[];
+  files?: FileInfo[];
 }
 
 /**
@@ -75,17 +75,14 @@ export class DirectAgentAdapter {
     agentId: string,
     content: string,
     conversationId?: string,
-    options?: {
-      temperature?: number;
-      maxTokens?: number;
-      stream?: boolean;
-    }
+    options?: MessageOptions
   ): Promise<Message | Observable<Partial<Message>>> {
     return this.agentService.processMessage(
       agentId,
       content,
       conversationId,
-      options
+      options,
+      options?.files
     );
   }
 
@@ -120,7 +117,8 @@ export class DirectAgentAdapter {
       agentId,
       message,
       stateId,
-      { ...options, stream: false }
+      { ...options, stream: false },
+      options?.files
     );
 
     if (response instanceof Observable) {
@@ -148,7 +146,8 @@ export class DirectAgentAdapter {
       agentId,
       message,
       conversationId,
-      { ...options, stream: true }
+      { ...options, stream: true },
+      options?.files
     );
 
     if (!(response instanceof Observable)) {

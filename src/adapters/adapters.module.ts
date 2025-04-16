@@ -49,6 +49,7 @@ import { AgentController } from "./api/rest/agent.controller";
 import { ToolsController } from "./api/rest/tools.controller";
 import { ModelsController } from "./api/rest/models.controller";
 import { DirectAgentAdapter } from "./api/direct/direct-agent.adapter";
+import { FileUploadController, BusboyFileUploadService } from "./api/rest/file-upload.controller";
 
 // Tools
 import { ProcessTool } from "@tools/default/process.tool";
@@ -67,7 +68,7 @@ import { ProcessTool } from "@tools/default/process.tool";
     forwardRef(() => CoreModule),
     ConfigModule,
   ],
-  controllers: [AgentController, ToolsController, ModelsController],
+  controllers: [AgentController, ToolsController, ModelsController, FileUploadController],
   providers: [
     // Storage providers
     {
@@ -105,6 +106,9 @@ import { ProcessTool } from "@tools/default/process.tool";
     // Process management
     ProcessTool,
     WorkspaceConfig,
+    
+    // File upload service
+    BusboyFileUploadService,
 
     // Mappers
     ToolMapper,

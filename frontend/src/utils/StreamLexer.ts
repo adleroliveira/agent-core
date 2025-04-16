@@ -98,8 +98,9 @@ export class GenAIStreamLexer {
         const content = typeof parsedContent.content === 'number' ? parsedContent.content.toString() : parsedContent.content;
         yield* this.processContentChunk(content);
       } else if (parsedContent !== null && parsedContent !== undefined && 
-                 !(typeof parsedContent === 'object' && Object.keys(parsedContent).length === 0)) {
-        // Only mark as unparseable if it's not an empty object and not a string content
+                 !(typeof parsedContent === 'object' && Object.keys(parsedContent).length === 0) &&
+                 !(typeof parsedContent === 'number')) {  // Don't mark numbers as unparseable
+        // Only mark as unparseable if it's not an empty object, not a string content, and not a number
         console.log('UNPARSEABLE CONTENT:', chunk, parsedContent, typeof parsedContent);
         yield { 
           type: TokenType.UNPARSEABLE, 

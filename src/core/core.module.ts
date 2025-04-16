@@ -8,6 +8,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { MessageService } from './services/message.service';
 import { MessageRepositoryPort } from '@ports/storage/message-repository.port';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { FileUploadService } from './services/file-upload.service';
+import { FileService } from './services/file.service';
 
 @Module({
   imports: [
@@ -28,12 +30,16 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
       },
       inject: [MESSAGE_REPOSITORY, EventEmitter2],
     },
+    FileUploadService,
+    FileService,
   ],
   exports: [
     AGENT_SERVICE, 
     WorkspaceConfig, 
     ProcessManagerService,
     MessageService,
+    FileUploadService,
+    FileService,
   ],
 })
 export class CoreModule {}

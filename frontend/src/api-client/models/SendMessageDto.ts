@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { FileInfoDto } from './FileInfoDto';
 export type SendMessageDto = {
     /**
      * The content of the message to send
@@ -19,5 +20,9 @@ export type SendMessageDto = {
      * Maximum number of tokens to generate
      */
     maxTokens?: number;
+    /**
+     * Array of files attached to the message
+     */
+    files?: Array<FileInfoDto>;
 };
 

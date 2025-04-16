@@ -24,6 +24,7 @@ import { AgentState } from "@core/domain/agent-state.entity";
 import { MessageService } from "@core/services/message.service";
 import { KnowledgeBase } from "@core/domain/knowledge-base.entity";
 import { KnowledgeBaseRepositoryPort } from "@ports/storage/knowledge-base-repository.port";
+import { FileInfo } from "@ports/file-upload.port";
 import {
   KNOWLEDGE_BASE_REPOSITORY,
   AGENT_REPOSITORY,
@@ -174,7 +175,8 @@ export class AgentService implements OnModuleInit {
       maxTokens?: number;
       stream?: boolean;
       memorySize?: number;
-    }
+    },
+    files?: FileInfo[]
   ): Promise<Message | Observable<Partial<Message>>> {
     // Find the agent with all relations loaded
     const agent = await this.findAgentById(agentId, true);
@@ -198,6 +200,7 @@ export class AgentService implements OnModuleInit {
       content: messageContent,
       role: "user",
       stateId: stateIdToUse,
+      files: files as FileInfo[]
     });
 
     // Process the message and let the agent handle its state
@@ -228,7 +231,6 @@ export class AgentService implements OnModuleInit {
             try {
               // Save the final state after stream completes
               await this.agentRepository.save(agent);
-              // await this.stateRepository.save(updatedState);
               await this.messageService.appendMessages(updatedState.conversationHistory);
               subscriber.complete();
             } catch (error) {
@@ -397,7 +399,6 @@ export class AgentService implements OnModuleInit {
     
     // Assign the updated memory back to the state
     state.memory = updatedMemory;
-    console.log('Input memory:', memory, 'Final state memory:', state.memory);
     await this.stateRepository.save(state);
   }
 

@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { FileInfoDto } from './FileInfoDto';
 import type { ToolCallDto } from './ToolCallDto';
 import type { ToolResultDto } from './ToolResultDto';
 export type MessageDto = {
@@ -37,6 +38,10 @@ export type MessageDto = {
      * Additional metadata about the message
      */
     metadata?: Record<string, any>;
+    /**
+     * Files attached to the message
+     */
+    files?: Array<FileInfoDto>;
 };
 export namespace MessageDto {
     /**

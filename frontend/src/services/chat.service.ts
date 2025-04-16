@@ -1,5 +1,6 @@
 import { AgentsService } from '../api-client';
 import type { SendMessageDto } from '../api-client/models/SendMessageDto';
+import { FileInfoDto } from '../api-client/models/FileInfoDto';
 
 export interface ToolCall {
   id: string;
@@ -34,10 +35,11 @@ export class ChatService {
     this.agentId = agentId;
   }
 
-  async sendMessage(content: string, stateId: string): Promise<Message> {
+  async sendMessage(content: string, stateId: string, files: FileInfoDto[]): Promise<Message> {
     const messageDto: SendMessageDto = {
       content,
       stateId,
+      files
     };
 
     try {
@@ -68,6 +70,7 @@ export class ChatService {
   async sendStreamingMessage(
     content: string,
     stateId: string,
+    files: FileInfoDto[],
     onChunk: (chunk: string) => void,
     onComplete: () => void,
     onError: (error: any) => void
@@ -75,6 +78,7 @@ export class ChatService {
     const messageDto: SendMessageDto = {
       content,
       stateId,
+      files: files
     };
 
     try {

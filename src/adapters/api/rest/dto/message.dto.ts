@@ -1,4 +1,22 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { FileInfo } from '@ports/file-upload.port';
+
+export class FileInfoDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  filename: string;
+
+  @ApiProperty()
+  originalName: string;
+
+  @ApiProperty()
+  size: number;
+
+  @ApiProperty()
+  mimetype: string;
+}
 
 export class ToolCallDto {
   @ApiProperty({
@@ -85,4 +103,11 @@ export class MessageDto {
     required: false
   })
   metadata?: Record<string, any>;
+
+  @ApiProperty({
+    description: 'Files attached to the message',
+    type: [FileInfoDto],
+    required: false
+  })
+  files?: FileInfo[];
 } 

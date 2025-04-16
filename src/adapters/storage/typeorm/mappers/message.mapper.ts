@@ -5,6 +5,7 @@ import {
   ToolCall,
 } from "@core/domain/message.entity";
 import { MessageEntity } from "../entities/message.entity";
+import { FileInfo } from "@ports/file-upload.port";
 
 export class MessageMapper {
   static toDomain(entity: MessageEntity): Message {
@@ -39,6 +40,16 @@ export class MessageMapper {
       }
     }
 
+    // Parse files if it exists
+    let parsedFiles: FileInfo[] | undefined = undefined;
+    if (entity.files) {
+      try {
+        parsedFiles = JSON.parse(entity.files) as FileInfo[];
+      } catch (e) {
+        // If parsing fails, leave as undefined
+      }
+    }
+
     const message = new Message({
       id: entity.id,
       role: entity.role as MessageRole,
@@ -49,6 +60,7 @@ export class MessageMapper {
       toolCallId: entity.toolCallId || undefined, // Convert null to undefined
       toolName: entity.toolName || undefined, // Convert null to undefined
       isStreaming: entity.isStreaming,
+      files: parsedFiles,
     }, false);
     message.createdAt = entity.createdAt;
 
@@ -80,6 +92,9 @@ export class MessageMapper {
     entity.toolCallId = domain.toolCallId || null;
     entity.toolName = domain.toolName || null;
     entity.isStreaming = domain.isStreaming || false;
+
+    // Stringify files if it exists
+    entity.files = domain.files ? JSON.stringify(domain.files) : null;
 
     entity.createdAt = domain.createdAt;
 

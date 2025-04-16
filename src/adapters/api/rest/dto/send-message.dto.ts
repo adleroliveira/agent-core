@@ -1,5 +1,33 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, Min, Max } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, Min, Max, IsArray, ValidateNested } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+
+export class FileInfoDto {
+  @ApiProperty({ description: 'Unique file identifier' })
+  @IsString()
+  @IsNotEmpty()
+  id: string;
+
+  @ApiProperty({ description: 'Generated filename' })
+  @IsString()
+  @IsNotEmpty()
+  filename: string;
+
+  @ApiProperty({ description: 'Original filename' })
+  @IsString()
+  @IsNotEmpty()
+  originalName: string;
+
+  @ApiProperty({ description: 'File size in bytes' })
+  @IsNumber()
+  @IsNotEmpty()
+  size: number;
+
+  @ApiProperty({ description: 'File MIME type' })
+  @IsString()
+  @IsNotEmpty()
+  mimetype: string;
+}
 
 export class SendMessageDto {
   @ApiProperty({
@@ -35,10 +63,21 @@ export class SendMessageDto {
   @ApiPropertyOptional({
     description: 'Maximum number of tokens to generate',
     minimum: 1,
-    default: 1000
+    default: 2000
   })
   @IsNumber()
   @Min(1)
   @IsOptional()
   maxTokens?: number;
+
+  @ApiPropertyOptional({
+    description: 'Array of files attached to the message',
+    type: [FileInfoDto],
+    required: false
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FileInfoDto)
+  @IsOptional()
+  files?: FileInfoDto[];
 }
