@@ -2,7 +2,7 @@ import { Module, forwardRef } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { CoreModule } from "@core/core.module";
 import { ConfigModule } from "@nestjs/config";
-import { AgentService } from "@core/application/agent.service";
+import { AgentService } from "@core/services/agent.service";
 import { StateRepositoryPort } from "@ports/storage/state-repository.port";
 import { WorkspaceConfig } from "@core/config/workspace.config";
 import { AgentMapper } from "./storage/typeorm/mappers/agent.mapper";

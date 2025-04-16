@@ -1,5 +1,5 @@
 import { Tool, ToolParameter } from '@core/domain/tool.entity';
-import { ProcessManagerService } from '@core/application/process-manager.service';
+import { ProcessManagerService } from '@core/services/process-manager.service';
 import { v4 as uuidv4 } from 'uuid';
 import { Inject } from '@nestjs/common';
 

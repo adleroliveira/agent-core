@@ -16,7 +16,7 @@ import {
 } from "@nestjs/common";
 import { Response } from "express";
 import { Observable } from "rxjs";
-import { AgentService } from "@core/application/agent.service";
+import { AgentService } from "@core/services/agent.service";
 import { CreateAgentDto } from "./dto/create-agent.dto";
 import { SendMessageDto } from "./dto/send-message.dto";
 import { UpdatePromptDto } from "./dto/update-prompt.dto";

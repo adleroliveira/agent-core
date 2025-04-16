@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AgentService } from '@core/application/agent.service';
+import { AgentService } from '@core/services/agent.service';
 import { Agent } from '@core/domain/agent.entity';
 import { Message } from '@core/domain/message.entity';
 import { Tool } from '@core/domain/tool.entity';
