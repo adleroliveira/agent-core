@@ -16,7 +16,11 @@
     "generate:openapi": "nest build && node -e \"const { NestFactory } = require('@nestjs/core'); const { AppModule } = require('./dist/app.module'); const { DocumentBuilder, SwaggerModule } = require('@nestjs/swagger'); const fs = require('fs'); const path = require('path'); async function generateOpenApi() { const app = await NestFactory.create(AppModule); app.setGlobalPrefix('api'); const config = new DocumentBuilder().setTitle('Agent Core API').setDescription('The Agent Core API description').setVersion('1.0').addTag('agents').build(); const document = SwaggerModule.createDocument(app, config); fs.writeFileSync(path.resolve('./openapi.json'), JSON.stringify(document, null, 2)); await app.close(); } generateOpenApi();\"",
     "generate:api-client": "npx openapi-typescript-codegen --input ./openapi.json --output ./frontend/src/api-client",
     "dev": "concurrently \"pnpm start:dev\" \"pnpm frontend:dev\"",
-    "migration:run": "ts-node -r tsconfig-paths/register src/adapters/storage/typeorm/run-migrations.ts"
+    "migration:run": "ts-node -r tsconfig-paths/register src/adapters/storage/typeorm/run-migrations.ts",
+    "app:start": "docker-compose up -d",
+    "app:stop": "docker-compose down",
+    "app:build": "docker-compose build",
+    "app:setup": "node setup.js"
   },
   "keywords": [],
   "author": "",
