@@ -127,8 +127,8 @@ importers:
   frontend:
     dependencies:
       '@heroicons/react':
-        specifier: ^2.2.0
-        version: 2.2.0(react@19.1.0)
+        specifier: 2.1.1
+        version: 2.1.1(react@19.1.0)
       '@preact/compat':
         specifier: ^18.3.1
         version: 18.3.1(preact@10.26.5)
@@ -638,10 +638,10 @@ packages:
   '@gar/promisify@1.1.3':
     resolution: {integrity: sha512-k2Ty1JcVojjJFwrg/ThKi2ujJ7XNLYaFGNB/bWT9wGR+oSMJHMa5w+CUq6p/pVrKeNNgA7pCqEcjSnHVoqJQFw==}
 
-  '@heroicons/react@2.2.0':
-    resolution: {integrity: sha512-LMcepvRaS9LYHJGsF0zzmgKCUim/X3N/DQKc4jepAXJ7l8QxJ1PmxJzqplF2Z3FE4PqBAIGyJAQ/w4B5dsqbtQ==}
+  '@heroicons/react@2.1.1':
+    resolution: {integrity: sha512-JyyN9Lo66kirbCMuMMRPtJxtKJoIsXKS569ebHGGRKbl8s4CtUfLnyKJxteA+vIKySocO4s1SkTkGS4xtG/yEA==}
     peerDependencies:
-      react: '>= 16 || ^19.0.0-rc'
+      react: '>= 16'
 
   '@inquirer/checkbox@4.1.4':
     resolution: {integrity: sha512-d30576EZdApjAMceijXA5jDzRQHT/MygbC+J8I7EqA6f/FRpYxlRtRJbHF8gHeWYeSdOuTEJqonn7QLB1ELezA==}
@@ -4931,7 +4931,7 @@ snapshots:
   '@gar/promisify@1.1.3':
     optional: true
 
-  '@heroicons/react@2.2.0(react@19.1.0)':
+  '@heroicons/react@2.1.1(react@19.1.0)':
     dependencies:
       react: 19.1.0
 

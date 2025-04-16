@@ -1,0 +1,18 @@
+version: '3'
+services:
+  agent-core:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./user-data:/app/user-data
+      - ${HOME}/.aws:/root/.aws:ro
+    env_file:
+      - .env
+    # Conditionally mount KVM if available
+    devices:
+      - /dev/kvm:/dev/kvm
+    privileged: true
+    # Make container restart on failure
+    restart: unless-stopped
