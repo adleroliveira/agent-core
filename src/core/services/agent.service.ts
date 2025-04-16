@@ -383,27 +383,19 @@ export class AgentService implements OnModuleInit {
       throw new NotFoundException(`No state found with ID ${stateId} for agent ${agentId}`);
     }
     
-    // Create a new memory object that handles both updates and removals
-    const updatedMemory = { ...state.memory };
+    // Create a new memory object with only the new values
+    const updatedMemory: Record<string, any> = {};
     
-    // First, remove any existing keys that match case-insensitively
-    const keysToUpdate = Object.keys(memory);
-    for (const existingKey of Object.keys(updatedMemory)) {
-      if (keysToUpdate.some(key => key.toLowerCase() === existingKey.toLowerCase())) {
-        delete updatedMemory[existingKey];
-      }
-    }
-    
-    // Then add the new values
+    // Add only the new values that are not undefined
     for (const [key, value] of Object.entries(memory)) {
-      if (value === undefined) {
-        delete updatedMemory[key];
-      } else {
+      if (value !== undefined) {
         updatedMemory[key] = value;
       }
     }
     
+    // Assign the updated memory back to the state
     state.memory = updatedMemory;
+    console.log('Input memory:', memory, 'Final state memory:', state.memory);
     await this.stateRepository.save(state);
   }
 
@@ -428,7 +420,6 @@ export class AgentService implements OnModuleInit {
       throw new NotFoundException(`No state found with ID ${stateId} for agent ${agentId}`);
     }
     delete state.memory[key];
-    console.log(state.memory);
     await this.stateRepository.save(state);
   }
 }

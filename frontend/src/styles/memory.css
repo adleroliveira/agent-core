@@ -6,6 +6,11 @@
   overflow-y: auto;
   font-size: 0.875rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .memory-header {
@@ -30,6 +35,11 @@
   display: flex;
   align-items: center;
   gap: 0.375rem;
+  position: relative;
+  z-index: 2;
+  flex-wrap: nowrap;
+  width: 100%;
+  min-width: 0;
 }
 
 .memory-key {
@@ -81,7 +91,9 @@
   border-radius: 4px;
   margin-right: 0.375rem;
   font-size: 0.875rem;
-  width: 150px;
+  width: 120px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .memory-container.loading,
@@ -117,13 +129,39 @@
   padding: 5px;
   background-color: #f5f5f5;
   border-radius: 4px;
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.new-node .memory-node-header {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: nowrap;
+  width: 100%;
+  min-width: 0;
+  padding-right: 0;
 }
 
 .new-node .memory-input {
-  margin: 0 5px;
-  padding: 2px 5px;
-  border: 1px solid #ddd;
-  border-radius: 3px;
+  flex: 1;
+  min-width: 100px;
+  max-width: calc(50% - 1rem);
+}
+
+.new-node .save-button,
+.new-node .cancel-button {
+  flex-shrink: 0;
+  margin-left: 0.25rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cancel-button {
@@ -159,4 +197,22 @@
 
 .memory-empty .add-button:hover {
   background-color: #e0e0e0;
+}
+
+.save-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.125rem;
+  font-size: 0.75rem;
+  color: #718096;
+  transition: color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 3px;
+  position: relative;
+  z-index: 3;
 } 
