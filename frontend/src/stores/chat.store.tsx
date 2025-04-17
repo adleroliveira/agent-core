@@ -39,6 +39,7 @@ interface ChatState {
   isStreamingActive: boolean;
   uploadedDocuments: UploadedDocument[];
   isUploading: boolean;
+  uploadError: string | null;
 }
 
 type ChatAction =
@@ -66,7 +67,8 @@ type ChatAction =
   | { type: 'ADD_DOCUMENT'; payload: UploadedDocument }
   | { type: 'REMOVE_DOCUMENT'; payload: string }
   | { type: 'SET_IS_UPLOADING'; payload: boolean }
-  | { type: 'CLEAR_DOCUMENTS'; payload: null };
+  | { type: 'CLEAR_DOCUMENTS'; payload: null }
+  | { type: 'SET_UPLOAD_ERROR'; payload: string | null };
 
 const initialState: ChatState = {
   messages: [],
@@ -89,6 +91,7 @@ const initialState: ChatState = {
   isStreamingActive: false,
   uploadedDocuments: [],
   isUploading: false,
+  uploadError: null,
 };
 
 function chatReducer(state: ChatState, action: ChatAction): ChatState {
@@ -156,6 +159,8 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, isUploading: action.payload };
     case 'CLEAR_DOCUMENTS':
       return { ...state, uploadedDocuments: [] };
+    case 'SET_UPLOAD_ERROR':
+      return { ...state, uploadError: action.payload };
     default:
       return state;
   }
@@ -268,24 +273,33 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
 
   const uploadFile = async (file: File) => {
     if (file.size > 4 * 1024 * 1024) { // 4MB limit
-      throw new Error('File size exceeds 4MB limit');
+      dispatch({ type: 'SET_UPLOAD_ERROR', payload: 'File size exceeds 4MB limit' });
+      return;
     }
 
     const allowedTypes = [
+      // Office Documents
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+      'application/msword', // .doc
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+      'application/vnd.ms-powerpoint', // .ppt
+
+      // PDF
+      'application/pdf',
+
+      // Text Files
       'text/plain',
       'text/csv',
-      'text/markdown',
-      'text/x-markdown',
       'application/json',
       'application/xml',
-      'text/xml',
       'text/html',
       'text/css',
-      'text/javascript',
+
+      // Programming Files
       'application/javascript',
-      'application/x-javascript',
-      'text/x-javascript',
-      'text/x-js',
+      'application/typescript',
       'text/x-python',
       'text/x-java',
       'text/x-c',
@@ -295,46 +309,36 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
       'text/x-ruby',
       'text/x-perl',
       'text/x-shellscript',
+
+      // Configuration Files
       'text/x-yaml',
       'text/x-toml',
       'text/x-ini',
       'text/x-properties',
+
+      // Documentation
+      'text/markdown',
+      'text/x-rst',
+      'text/x-asciidoc',
+      'text/x-org',
+
+      // Other Text Formats
       'text/x-log',
       'text/x-diff',
       'text/x-patch',
       'text/x-tex',
       'text/x-latex',
-      'text/x-bibtex',
-      'text/x-rst',
-      'text/x-asciidoc',
-      'text/x-org',
-      'text/x-org-agenda',
-      'text/x-org-journal',
-      'text/x-org-todo',
-      'text/x-org-checklist',
-      'text/x-org-table',
-      'text/x-org-drawer',
-      'text/x-org-property',
-      'text/x-org-block',
-      'text/x-org-src',
-      'text/x-org-example',
-      'text/x-org-export',
-      'text/x-org-macro',
-      'text/x-org-footnote',
-      'text/x-org-link',
-      'text/x-org-radio',
-      'text/x-org-checkbox',
-      'text/x-org-timestamp',
-      'text/x-org-planning',
-      'text/x-org-property-drawer'
+      'text/x-bibtex'
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      throw new Error('File type not allowed. Only text-based documents are supported.');
+      dispatch({ type: 'SET_UPLOAD_ERROR', payload: 'File type not allowed. Only text-based documents are supported.' });
+      return;
     }
 
     try {
       dispatch({ type: 'SET_IS_UPLOADING', payload: true });
+      dispatch({ type: 'SET_UPLOAD_ERROR', payload: null });
 
       // Create a new FormData instance and append the file
       const formData = new FormData();
@@ -356,14 +360,15 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Upload error response:', errorText);
-        throw new Error(`HTTP error! status: ${response.status}`);
+        dispatch({ type: 'SET_UPLOAD_ERROR', payload: `Upload failed: ${errorText}` });
+        return;
       }
 
       const result = await response.json();
       dispatch({ type: 'ADD_DOCUMENT', payload: result[0] });
     } catch (error) {
       console.error('Error uploading file:', error);
-      throw error;
+      dispatch({ type: 'SET_UPLOAD_ERROR', payload: error instanceof Error ? error.message : 'Failed to upload file' });
     } finally {
       dispatch({ type: 'SET_IS_UPLOADING', payload: false });
     }

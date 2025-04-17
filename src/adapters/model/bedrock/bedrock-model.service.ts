@@ -26,6 +26,7 @@ import { Prompt } from "@core/domain/prompt.entity";
 import { Tool } from "@core/domain/tool.entity";
 import { BedrockConfigService } from "./bedrock-config.service";
 import { FileService } from "@core/services/file.service";
+import { MimeTypeService } from '@core/services/mime-type.service';
 
 @Injectable()
 export class BedrockModelService implements ModelServicePort {
@@ -33,9 +34,27 @@ export class BedrockModelService implements ModelServicePort {
   private readonly bedrockClient: BedrockRuntimeClient;
   private readonly bedrockControlClient: BedrockClient;
 
+  private readonly bedrockFormats: Record<string, string> = {
+    // Office Documents
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    'application/msword': 'doc',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    'application/vnd.ms-excel': 'xls',
+    
+    // PDF
+    'application/pdf': 'pdf',
+    
+    // Text Files
+    'text/plain': 'txt',
+    'text/csv': 'csv',
+    'text/html': 'html',
+    'text/markdown': 'md'
+  };
+
   constructor(
     private readonly configService: BedrockConfigService,
-    private readonly fileService: FileService
+    private readonly fileService: FileService,
+    private readonly mimeTypeService: MimeTypeService
   ) {
     this.bedrockClient = new BedrockRuntimeClient({
       region: this.configService.getRegion(),
@@ -366,139 +385,69 @@ export class BedrockModelService implements ModelServicePort {
     return sanitized;
   }
 
+  private getDocumentFormat(mimeType: string): string {
+    const format = this.bedrockFormats[mimeType];
+    if (format) {
+      this.logger.debug(`Using MIME type format: ${format}`);
+      return format;
+    }
+
+    this.logger.debug('Defaulting to txt format');
+    return 'txt';
+  }
+
   private async createConverseRequest(
     messages: Message[],
     systemPrompt: Prompt | Prompt[],
     tools?: Tool[],
     options?: ModelRequestOptions
   ): Promise<any> {
-    const bedrockMessages = await Promise.all(messages.map(async (message) => {
-      if (message.role === "assistant") {
-        const content: any[] = [];
+    const formattedMessages = await Promise.all(messages.map(async (message) => {
+      const formattedMessage: any = {
+        role: message.role,
+        content: []
+      };
 
-        if (message.files) {
-          const fileContents = await this.fileService.getMessageFileContents(message);
-          message.files.forEach((file, index) => {
-            const fileExtension = file.originalName.split('.').pop()?.toLowerCase();
-            content.push({
-              document: {
-                format: fileExtension || 'unknown',
-                name: this.sanitizeFileName(file.originalName),
-                source: {
-                  bytes: fileContents[index].toString('base64')
-                }
-              }
-            });
-          });
-        }
-        
-        if (message.content) {
-          content.push({
-            text: typeof message.content === "string"
-              ? message.content
-              : JSON.stringify(message.content),
-          });
-        }
-
-        if (message.toolCalls) {
-          message.toolCalls.forEach((toolCall) => {
-            content.push({
-              toolUse: {
-                toolUseId: toolCall.id,
-                name: toolCall.name,
-                input: toolCall.arguments,
-              },
-            });
-          });
-        }
-
-        return {
-          role: "assistant",
-          content,
-        };
-      } else if (message.role === "user") {
-        const content: any[] = [];
-
-        if (message.files) {
-          const fileContents = await this.fileService.getMessageFileContents(message);
-          message.files.forEach((file, index) => {
-            const fileExtension = file.originalName.split('.').pop()?.toLowerCase();
-            content.push({
-              document: {
-                format: fileExtension || 'unknown',
-                name: this.sanitizeFileName(file.originalName),
-                source: {
-                  bytes: fileContents[index].toString('base64')
-                }
-              }
-            });
-          });
-        }
-
-        content.push({
+      // Add text content if present
+      if (message.content) {
+        formattedMessage.content.push({
           text: typeof message.content === "string"
             ? message.content
-            : JSON.stringify(message.content),
+            : JSON.stringify(message.content)
         });
-
-        return {
-          role: "user",
-          content,
-        };
-      } else if (message.role === "tool") {
-        try {
-          const content = typeof message.content === "string" ? message.content : JSON.stringify(message.content);
-          const toolResults = JSON.parse(content);
-          
-          // Check if toolResults is an array or a single object
-          if (Array.isArray(toolResults)) {
-            return {
-              role: "user",
-              content: toolResults.map((toolResult: any) => ({
-                toolResult: {
-                  toolUseId: toolResult.toolId,
-                  content: [{
-                    text: typeof toolResult.result === "string"
-                      ? toolResult.result
-                      : JSON.stringify(toolResult.result),
-                  }],
-                  status: toolResult.isError ? "error" : "success",
-                },
-              })),
-            };
-          } else {
-            // Handle single tool result object
-            return {
-              role: "user",
-              content: [{
-                toolResult: {
-                  toolUseId: toolResults.toolId || message.toolCallId,
-                  content: [{
-                    text: typeof toolResults.result === "string"
-                      ? toolResults.result
-                      : JSON.stringify(toolResults.result),
-                  }],
-                  status: toolResults.isError ? "error" : "success",
-                },
-              }],
-            };
-          }
-        } catch (error) {
-          this.logger.error(`Error parsing tool results: ${error.message}`);
-          return {
-            role: "user",
-            content: [{
-              toolResult: {
-                toolUseId: message.toolCallId,
-                content: [{
-                  text: typeof message.content === "string" ? message.content : JSON.stringify(message.content),
-                }],
-                status: message.isToolError ? "error" : "success",
-              },
-            }],
-          };
-        }
       }
+
+      // Add files if present
+      if (message.files && message.files.length > 0) {
+        const fileContents = await this.fileService.getMessageFileContents(message);
+        formattedMessage.content.push(...message.files.map((file, index) => {
+          const mimeType = this.mimeTypeService.getMimeType(file.originalName, file.mimetype);
+          const format = this.getDocumentFormat(mimeType);
+          
+          return {
+            document: {
+              format: format,
+              name: this.sanitizeFileName(file.originalName),
+              source: {
+                bytes: fileContents[index].toString('base64')
+              }
+            }
+          };
+        }));
+      }
+
+      // Add tool calls if present
+      if (message.toolCalls) {
+        formattedMessage.content.push(...message.toolCalls.map((toolCall) => ({
+          toolUse: {
+            toolUseId: toolCall.id,
+            name: toolCall.name,
+            input: toolCall.arguments,
+          },
+        })));
+      }
+
+      return formattedMessage;
     }));
 
     const systemContent = Array.isArray(systemPrompt)
@@ -514,7 +463,7 @@ export class BedrockModelService implements ModelServicePort {
         }];
 
     const requestBody: any = {
-      messages: bedrockMessages,
+      messages: formattedMessages,
       system: systemContent,
       inferenceConfig: {
         maxTokens: options?.maxTokens || 1000,

@@ -13,6 +13,7 @@ import { ToolRegistryPort, TOOL_REGISTRY } from '@ports/tool/tool-registry.port'
 import { ToolMapper } from './storage/typeorm/mappers/tool.mapper';
 import { TypeOrmToolRegistryService } from './storage/typeorm/typeorm-tool-registry.service';
 import { StateMapper } from './storage/typeorm/mappers/state.mapper';
+import { MimeTypeService } from '@core/services/mime-type.service';
 import {
   AGENT_REPOSITORY,
   STATE_REPOSITORY,
@@ -109,6 +110,7 @@ import { ProcessTool } from "@tools/default/process.tool";
     
     // File upload service
     BusboyFileUploadService,
+    MimeTypeService,
 
     // Mappers
     ToolMapper,

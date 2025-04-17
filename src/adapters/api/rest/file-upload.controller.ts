@@ -8,6 +8,7 @@ import { extname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import * as busboy from 'busboy';
+import { MimeTypeService } from '../../../core/services/mime-type.service';
 
 // Ensure uploads directory exists
 const uploadsDir = './uploads';
@@ -21,7 +22,10 @@ if (!fs.existsSync(uploadsDir)) {
  */
 @Injectable()
 export class BusboyFileUploadService {
-  constructor(private readonly fileValidationService: FileUploadService) {}
+  constructor(
+    private readonly fileValidationService: FileUploadService,
+    private readonly mimeTypeService: MimeTypeService
+  ) {}
 
   /**
    * Process a file upload using busboy
@@ -53,13 +57,16 @@ export class BusboyFileUploadService {
         const filename = `${uniqueId}-${uniqueSuffix}${extname(info.filename)}`;
         saveFilePath = join(uploadsDir, filename);
         
+        // Get MIME type from our service
+        const mimeType = this.mimeTypeService.getMimeType(info.filename, info.mimeType);
+        
         // Create file meta object
         fileInfo = {
           id: uniqueId,
           filename: filename,
           originalName: info.filename,
           size: 0,
-          mimetype: info.mimeType,
+          mimetype: mimeType,
         };
         
         // Create a write stream

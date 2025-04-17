@@ -656,6 +656,20 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
                 ))}
               </div>
             )}
+            {state.uploadError && (
+              <div class="upload-error">
+                <span class="error-icon">⚠️</span>
+                <span class="error-message">{state.uploadError}</span>
+                <button
+                  type="button"
+                  class="clear-error"
+                  onClick={() => dispatch({ type: 'SET_UPLOAD_ERROR', payload: null })}
+                  title="Dismiss error"
+                >
+                  <XMarkIcon />
+                </button>
+              </div>
+            )}
             <div class="chat-input-wrapper">
               <input
                 ref={inputRef}
