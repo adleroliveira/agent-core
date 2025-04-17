@@ -1,6 +1,22 @@
 import { v4 as uuidv4 } from "uuid";
 import { Message } from "./message.entity";
 
+export interface BaseMemoryStructure {
+  preferences: Record<string, any>;
+  context: Record<string, any>;
+  tasks: Record<string, any>;
+  entities: Record<string, any>;
+  custom: Record<string, any>;
+}
+
+const DEFAULT_MEMORY_STRUCTURE: BaseMemoryStructure = {
+  preferences: {},
+  context: {},
+  tasks: {},
+  entities: {},
+  custom: {},
+}
+
 export class AgentState {
   public readonly id: string;
   private _conversationHistory: Message[];
@@ -27,7 +43,7 @@ export class AgentState {
     this.title = params.title;
     this._conversationHistory = params.conversationHistory || [];
     this._messagesLoaded = params.conversationHistory !== undefined;
-    this.memory = params.memory || {};
+    this.memory = params.memory || DEFAULT_MEMORY_STRUCTURE;
     this.ttl = params.ttl;
     this.createdAt = new Date();
     this.updatedAt = new Date();

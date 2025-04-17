@@ -5,79 +5,192 @@ import { Agent } from "@core/domain/agent.entity";
 
 @Injectable()
 export class MemoryManagerTool {
+  // Define a structured memory schema to guide agents
+  private defaultMemoryStructure = {
+    // User-related information
+    preferences: {},
+    // Context about the conversation
+    context: {},
+    // Task tracking for multi-step processes
+    tasks: {},
+    // Important facts to remember
+    entities: {},
+    // Custom data for flexible use cases
+    custom: {}
+  };
+
   getTool(): Tool {
     const parameters: ToolParameter[] = [
       {
-        name: "memory",
-        type: "object",
-        description: "The memory object to store. This can be any JSON-serializable object containing information you want to remember for future interactions.",
+        name: "action",
+        type: "string",
+        description: "The action to perform on memory",
+        required: true,
+        enum: ["store", "update", "clear"],
+        default: "store",
+      },
+      {
+        name: "path",
+        type: "string",
+        description: "The memory path to operate on (e.g., 'preferences.theme', 'tasks.current', 'entities.company')",
         required: true,
       },
       {
-        name: "operation",
+        name: "data",
         type: "string",
-        description: "The operation to perform on the memory. Can be 'set' to replace the entire memory, 'update' to merge with existing memory, or 'get' to retrieve the current memory.",
-        required: false,
-        default: "update",
-        enum: ["set", "update", "get"],
-      },
+        description: "The data to store at the specified path",
+        required: true,
+      }
     ];
 
     return new Tool({
       id: uuidv4(),
       name: "memory_manager",
-      directive: `This tool allows you to manage your memory, which is included in every system prompt. Use it to:
-- Store important information from multi-step tasks
-- Keep track of conversation context that might get clipped
-- Maintain state for ongoing tasks
-- Remember user preferences or important details
-- Store intermediate results or calculations
+      directive: `MEMORY STORAGE TOOL
 
-The memory persists across all your responses and is automatically included in your context. This is particularly useful for:
-- Long conversations where context might be lost
-- Multi-step tasks where you need to remember intermediate results
-- Maintaining state across multiple tool calls
-- Remembering user preferences or important details
+Your memory is ALREADY available to you in your system prompt inside the <memory/> section.
+This tool is ONLY for STORING NEW INFORMATION that will appear in future system prompts.
 
-Use the 'set' operation to completely replace your memory, or 'update' to merge new information with existing memory.`,
-      description: "Manage the agent's memory that is included in system prompts.",
+DO NOT use this tool to retrieve or check memory - the <memory/> section in your system prompt already contains all memory!
+
+Memory is structured with these sections:
+- preferences: Store user preferences (e.g., theme, language)
+- context: Store conversation context (e.g., topics, interests)
+- tasks: Track progress in multi-step operations
+- entities: Store important facts about people, companies, etc.
+- custom: Store any other data
+
+ACTIONS:
+- store: Save new data (overwrites existing data at path)
+- update: Merge new data with existing data at path  
+- clear: Remove data at specified path (use null for data parameter)
+
+EXAMPLES:
+- Save user preference: 
+  memory_manager(action="store", path="preferences.theme", data="dark")
+  
+- Update current task: 
+  memory_manager(action="update", path="tasks.steps.current", data="3")
+  
+- Add important fact: 
+  memory_manager(action="update", path="context.interest", data="Machine Learning")
+  
+- Clear completed tasks: 
+  memory_manager(action="clear", path="tasks.completed", data=null)`,
+
+      description: "Store new information in memory for future interactions",
       parameters,
       handler: this.memoryHandler.bind(this),
-      systemPrompt: `Use this tool when you need to:
-- Remember information across multiple interactions
-- Track progress in a multi-step task
-- Store user preferences or important details for future use
-- Maintain context in long conversations
-- Save intermediate results that will be needed later
+      systemPrompt: `
+Your memory is ALREADY in your system prompt - you NEVER need to retrieve it!
 
-Do NOT use this tool for:
-- Information that's only needed for the current response
-- Storing information that's already in your knowledge base
-- When you can accomplish the task in a single interaction`
+This tool should be used if you need to:
+✓ Save user preferences for future messages
+✓ Track progress in multi-step tasks
+✓ Remember important facts for later use
+
+DO NOT use this tool:
+✗ To retrieve or check memory (it's already in your system prompt)
+✗ For information only needed in your current response
+✗ When you're unsure if memory exists (assume it does)
+
+MEMORY STRUCTURE:
+- preferences: Store user preferences (theme, language)
+- context: Store conversation context (topics, interests)
+- tasks: Track current task details and progress
+- entities: Store important facts about people, companies, etc.
+- custom: Store any other data
+`
     });
   }
 
   private async memoryHandler(args: Record<string, any>, agent: Agent): Promise<string> {
     try {
       const stateId = agent.getMostRecentState().id;
-      
-      if (args.operation === "get") {
-        const memory = agent.getStateMemory(stateId);
-        return JSON.stringify(memory);
+      let currentMemory = agent.getStateMemory(stateId) || {};
+
+      // Initialize with default structure if empty
+      if (Object.keys(currentMemory).length === 0) {
+        currentMemory = this.defaultMemoryStructure;
+        agent.updateMemory(stateId, currentMemory);
       }
-      
-      if (args.operation === "set") {
-        agent.updateMemory(stateId, args.memory);
-        return "Memory has been completely replaced with the new data.";
-      } else {
-        // For update operation, we need to get existing memory first
-        const existingMemory = agent.getStateMemory(stateId);
-        const updatedMemory = { ...existingMemory, ...args.memory };
-        agent.updateMemory(stateId, updatedMemory);
-        return "Memory has been updated with the new data while preserving existing information.";
+
+      // Check for missing required parameters
+      if (!args.path) {
+        return "ERROR: 'path' parameter is required. Specify where to store the data.";
+      }
+
+      if (args.data === undefined && args.action !== "clear") {
+        return "ERROR: 'data' parameter is required. Specify what data to store.";
+      }
+
+      // Process the requested action
+      switch (args.action) {
+        case "store":
+          const storedMemory = this.setValueAtPath(currentMemory, args.path, args.data);
+          agent.updateMemory(stateId, storedMemory);
+          return `✅ Stored "${args.data}" at '${args.path}'. This will be available in your system prompt in future interactions.`;
+
+        case "update":
+          const existingValue = this.getValueAtPath(currentMemory, args.path);
+          let newValue;
+
+          // Since data is now a string, handle differently
+          if (Array.isArray(existingValue)) {
+            // For arrays, add the string as a new element
+            newValue = [...existingValue, args.data];
+          } else if (typeof existingValue === 'object' && existingValue !== null) {
+            // For objects, we can't easily merge with a string
+            // So we'll set a default property or overwrite
+            newValue = {
+              ...existingValue,
+              value: args.data
+            };
+          } else {
+            // For primitives or non-existent values, just set
+            newValue = args.data;
+          }
+
+          const mergedMemory = this.setValueAtPath(currentMemory, args.path, newValue);
+          agent.updateMemory(stateId, mergedMemory);
+          return `✅ Updated data at '${args.path}'. This will be available in your system prompt in future interactions.`;
+
+        case "clear":
+          // Clear specific path by setting it to null
+          const clearedMemory = this.setValueAtPath(currentMemory, args.path, null);
+          agent.updateMemory(stateId, clearedMemory);
+          return `✅ Cleared data at '${args.path}'. This will be reflected in your system prompt in future interactions.`;
+
+        default:
+          return `ERROR: Unknown action '${args.action}'. Valid actions are: store, update, clear.`;
       }
     } catch (error) {
-      throw new Error(`Failed to update memory: ${error.message}`);
+      return `ERROR: ${error.message}. Memory was NOT modified.`;
     }
   }
-} 
+
+  // Helper functions for path-based operations
+  private getValueAtPath(obj: any, path: string): any {
+    const keys = path.split('.');
+    return keys.reduce((o, key) => (o && o[key] !== undefined) ? o[key] : null, obj);
+  }
+
+  private setValueAtPath(obj: any, path: string, value: any): any {
+    const keys = path.split('.');
+    const result = JSON.parse(JSON.stringify(obj)); // Deep clone
+
+    let current = result;
+    for (let i = 0; i < keys.length - 1; i++) {
+      const key = keys[i];
+      if (!current[key] || typeof current[key] !== 'object') {
+        // Create missing path segments as objects
+        current[key] = {};
+      }
+      current = current[key];
+    }
+
+    const lastKey = keys[keys.length - 1];
+    current[lastKey] = value;
+    return result;
+  }
+}

@@ -23,10 +23,18 @@ export class BedrockConfigService {
     "anthropic.claude-v1",
   ]);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) { }
 
   getRegion(): string {
     return this.configService.get<string>("AWS_REGION") || "us-east-1";
+  }
+
+  getSessionToken(): string {
+    return this.configService.get<string>("AWS_SESSION_TOKEN") || "";
+  }
+
+  getProfile(): string {
+    return this.configService.get<string>("AWS_PROFILE") || "default";
   }
 
   getAccessKeyId(): string {
@@ -61,7 +69,7 @@ export class BedrockConfigService {
 
   supportsToolCalling(modelId?: string): boolean {
     const targetModelId = modelId || this.getModelId();
-    return Array.from(this.modelsWithToolCalling).some(model => 
+    return Array.from(this.modelsWithToolCalling).some(model =>
       targetModelId.includes(model)
     );
   }

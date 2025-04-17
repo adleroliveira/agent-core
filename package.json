@@ -17,9 +17,9 @@
     "generate:api-client": "npx openapi-typescript-codegen --input ./openapi.json --output ./frontend/src/api-client",
     "dev": "concurrently \"pnpm start:dev\" \"pnpm frontend:dev\"",
     "migration:run": "ts-node -r tsconfig-paths/register src/adapters/storage/typeorm/run-migrations.ts",
-    "app:start": "docker-compose up -d",
-    "app:stop": "docker-compose down",
-    "app:build": "docker-compose build",
+    "app:start": "docker compose up -d",
+    "app:stop": "docker compose down",
+    "app:build": "docker compose build",
     "app:setup": "node setup.js"
   },
   "keywords": [],
