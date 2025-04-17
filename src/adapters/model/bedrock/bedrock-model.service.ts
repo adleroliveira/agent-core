@@ -40,10 +40,10 @@ export class BedrockModelService implements ModelServicePort {
     'application/msword': 'doc',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
     'application/vnd.ms-excel': 'xls',
-    
+
     // PDF
     'application/pdf': 'pdf',
-    
+
     // Text Files
     'text/plain': 'txt',
     'text/csv': 'csv',
@@ -56,21 +56,51 @@ export class BedrockModelService implements ModelServicePort {
     private readonly fileService: FileService,
     private readonly mimeTypeService: MimeTypeService
   ) {
-    this.bedrockClient = new BedrockRuntimeClient({
-      region: this.configService.getRegion(),
-      credentials: {
-        accessKeyId: this.configService.getAccessKeyId(),
-        secretAccessKey: this.configService.getSecretAccessKey(),
-      },
-    });
+    // Get region
+    const region = this.configService.getRegion();
 
-    this.bedrockControlClient = new BedrockClient({
-      region: this.configService.getRegion(),
-      credentials: {
-        accessKeyId: this.configService.getAccessKeyId(),
-        secretAccessKey: this.configService.getSecretAccessKey(),
-      },
-    });
+    // Create basic config
+    const clientConfig: any = { region };
+
+    // Try to get profile first
+    const profile = this.configService.getProfile();
+
+    if (profile) {
+      // Profile specified - use it directly
+      clientConfig.profile = profile;
+    } else {
+      // No profile - check for direct credentials
+      const accessKeyId = this.configService.getAccessKeyId();
+      const secretAccessKey = this.configService.getSecretAccessKey();
+
+      if (accessKeyId && secretAccessKey) {
+        // Direct credentials provided
+        clientConfig.credentials = {
+          accessKeyId,
+          secretAccessKey
+        };
+
+        // Add session token if available
+        const sessionToken = this.configService.getSessionToken();
+        if (sessionToken) {
+          clientConfig.credentials.sessionToken = sessionToken;
+        }
+      } else {
+        // Check for standalone session token (for using with web identity roles)
+        const sessionToken = this.configService.getSessionToken();
+        if (sessionToken) {
+          // Just session token provided (useful in some container/lambda environments)
+          clientConfig.credentials = {
+            sessionToken
+          };
+        }
+        // If none provided, SDK will fall back to environment variables or instance metadata
+      }
+    }
+
+    // Initialize Bedrock clients
+    this.bedrockClient = new BedrockRuntimeClient(clientConfig);
+    this.bedrockControlClient = new BedrockClient(clientConfig);
   }
 
   async generateResponse(
@@ -80,7 +110,7 @@ export class BedrockModelService implements ModelServicePort {
     options?: ModelRequestOptions
   ): Promise<ModelResponse> {
     const modelId = options?.modelId || this.configService.getModelId();
-    
+
     console.log(JSON.stringify(messages, null, 2));
     try {
       const requestBody = await this.createConverseRequest(
@@ -367,21 +397,21 @@ export class BedrockModelService implements ModelServicePort {
   private sanitizeFileName(originalName: string): string {
     // Remove file extension
     const nameWithoutExt = originalName.replace(/\.[^/.]+$/, "");
-    
+
     // Replace invalid characters with hyphens
     let sanitized = nameWithoutExt.replace(/[^a-zA-Z0-9\s\-\(\)\[\]]/g, '-');
-    
+
     // Replace multiple consecutive spaces with a single space
     sanitized = sanitized.replace(/\s+/g, ' ');
-    
+
     // Trim whitespace
     sanitized = sanitized.trim();
-    
+
     // If the name is empty after sanitization, use a default name
     if (!sanitized) {
       sanitized = 'document';
     }
-    
+
     return sanitized;
   }
 
@@ -405,7 +435,7 @@ export class BedrockModelService implements ModelServicePort {
     const formattedMessages = await Promise.all(messages.map(async (message) => {
       if (message.role === "assistant") {
         const content: any[] = [];
-        
+
         if (message.content) {
           content.push({
             text: typeof message.content === "string"
@@ -430,7 +460,7 @@ export class BedrockModelService implements ModelServicePort {
         };
       } else if (message.role === "user") {
         const content: any[] = [];
-        
+
         if (message.content) {
           content.push({
             text: typeof message.content === "string"
@@ -445,7 +475,7 @@ export class BedrockModelService implements ModelServicePort {
           content.push(...message.files.map((file, index) => {
             const mimeType = this.mimeTypeService.getMimeType(file.originalName, file.mimetype);
             const format = this.getDocumentFormat(mimeType);
-            
+
             return {
               document: {
                 format: format,
@@ -466,7 +496,7 @@ export class BedrockModelService implements ModelServicePort {
         try {
           const content = typeof message.content === "string" ? message.content : JSON.stringify(message.content);
           const toolResults = JSON.parse(content);
-          
+
           // Check if toolResults is an array or a single object
           if (Array.isArray(toolResults)) {
             return {
@@ -520,15 +550,15 @@ export class BedrockModelService implements ModelServicePort {
 
     const systemContent = Array.isArray(systemPrompt)
       ? systemPrompt.map(prompt => ({
-          text: typeof prompt.content === "string"
-            ? prompt.content
-            : JSON.stringify(prompt.content),
-        }))
+        text: typeof prompt.content === "string"
+          ? prompt.content
+          : JSON.stringify(prompt.content),
+      }))
       : [{
-          text: typeof systemPrompt.content === "string"
-            ? systemPrompt.content
-            : JSON.stringify(systemPrompt.content),
-        }];
+        text: typeof systemPrompt.content === "string"
+          ? systemPrompt.content
+          : JSON.stringify(systemPrompt.content),
+      }];
 
     const requestBody: any = {
       messages: formattedMessages,
@@ -668,7 +698,7 @@ export class BedrockModelService implements ModelServicePort {
 
       const modelSumaries = response.modelSummaries?.map((model: FoundationModelSummary) => {
         let modelId = model.modelId || '';
-        
+
         // Add "us." prefix if the only inference type is INFERENCE_PROFILE
         if (model.inferenceTypesSupported?.length === 1) {
           const inferenceType = model.inferenceTypesSupported[0] as string;
@@ -714,7 +744,7 @@ export class BedrockModelService implements ModelServicePort {
 
   private mapModalities(modalities?: string[]): ModelModality[] {
     if (!modalities) return ['text']; // Default to text if no modalities specified
-    
+
     return modalities.map(modality => {
       switch (modality.toLowerCase()) {
         case 'text':
