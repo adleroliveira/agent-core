@@ -403,51 +403,119 @@ export class BedrockModelService implements ModelServicePort {
     options?: ModelRequestOptions
   ): Promise<any> {
     const formattedMessages = await Promise.all(messages.map(async (message) => {
-      const formattedMessage: any = {
-        role: message.role,
-        content: []
-      };
+      if (message.role === "assistant") {
+        const content: any[] = [];
+        
+        if (message.content) {
+          content.push({
+            text: typeof message.content === "string"
+              ? message.content
+              : JSON.stringify(message.content),
+          });
+        }
 
-      // Add text content if present
-      if (message.content) {
-        formattedMessage.content.push({
-          text: typeof message.content === "string"
-            ? message.content
-            : JSON.stringify(message.content)
-        });
-      }
+        if (message.toolCalls) {
+          content.push(...message.toolCalls.map((toolCall) => ({
+            toolUse: {
+              toolUseId: toolCall.id,
+              name: toolCall.name,
+              input: toolCall.arguments,
+            },
+          })));
+        }
 
-      // Add files if present
-      if (message.files && message.files.length > 0) {
-        const fileContents = await this.fileService.getMessageFileContents(message);
-        formattedMessage.content.push(...message.files.map((file, index) => {
-          const mimeType = this.mimeTypeService.getMimeType(file.originalName, file.mimetype);
-          const format = this.getDocumentFormat(mimeType);
-          
-          return {
-            document: {
-              format: format,
-              name: this.sanitizeFileName(file.originalName),
-              source: {
-                bytes: fileContents[index].toString('base64')
+        return {
+          role: "assistant",
+          content,
+        };
+      } else if (message.role === "user") {
+        const content: any[] = [];
+        
+        if (message.content) {
+          content.push({
+            text: typeof message.content === "string"
+              ? message.content
+              : JSON.stringify(message.content),
+          });
+        }
+
+        // Add files if present
+        if (message.files && message.files.length > 0) {
+          const fileContents = await this.fileService.getMessageFileContents(message);
+          content.push(...message.files.map((file, index) => {
+            const mimeType = this.mimeTypeService.getMimeType(file.originalName, file.mimetype);
+            const format = this.getDocumentFormat(mimeType);
+            
+            return {
+              document: {
+                format: format,
+                name: this.sanitizeFileName(file.originalName),
+                source: {
+                  bytes: fileContents[index].toString('base64')
+                }
               }
-            }
+            };
+          }));
+        }
+
+        return {
+          role: "user",
+          content,
+        };
+      } else if (message.role === "tool") {
+        try {
+          const content = typeof message.content === "string" ? message.content : JSON.stringify(message.content);
+          const toolResults = JSON.parse(content);
+          
+          // Check if toolResults is an array or a single object
+          if (Array.isArray(toolResults)) {
+            return {
+              role: "user",
+              content: toolResults.map((toolResult: any) => ({
+                toolResult: {
+                  toolUseId: toolResult.toolId,
+                  content: [{
+                    text: typeof toolResult.result === "string"
+                      ? toolResult.result
+                      : JSON.stringify(toolResult.result),
+                  }],
+                  status: toolResult.isError ? "error" : "success",
+                },
+              })),
+            };
+          } else {
+            // Handle single tool result object
+            return {
+              role: "user",
+              content: [{
+                toolResult: {
+                  toolUseId: toolResults.toolId || message.toolCallId,
+                  content: [{
+                    text: typeof toolResults.result === "string"
+                      ? toolResults.result
+                      : JSON.stringify(toolResults.result),
+                  }],
+                  status: toolResults.isError ? "error" : "success",
+                },
+              }],
+            };
+          }
+        } catch (error) {
+          this.logger.error(`Error parsing tool results: ${error.message}`);
+          return {
+            role: "user",
+            content: [{
+              toolResult: {
+                toolUseId: message.toolCallId,
+                content: [{
+                  text: typeof message.content === "string" ? message.content : JSON.stringify(message.content),
+                }],
+                status: message.isToolError ? "error" : "success",
+              },
+            }],
           };
-        }));
+        }
       }
-
-      // Add tool calls if present
-      if (message.toolCalls) {
-        formattedMessage.content.push(...message.toolCalls.map((toolCall) => ({
-          toolUse: {
-            toolUseId: toolCall.id,
-            name: toolCall.name,
-            input: toolCall.arguments,
-          },
-        })));
-      }
-
-      return formattedMessage;
     }));
 
     const systemContent = Array.isArray(systemPrompt)
