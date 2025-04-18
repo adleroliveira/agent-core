@@ -1,7 +1,7 @@
 import { createContext } from 'preact';
 import { useContext, useReducer } from 'preact/hooks';
 import { ConversationDto } from '../api-client/models/ConversationDto';
-import { FrontendAgentService } from '../services/agent.service';
+import { AgentsService } from '../api-client/services/AgentsService';
 
 interface ConversationState {
   conversations: ConversationDto[];
@@ -41,19 +41,19 @@ function conversationReducer(state: ConversationState, action: ConversationActio
 const ConversationContext = createContext<{
   state: ConversationState;
   dispatch: (action: ConversationAction) => void;
-  fetchConversations: (agentId: string, agentService: FrontendAgentService) => Promise<void>;
-  createConversation: (agentId: string, agentService: FrontendAgentService) => Promise<void>;
-  deleteConversation: (agentId: string, conversationId: string, agentService: FrontendAgentService) => Promise<void>;
+  fetchConversations: (agentId: string, agentService: typeof AgentsService) => Promise<void>;
+  createConversation: (agentId: string, agentService: typeof AgentsService) => Promise<void>;
+  deleteConversation: (agentId: string, conversationId: string, agentService: typeof AgentsService) => Promise<void>;
   selectConversation: (conversationId: string) => void;
 } | null>(null);
 
 export function ConversationProvider({ children }: { children: preact.ComponentChildren }) {
   const [state, dispatch] = useReducer(conversationReducer, initialState);
 
-  const fetchConversations = async (agentId: string, agentService: FrontendAgentService) => {
+  const fetchConversations = async (agentId: string, agentService: typeof AgentsService) => {
     dispatch({ type: 'SET_IS_LOADING', payload: true });
     try {
-      const conversations = await agentService.getConversations(agentId);
+      const conversations = await agentService.agentControllerGetConversations(agentId);
       dispatch({ type: 'SET_CONVERSATIONS', payload: conversations });
       if (conversations.length > 0) {
         dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: conversations[0].stateId });
@@ -68,10 +68,10 @@ export function ConversationProvider({ children }: { children: preact.ComponentC
     }
   };
 
-  const createConversation = async (agentId: string, agentService: FrontendAgentService) => {
+  const createConversation = async (agentId: string, agentService: typeof AgentsService) => {
     dispatch({ type: 'SET_IS_LOADING', payload: true });
     try {
-      const conversation = await agentService.createNewConversation(agentId);
+      const conversation = await agentService.agentControllerCreateNewConversation(agentId);
       await fetchConversations(agentId, agentService);
       dispatch({ type: 'SET_ACTIVE_CONVERSATION_ID', payload: conversation.stateId });
       dispatch({ type: 'SET_ERROR', payload: null });
@@ -82,10 +82,10 @@ export function ConversationProvider({ children }: { children: preact.ComponentC
     }
   };
 
-  const deleteConversation = async (agentId: string, conversationId: string, agentService: FrontendAgentService) => {
+  const deleteConversation = async (agentId: string, conversationId: string, agentService: typeof AgentsService) => {
     dispatch({ type: 'SET_IS_LOADING', payload: true });
     try {
-      await agentService.deleteConversation(agentId, conversationId);
+      await agentService.agentControllerDeleteConversation(agentId, conversationId);
       await fetchConversations(agentId, agentService);
       dispatch({ type: 'SET_ERROR', payload: null });
     } catch (error: any) {

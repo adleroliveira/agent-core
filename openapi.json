@@ -1063,20 +1063,26 @@
       "ToolResultDto": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "description": "The ID of the tool result",
-            "example": "result_123"
+          "isError": {
+            "type": "boolean",
+            "description": "Whether the tool call was successful",
+            "example": false
           },
-          "content": {
+          "toolCallId": {
             "type": "string",
-            "description": "The content of the tool result",
+            "description": "The ID of the tool call",
+            "example": "call_123"
+          },
+          "result": {
+            "type": "string",
+            "description": "The result of the tool call",
             "example": "The weather in London is sunny"
           }
         },
         "required": [
-          "id",
-          "content"
+          "isError",
+          "toolCallId",
+          "result"
         ]
       },
       "MessageDto": {

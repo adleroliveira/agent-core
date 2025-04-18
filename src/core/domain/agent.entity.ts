@@ -290,7 +290,10 @@ export class Agent {
     const streamingPromise = new Promise<void>((resolve, reject) => {
       streamingObs.subscribe({
         next: (responseChunk) => {
-          const messageChunk: Partial<Message> = {};
+          const messageChunk: Partial<Message> = {
+            role: "assistant", // Always set the role for clarity
+            stateId: message.stateId, // Always include stateId
+          };
 
           if (responseChunk.message?.content) {
             streamingContent += responseChunk.message.content;
@@ -307,17 +310,39 @@ export class Agent {
             responseChunk.toolCalls.forEach((tc) => {
               if (!collectedToolCalls.some((collected) => collected.toolId === tc.toolId)) {
                 collectedToolCalls.push(tc);
+                // Emit a separate tool call message for clarity
+                subject.next({
+                  role: "assistant",
+                  stateId: message.stateId,
+                  toolCalls: [{
+                    id: tc.toolId,
+                    name: tc.toolName,
+                    arguments: tc.arguments,
+                  }],
+                  metadata: {
+                    type: "tool_call",
+                    timestamp: new Date().toISOString(),
+                  }
+                });
               }
             });
           }
 
           if (responseChunk.metadata) {
-            messageChunk.metadata = responseChunk.metadata;
+            messageChunk.metadata = {
+              ...responseChunk.metadata,
+              type: "content_chunk",
+              timestamp: new Date().toISOString(),
+            };
           }
 
           if (responseChunk.usage) {
             this.inputTokens += responseChunk.usage.promptTokens;
             this.outputTokens += responseChunk.usage.completionTokens;
+            messageChunk.metadata = {
+              ...messageChunk.metadata,
+              usage: responseChunk.usage,
+            };
           }
 
           if (messageChunk.content) {
@@ -334,6 +359,10 @@ export class Agent {
               name: tc.toolName,
               arguments: tc.arguments,
             })),
+            metadata: {
+              type: "stream_complete",
+              timestamp: new Date().toISOString(),
+            }
           });
 
           this.logger.debug(`Streaming response completed for agent ${this.id}. Content length: ${streamingContent.length}, Tool calls: ${collectedToolCalls.length} (${collectedToolCalls.map(tc => tc.toolName).join(', ') || 'none'})`);
@@ -352,8 +381,14 @@ export class Agent {
             } catch (error) {
               this.logger.error(`Error in tool calls execution for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Tool calls: ${collectedToolCalls.map(tc => tc.toolName).join(', ')}`);
               subject.next({
+                role: "assistant",
+                stateId: message.stateId,
                 content: `Error processing tool calls: ${error.message}`,
-                metadata: { error: error.message },
+                metadata: {
+                  type: "error",
+                  error: error.message,
+                  timestamp: new Date().toISOString(),
+                }
               });
             }
           }
@@ -365,8 +400,14 @@ export class Agent {
         error: (error) => {
           this.logger.error(`Streaming error for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Content so far: "${streamingContent.substring(0, 100)}${streamingContent.length > 100 ? '...' : ''}"`);
           subject.next({
+            role: "assistant",
+            stateId: message.stateId,
             content: `Error in streaming response: ${error.message}`,
-            metadata: { error: error.message },
+            metadata: {
+              type: "error",
+              error: error.message,
+              timestamp: new Date().toISOString(),
+            }
           });
           if (!responseSubject) {
             subject.complete();
@@ -414,6 +455,23 @@ export class Agent {
           isError: true
         });
         hasErrors = true;
+        responseSubject.next({
+          role: "tool",
+          stateId: stateId,
+          content: "",
+          toolResults: toolResults.map(r => ({
+            toolCallId: r.toolId,
+            result: r.result,
+            isError: r.isError
+          })),
+          toolCallId: toolCall.toolId,
+          toolName: toolCall.toolName,
+          metadata: {
+            type: "tool_error",
+            error: TOOL_NOT_FOUND_ERROR.replace("%s", toolCall.toolName),
+            timestamp: new Date().toISOString(),
+          }
+        });
         continue;
       }
 
@@ -425,6 +483,22 @@ export class Agent {
           result: result,
           isError: false
         });
+        responseSubject.next({
+          role: "tool",
+          stateId: stateId,
+          content: "",
+          toolResults: [{
+            toolCallId: toolCall.toolId,
+            result: result,
+            isError: false
+          }],
+          toolCallId: toolCall.toolId,
+          toolName: toolCall.toolName,
+          metadata: {
+            type: "tool_result",
+            timestamp: new Date().toISOString(),
+          }
+        });
         this.logger.debug(`Tool ${toolCall.toolName} executed successfully for agent ${this.id}. Result type: ${typeof result}, Result length: ${typeof result === 'string' ? result.length : 'N/A'}`);
       } catch (error) {
         this.logger.error(`Tool execution failed for ${toolCall.toolName} on agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Arguments: ${JSON.stringify(toolCall.arguments)}`);
@@ -433,6 +507,23 @@ export class Agent {
           result: TOOL_EXECUTION_ERROR.replace("%s", error.message),
           isError: true
         });
+        responseSubject.next({
+          role: "tool",
+          stateId: stateId,
+          content: "",
+          toolResults: toolResults.map(r => ({
+            toolCallId: r.toolId,
+            result: r.result,
+            isError: r.isError
+          })),
+          toolCallId: toolCall.toolId,
+          toolName: toolCall.toolName,
+          metadata: {
+            type: "tool_error",
+            error: error.message,
+            timestamp: new Date().toISOString(),
+          }
+        });
         hasErrors = true;
       }
     }
@@ -440,11 +531,20 @@ export class Agent {
     // Create a single message with all tool results
     const toolResponseMessage = new Message({
       role: "tool",
-      content: JSON.stringify(toolResults),
+      content: "",
+      toolResults: toolResults.map(r => ({
+        toolCallId: r.toolId,
+        result: r.result,
+        isError: r.isError
+      })),
       stateId: stateId,
       toolCallId: toolCalls[0].toolId, // Use the first tool call ID as reference
       toolName: toolCalls[0].toolName, // Use the first tool name as reference
-      isToolError: hasErrors
+      isToolError: hasErrors,
+      metadata: {
+        type: "tool_complete",
+        timestamp: new Date().toISOString(),
+      }
     });
 
     // Ensure the tool result message has a different timestamp than the assistant's message
@@ -455,7 +555,14 @@ export class Agent {
     if (hasErrors && recursionDepth >= MAX_RECURSION_DEPTH_ON_ERRORS) {
       this.logger.warn(`Max recursion depth reached for agent ${this.id}. Depth: ${recursionDepth}, Errors: ${toolResults.filter(r => r.isError).map(r => r.toolId).join(', ')}`);
       responseSubject.next({
+        role: "assistant",
+        stateId: stateId,
         content: MAX_RECURSION_ERROR,
+        metadata: {
+          type: "error",
+          error: "max_recursion_depth_reached",
+          timestamp: new Date().toISOString(),
+        }
       });
       return;
     }
@@ -532,7 +639,12 @@ export class Agent {
 
     const toolResponseMessage = new Message({
       role: "tool",
-      content: JSON.stringify(toolResults),
+      content: "",
+      toolResults: toolResults.map(r => ({
+        toolCallId: r.toolId,
+        result: r.result,
+        isError: r.isError
+      })),
       stateId: stateId,
       toolCallId: toolCalls[0].toolId,
       toolName: toolCalls[0].toolName,

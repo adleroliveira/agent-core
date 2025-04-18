@@ -3,6 +3,7 @@ import {
   MessageRole,
   MessageContent,
   ToolCall,
+  ToolResult,
 } from "@core/domain/message.entity";
 import { MessageEntity } from "../entities/message.entity";
 import { FileInfo } from "@ports/file-upload.port";
@@ -40,6 +41,16 @@ export class MessageMapper {
       }
     }
 
+    // Parse toolResults if it exists
+    let parsedToolResults: ToolResult[] | undefined = undefined;
+    if (entity.toolResults) {
+      try {
+        parsedToolResults = JSON.parse(entity.toolResults) as ToolResult[];
+      } catch (e) {
+        // If parsing fails, leave as undefined
+      }
+    }
+
     // Parse files if it exists
     let parsedFiles: FileInfo[] | undefined = undefined;
     if (entity.files) {
@@ -55,6 +66,7 @@ export class MessageMapper {
       role: entity.role as MessageRole,
       content: parsedContent,
       stateId: entity.stateId,
+      toolResults: parsedToolResults,
       metadata: parsedMetadata,
       toolCalls: parsedToolCalls,
       toolCallId: entity.toolCallId || undefined, // Convert null to undefined
@@ -86,6 +98,10 @@ export class MessageMapper {
     // Stringify toolCalls if it exists
     entity.toolCalls = domain.toolCalls
       ? JSON.stringify(domain.toolCalls)
+      : null;
+
+    entity.toolResults = domain.toolResults
+      ? JSON.stringify(domain.toolResults)
       : null;
 
     // Convert undefined to null for database storage

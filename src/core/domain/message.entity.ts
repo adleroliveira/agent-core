@@ -18,6 +18,12 @@ export interface ToolCall {
   arguments: Record<string, any>;
 }
 
+export interface ToolResult {
+  toolCallId: string;
+  result: string;
+  isError: boolean;
+}
+
 export class Message {
   public readonly id: string;
   public role: MessageRole;
@@ -25,6 +31,7 @@ export class Message {
   public stateId: string;
   public metadata?: Record<string, any>;
   public toolCalls?: ToolCall[];
+  public toolResults?: ToolResult[];
   public toolCallId?: string;
   public toolName?: string;
   public isToolError?: boolean;
@@ -40,6 +47,7 @@ export class Message {
     stateId: string;
     metadata?: Record<string, any>;
     toolCalls?: ToolCall[];
+    toolResults?: ToolResult[];
     toolCallId?: string;
     toolName?: string;
     isToolError?: boolean;
@@ -52,6 +60,7 @@ export class Message {
     this.stateId = params.stateId;
     this.metadata = params.metadata;
     this.toolCalls = params.toolCalls;
+    this.toolResults = params.toolResults;
     this.toolCallId = params.toolCallId;
     this.toolName = params.toolName;
     this.isToolError = params.isToolError || false;

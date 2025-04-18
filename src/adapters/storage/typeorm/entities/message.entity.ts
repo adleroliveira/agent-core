@@ -31,6 +31,9 @@ export class MessageEntity {
   toolCalls: string | null; // Store as JSON string
 
   @Column({ type: "text", nullable: true })
+  toolResults: string | null; // Store as JSON string
+
+  @Column({ type: "text", nullable: true })
   toolCallId: string | null;
 
   @Column({ type: "text", nullable: true })

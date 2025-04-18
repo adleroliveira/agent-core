@@ -4,12 +4,16 @@
 /* eslint-disable */
 export type ToolResultDto = {
     /**
-     * The ID of the tool result
+     * Whether the tool call was successful
      */
-    id: string;
+    isError: boolean;
     /**
-     * The content of the tool result
+     * The ID of the tool call
      */
-    content: string;
+    toolCallId: string;
+    /**
+     * The result of the tool call
+     */
+    result: string;
 };
 

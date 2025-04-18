@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { FrontendAgentService } from '@/services/agent.service';
+import { AgentsService } from '@/api-client/services/AgentsService';
 import { ToolDto } from '@/api-client/models/ToolDto';
 import '../styles/agent-information.css';
 import { Tools } from './Tools';
@@ -20,7 +20,7 @@ interface AgentResponse {
 
 interface AgentInformationProps {
   agentId: string;
-  agentService: FrontendAgentService;
+  agentService: typeof AgentsService;
   showToolsOnly?: boolean;
 }
 
@@ -31,7 +31,7 @@ export const AgentInformation = ({ agentId, agentService, showToolsOnly = false 
   useEffect(() => {
     const fetchAgentDetails = async () => {
       try {
-        const agentDetails = await agentService.getAgentDetails(agentId);
+        const agentDetails = await agentService.agentControllerGetAgent(agentId);
         setAgent(agentDetails);
       } catch (error) {
         console.error('Error fetching agent details:', error);

@@ -240,7 +240,7 @@ export class AgentController {
     try {
       // Handle streaming response if stream=true
       if (stream === "true" && res) {
-        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Content-Type", "application/json");
         res.setHeader("Cache-Control", "no-cache");
         res.setHeader("Connection", "keep-alive");
 
@@ -272,14 +272,29 @@ export class AgentController {
         // Now we know it's an Observable
         (streamResponse as Observable<Partial<Message>>).subscribe({
           next: (chunk) => {
-            res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+            // Send the chunk as a complete JSON object
+            res.write(JSON.stringify({
+              type: "chunk",
+              data: chunk
+            }) + "\n");
           },
           complete: () => {
-            res.write("data: [DONE]\n\n");
+            // Send a completion message
+            res.write(JSON.stringify({
+              type: "complete",
+              data: null
+            }) + "\n");
             res.end();
           },
           error: (error) => {
-            res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+            // Send an error message
+            res.write(JSON.stringify({
+              type: "error",
+              data: {
+                message: error.message,
+                code: error.code || "INTERNAL_ERROR"
+              }
+            }) + "\n");
             res.end();
           },
         });
@@ -312,13 +327,16 @@ export class AgentController {
         return response;
       } else {
         res.json({
-          id: response.id,
-          content: response.content,
-          role: response.role,
-          stateId: response.stateId,
-          createdAt: response.createdAt,
-          toolCalls: response.toolCalls,
-          metadata: response.metadata,
+          type: "message",
+          data: {
+            id: response.id,
+            content: response.content,
+            role: response.role,
+            stateId: response.stateId,
+            createdAt: response.createdAt,
+            toolCalls: response.toolCalls,
+            metadata: response.metadata,
+          }
         });
       }
     } catch (error) {
@@ -718,7 +736,6 @@ export class AgentController {
           beforeTimestamp,
         }
       );
-
       return {
         messages: result.messages.map(message => ({
           id: message.id,
@@ -727,6 +744,7 @@ export class AgentController {
           stateId: message.stateId,
           createdAt: message.createdAt,
           toolCalls: message.toolCalls,
+          toolResults: message.toolResults,
           metadata: message.metadata,
         })),
         hasMore: result.hasMore,

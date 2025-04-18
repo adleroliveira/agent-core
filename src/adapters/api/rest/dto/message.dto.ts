@@ -40,16 +40,22 @@ export class ToolCallDto {
 
 export class ToolResultDto {
   @ApiProperty({
-    description: 'The ID of the tool result',
-    example: 'result_123'
+    description: 'Whether the tool call was successful',
+    example: false
   })
-  id: string;
+  isError: boolean;
 
   @ApiProperty({
-    description: 'The content of the tool result',
+    description: 'The ID of the tool call',
+    example: 'call_123'
+  })
+  toolCallId: string;
+
+  @ApiProperty({
+    description: 'The result of the tool call',
     example: 'The weather in London is sunny'
   })
-  content: string;
+  result: string;
 }
 
 export class MessageDto {

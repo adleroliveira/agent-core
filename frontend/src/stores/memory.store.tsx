@@ -1,6 +1,6 @@
 import { createContext } from 'preact';
 import { useContext, useReducer } from 'preact/hooks';
-import { FrontendAgentService } from '@/services/agent.service';
+import { AgentsService } from '@/api-client/services/AgentsService';
 
 interface MemoryState {
   memory: Record<string, any> | null;
@@ -34,10 +34,10 @@ function memoryReducer(state: MemoryState, action: MemoryAction): MemoryState {
 
 interface MemoryContextType {
   state: MemoryState;
-  fetchMemory: (agentId: string, conversationId: string, agentService: FrontendAgentService) => Promise<void>;
-  updateMemory: (agentId: string, conversationId: string, memory: Record<string, any>, agentService: FrontendAgentService) => Promise<void>;
-  deleteMemory: (agentId: string, conversationId: string, agentService: FrontendAgentService) => Promise<void>;
-  deleteMemoryEntry: (agentId: string, conversationId: string, key: string, agentService: FrontendAgentService) => Promise<void>;
+  fetchMemory: (agentId: string, conversationId: string, agentService: typeof AgentsService) => Promise<void>;
+  updateMemory: (agentId: string, conversationId: string, memory: Record<string, any>, agentService: typeof AgentsService) => Promise<void>;
+  deleteMemory: (agentId: string, conversationId: string, agentService: typeof AgentsService) => Promise<void>;
+  deleteMemoryEntry: (agentId: string, conversationId: string, key: string, agentService: typeof AgentsService) => Promise<void>;
 }
 
 const MemoryContext = createContext<MemoryContextType | null>(null);
@@ -45,11 +45,11 @@ const MemoryContext = createContext<MemoryContextType | null>(null);
 export function MemoryProvider({ children }: { children: preact.ComponentChildren }) {
   const [state, dispatch] = useReducer(memoryReducer, initialState);
 
-  const fetchMemory = async (agentId: string, conversationId: string, agentService: FrontendAgentService) => {
+  const fetchMemory = async (agentId: string, conversationId: string, agentService: typeof AgentsService) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'SET_ERROR', payload: null });
-      const memoryResponse = await agentService.getMemory(agentId, conversationId);
+      const memoryResponse = await agentService.agentControllerGetMemory(agentId, conversationId);
       const memory = memoryResponse.memory || {};
       dispatch({ type: 'SET_MEMORY', payload: memory });
     } catch (error) {
@@ -60,11 +60,11 @@ export function MemoryProvider({ children }: { children: preact.ComponentChildre
     }
   };
 
-  const updateMemory = async (agentId: string, conversationId: string, memory: Record<string, any>, agentService: FrontendAgentService) => {
+  const updateMemory = async (agentId: string, conversationId: string, memory: Record<string, any>, agentService: typeof AgentsService) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'SET_ERROR', payload: null });
-      await agentService.updateMemory(agentId, conversationId, memory);
+      await agentService.agentControllerUpdateMemory(agentId, conversationId, memory);
       dispatch({ type: 'SET_MEMORY', payload: memory });
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: 'Failed to update memory' });
@@ -74,11 +74,11 @@ export function MemoryProvider({ children }: { children: preact.ComponentChildre
     }
   };
 
-  const deleteMemory = async (agentId: string, conversationId: string, agentService: FrontendAgentService) => {
+  const deleteMemory = async (agentId: string, conversationId: string, agentService: typeof AgentsService) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'SET_ERROR', payload: null });
-      await agentService.deleteMemory(agentId, conversationId);
+      await agentService.agentControllerDeleteMemory(agentId, conversationId);
       dispatch({ type: 'SET_MEMORY', payload: null });
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: 'Failed to delete memory' });
@@ -88,11 +88,11 @@ export function MemoryProvider({ children }: { children: preact.ComponentChildre
     }
   };
 
-  const deleteMemoryEntry = async (agentId: string, conversationId: string, key: string, agentService: FrontendAgentService) => {
+  const deleteMemoryEntry = async (agentId: string, conversationId: string, key: string, agentService: typeof AgentsService) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'SET_ERROR', payload: null });
-      await agentService.deleteMemoryEntry(agentId, conversationId, key);
+      await agentService.agentControllerDeleteMemoryEntry(agentId, conversationId, key);
       if (state.memory) {
         const updatedMemory = { ...state.memory };
         delete updatedMemory[key];

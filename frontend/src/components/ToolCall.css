@@ -1,0 +1,107 @@
+.command-display {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  padding: 1rem;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  white-space: pre-wrap;
+}
+
+.command-line {
+  display: flex;
+  margin-bottom: 0.5rem;
+}
+
+.command-prompt {
+  color: #569cd6;
+  margin-right: 0.5rem;
+  user-select: none;
+}
+
+.command-text {
+  color: #d4d4d4;
+}
+
+.tool-call {
+  margin: 1rem 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.tool-call-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background-color: #f9fafb;
+  cursor: pointer;
+}
+
+.tool-call-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tool-icon {
+  font-size: 1.25rem;
+}
+
+.tool-name {
+  font-weight: 600;
+}
+
+.tool-id {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.tool-call-content {
+  padding: 1rem;
+}
+
+.tool-arguments-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+.tool-arguments-table th,
+.tool-arguments-table td {
+  padding: 0.5rem;
+  border: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.tool-arguments-table th {
+  background-color: #f9fafb;
+  font-weight: 600;
+}
+
+.argument-name {
+  width: 150px;
+}
+
+.tool-result {
+  margin-top: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+}
+
+.tool-result-header {
+  padding: 0.5rem 1rem;
+  background-color: #f9fafb;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tool-result-content {
+  padding: 1rem;
+}
+
+.tool-result-content pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+} 

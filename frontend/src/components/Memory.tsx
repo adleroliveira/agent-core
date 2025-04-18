@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'preact/hooks';
 import { useMemoryStore } from '../stores/memory.store';
-import { FrontendAgentService } from '@/services/agent.service';
+import { AgentsService } from '@/api-client/services/AgentsService';
 import '../styles/memory.css';
 
 interface MemoryProps {
   agentId: string;
   conversationId: string;
-  agentService: FrontendAgentService;
+  agentService: typeof AgentsService;
 }
 
 // We need to be more explicit with this type

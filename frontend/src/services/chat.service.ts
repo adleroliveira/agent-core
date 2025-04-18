@@ -1,6 +1,7 @@
 import { AgentsService } from '../api-client';
 import type { SendMessageDto } from '../api-client/models/SendMessageDto';
 import { FileInfoDto } from '../api-client/models/FileInfoDto';
+import { MessageDto } from '../api-client/models/MessageDto';
 
 export interface ToolCall {
   id: string;
@@ -13,21 +14,6 @@ export interface ToolResult {
   content: string;
 }
 
-export interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  toolCalls?: Array<{
-    id: string;
-    name: string;
-    arguments: Record<string, any>;
-  }>;
-  toolResults?: Array<{
-    id: string;
-    content: string;
-  }>;
-  isExecutingTool?: boolean;
-}
-
 export class ChatService {
   private agentId: string;
 
@@ -35,7 +21,7 @@ export class ChatService {
     this.agentId = agentId;
   }
 
-  async sendMessage(content: string, stateId: string, files: FileInfoDto[]): Promise<Message> {
+  async sendMessage(content: string, stateId: string, files: FileInfoDto[]): Promise<MessageDto> {
     const messageDto: SendMessageDto = {
       content,
       stateId,
@@ -49,16 +35,20 @@ export class ChatService {
       );
 
       return {
-        role: 'assistant',
+        id: response.id,
+        role: MessageDto.role.ASSISTANT,
         content: response.content,
+        stateId: response.stateId,
+        createdAt: response.createdAt,
         toolCalls: response.toolCalls?.map(toolCall => ({
           id: toolCall.id,
           name: toolCall.name,
           arguments: toolCall.arguments
         })),
         toolResults: response.toolResults?.map(result => ({
-          id: result.id,
-          content: result.content
+          toolCallId: result.toolCallId,
+          result: result.result,
+          isError: result.isError
         }))
       };
     } catch (error) {
@@ -113,27 +103,54 @@ export class ChatService {
         const lines = chunk.split('\n');
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              onComplete();
-              return;
-            } else {
-              try {
-                const parsedData = JSON.parse(data);
-                if (parsedData.content) {
-                  onChunk(parsedData.content);
-                } else if (parsedData.message) {
-                  onChunk(parsedData.message);
-                } else if (parsedData.choices && parsedData.choices[0]?.delta?.content) {
-                  onChunk(parsedData.choices[0].delta.content);
-                } else {
-                  onChunk(data);
-                }
-              } catch (error) {
-                console.warn('Error parsing chunk:', error);
-                onChunk(data);
+          if (line.trim()) {
+            try {
+              const parsedData = JSON.parse(line);
+              
+              switch (parsedData.type) {
+                case 'chunk':
+                  // Standardize the chunk data before sending to lexer
+                  if (parsedData.data.role === 'tool') {
+                    // Handle tool results
+                    if (parsedData.data.toolResults && Array.isArray(parsedData.data.toolResults)) {
+                      for (const result of parsedData.data.toolResults) {
+                        onChunk(JSON.stringify({
+                          type: 'TOOL_RESULT',
+                          toolInfo: {
+                            id: result.toolCallId,
+                            name: parsedData.data.toolName,
+                            results: result.result
+                          }
+                        }));
+                      }
+                    }
+                  } else if (parsedData.data.toolCalls && Array.isArray(parsedData.data.toolCalls)) {
+                    // Handle tool calls
+                    for (const toolCall of parsedData.data.toolCalls) {
+                      onChunk(JSON.stringify({
+                        type: 'TOOL_CALL',
+                        toolInfo: {
+                          id: toolCall.id,
+                          name: toolCall.name,
+                          arguments: toolCall.arguments
+                        }
+                      }));
+                    }
+                  } else if (parsedData.data.content) {
+                    // Handle regular content
+                    onChunk(parsedData.data.content);
+                  }
+                  break;
+                case 'complete':
+                  onComplete();
+                  return;
+                case 'error':
+                  onError(parsedData.data);
+                  return;
               }
+            } catch (error) {
+              console.warn('Error parsing chunk:', error);
+              onChunk(line);
             }
           }
         }

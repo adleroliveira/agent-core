@@ -7,7 +7,7 @@ import { useConversationStore } from '../stores/conversation.store';
 import { useMemoryStore } from '../stores/memory.store';
 import { GenAIStreamLexer } from '../utils/StreamLexer';
 import { ChatService } from '@/services/chat.service';
-import { FrontendAgentService } from '@/services/agent.service';
+import { AgentsService } from '@/api-client/services/AgentsService';
 import '@preact/compat';
 import { MessageDto } from '../api-client/models/MessageDto';
 import { Memory } from '@/components/Memory';
@@ -28,6 +28,7 @@ import { WrenchScrewdriverIcon } from '@heroicons/react/24/outline';
 import { ConversationList } from '@/components/ConversationList';
 import { ChatBubbleLeftEllipsisIcon } from '@heroicons/react/24/outline';
 import { DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ToolCall } from '@/components/ToolCall';
 
 interface ChatProps {
   agentId?: string;
@@ -76,8 +77,8 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   }
 
   const newConversation = async () => {
-    if (!agentId || !state.agentService) return;
-    await createConversation(agentId, state.agentService);
+    if (!agentId) return;
+    await createConversation(agentId, AgentsService);
     // No need to loadConversation here; handled by useEffect below
   };
 
@@ -89,19 +90,18 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
       try {
         // Initialize services
         const chatService = new ChatService(agentId);
-        const agentService = new FrontendAgentService();
 
         // Set services in state first
         dispatch({ type: 'SET_CHAT_SERVICE', payload: chatService });
-        dispatch({ type: 'SET_AGENT_SERVICE', payload: agentService });
+        dispatch({ type: 'SET_AGENT_SERVICE', payload: AgentsService });
         dispatch({ type: 'SET_AGENT_ID', payload: agentId });
 
         // Get agent details
-        const agent = await agentService.getAgentDetails(agentId);
+        const agent = await AgentsService.agentControllerGetAgent(agentId);
         dispatch({ type: 'SET_AGENT_NAME', payload: agent.name });
 
         // Fetch conversations for this agent
-        await fetchConversations(agentId, agentService);
+        await fetchConversations(agentId, AgentsService);
 
         initializedRef.current = true;
       } catch (error) {
@@ -133,22 +133,39 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   }, [state.isLoading]);
 
   const processToken = (token: any) => {
+    // console.log('Processing token:', token);
     switch (token.type) {
       case 'TEXT':
         if (!token.value) return;
 
         // If we have a current message being streamed, update it
         if (currentMessageRef.current) {
-          const updatedMessage = {
-            ...currentMessageRef.current,
-            [currentBlockType.current === 'thinking' ? 'thinking' : 'content']:
-              (currentMessageRef.current[currentBlockType.current === 'thinking' ? 'thinking' : 'content'] || '') + token.value
-          };
-          currentMessageRef.current = updatedMessage;
-          dispatch({
-            type: 'UPDATE_LAST_MESSAGE',
-            payload: () => updatedMessage
-          });
+          // Don't update tool messages with new content
+          if (currentMessageRef.current.blockType === 'tool') {
+            // Create a new message for the new content
+            const newMessage = {
+              role: MessageDto.role.ASSISTANT,
+              content: token.value,
+              blockType: 'normal' as const,
+              isComplete: false
+            };
+            currentMessageRef.current = newMessage;
+            dispatch({
+              type: 'ADD_MESSAGE',
+              payload: newMessage
+            });
+          } else {
+            const updatedMessage = {
+              ...currentMessageRef.current,
+              [currentBlockType.current === 'thinking' ? 'thinking' : 'content']:
+                (currentMessageRef.current[currentBlockType.current === 'thinking' ? 'thinking' : 'content'] || '') + token.value
+            };
+            currentMessageRef.current = updatedMessage;
+            dispatch({
+              type: 'UPDATE_LAST_MESSAGE',
+              payload: () => updatedMessage
+            });
+          }
         } else {
           // Create a new message if we don't have one being streamed
           const newMessage = {
@@ -220,39 +237,48 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
         currentBlockType.current = 'tool';
         dispatch({ type: 'SET_IS_USING_TOOL', payload: true });
 
+        // Create a new message with the tool information
+        const toolMessage = {
+          role: MessageDto.role.ASSISTANT,
+          content: '',
+          blockType: 'tool' as const,
+          isComplete: false,
+          toolCallId: token.toolInfo?.id || '',
+          toolName: token.toolInfo?.name || 'Unknown Tool',
+          toolArguments: token.toolInfo?.arguments || {}
+        };
+
+        currentMessageRef.current = toolMessage;
         dispatch({
           type: 'ADD_MESSAGE',
-          payload: {
-            role: MessageDto.role.ASSISTANT,
-            content: '',
-            blockType: 'tool',
-            isComplete: false
-          }
+          payload: toolMessage
         });
         break;
 
       case 'TOOL_RESULT':
-        if (currentMessageRef.current?.role === MessageDto.role.ASSISTANT && currentMessageRef.current.blockType === 'tool' && !currentMessageRef.current.isComplete) {
-          dispatch({
-            type: 'UPDATE_LAST_MESSAGE',
-            payload: msg => ({
-              ...msg,
-              content: (msg.content || '') + (token.value || ''),
+        if (token.toolInfo?.id) {
+          // Use currentMessageRef instead of searching through state.messages
+          if (currentMessageRef.current && currentMessageRef.current.blockType === 'tool' &&
+            currentMessageRef.current.toolCallId === token.toolInfo.id) {
+
+            // Update the tool call message with the matching result
+            const updatedMessage = {
+              ...currentMessageRef.current,
+              content: token.toolInfo?.results || '',
               isComplete: true
-            })
-          });
-        } else {
-          dispatch({
-            type: 'ADD_MESSAGE',
-            payload: {
-              role: MessageDto.role.ASSISTANT,
-              content: token.value || '',
-              blockType: 'tool',
-              isComplete: true
-            }
-          });
+            };
+
+            // Clear the current message ref to ensure new content goes to a new message
+            currentMessageRef.current = null;
+            currentBlockType.current = null;
+
+            dispatch({
+              type: 'UPDATE_LAST_MESSAGE',
+              payload: () => updatedMessage
+            });
+            dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
+          }
         }
-        dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
         break;
 
       case 'DONE':
@@ -545,6 +571,18 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
               </label>
               <span class="toggle-label">Show Thought Process</span>
             </div>
+            <div class="tool-toggle">
+              <label class="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={state.showToolUsage}
+                  onChange={e => dispatch({ type: 'SET_SHOW_TOOL_USAGE', payload: (e.target as HTMLInputElement).checked })}
+                  disabled={state.isLoading}
+                />
+                <span class="toggle-slider"></span>
+              </label>
+              <span class="toggle-label">Show Tool Usage</span>
+            </div>
           </div>
         </div>
 
@@ -561,66 +599,82 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
             </div>
           ) : (
             <>
-              {state.messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  class={`message ${msg.role}`}
-                >
-                  {msg.role === MessageDto.role.USER ? (
-                    <div class="message-content">
-                      {msg.content}
-                    </div>
-                  ) : (
-                    <>
-                      {msg.blockType === 'thinking' && state.showThinkingBubbles && (
-                        <div class="message assistant thinking show">
-                          <div class="thinking-content">
-                            <div class="thinking-header">Thought Process</div>
-                            <div class="thinking-body">
-                              <span class="thinking-icon">🤔</span>
-                              {(msg.thinking || msg.content || '').trimStart()}
+              {state.messages.map((msg, idx) => {
+                // Skip duplicate tool messages only if they are complete
+                if (msg.blockType === 'tool') {
+                  const isDuplicate = state.messages.slice(0, idx).some(
+                    prevMsg => prevMsg.blockType === 'tool' &&
+                      prevMsg.toolCallId === msg.toolCallId &&
+                      prevMsg.isComplete
+                  );
+                  if (isDuplicate) {
+                    return null;
+                  }
+                }
+
+                return (
+                  <div
+                    key={idx}
+                    class={`message ${msg.role}`}
+                  >
+                    {msg.role === MessageDto.role.USER ? (
+                      <div class="message-content">
+                        {msg.content}
+                      </div>
+                    ) : (
+                      <>
+                        {msg.blockType === 'thinking' && state.showThinkingBubbles && (
+                          <div class="message assistant thinking show">
+                            <div class="thinking-content">
+                              <div class="thinking-header">Thought Process</div>
+                              <div class="thinking-body">
+                                <span class="thinking-icon">🤔</span>
+                                {(msg.thinking || msg.content || '').trimStart()}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )}
-                      {msg.blockType === 'tool' ? (
-                        <div class="message assistant tool-message">
-                          <div class="tool-message-content">
-                            <span class="tool-icon">🔧</span>
-                            <span>Using tool...</span>
+                        )}
+                        {msg.blockType === 'tool' && state.showToolUsage ? (
+                          <div class="message assistant tool-message">
+                            <ToolCall
+                              toolId={msg.toolCallId || ''}
+                              toolName={msg.toolName || 'Unknown Tool'}
+                              arguments={msg.toolArguments || {}}
+                              content={msg.content}
+                            />
                           </div>
-                        </div>
-                      ) : (
-                        <div class="message assistant">
-                          <div class="message-content">
-                            <Markdown options={{
-                              forceBlock: true,
-                              forceWrapper: true,
-                              wrapper: 'div',
-                              overrides: {
-                                p: {
-                                  component: 'p',
-                                  props: {
-                                    style: { marginBottom: '1em' }
+                        ) : msg.blockType !== 'tool' && (
+                          <div class="message assistant">
+                            <div class="message-content">
+                              <Markdown options={{
+                                forceBlock: true,
+                                forceWrapper: true,
+                                wrapper: 'div',
+                                overrides: {
+                                  p: {
+                                    component: 'p',
+                                    props: {
+                                      style: { marginBottom: '1em' }
+                                    }
+                                  },
+                                  code: ({ className, children }: { className?: string; children: string }) => {
+                                    if (className) {
+                                      return <CodeBlock className={className}>{children}</CodeBlock>;
+                                    }
+                                    return <code>{children}</code>;
                                   }
-                                },
-                                code: ({ className, children }: { className?: string; children: string }) => {
-                                  if (className) {
-                                    return <CodeBlock className={className}>{children}</CodeBlock>;
-                                  }
-                                  return <code>{children}</code>;
                                 }
-                              }
-                            }}>
-                              {renderMarkdown((msg.content || '').trimStart())}
-                            </Markdown>
+                              }}>
+                                {renderMarkdown((msg.content || '').trimStart())}
+                              </Markdown>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              ))}
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
               {state.showLoadingCue && (
                 <div class="message assistant">
                   <div class="loading-cue">

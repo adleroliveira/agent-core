@@ -62,40 +62,38 @@ export class BedrockModelService implements ModelServicePort {
     // Create basic config
     const clientConfig: any = { region };
 
-    // Try to get profile first
+    // Get all possible credential sources
     const profile = this.configService.getProfile();
+    const accessKeyId = this.configService.getAccessKeyId();
+    const secretAccessKey = this.configService.getSecretAccessKey();
+    const sessionToken = this.configService.getSessionToken();
+
+    // Explicit credential resolution with clear priority:
+    // 1. Profile (if specified)
+    // 2. Direct credentials (access key + secret)
+    // 3. Session token only (for web identity roles)
+    // 4. Fallback to SDK defaults
 
     if (profile) {
-      // Profile specified - use it directly
+      console.log('Using AWS credentials from profile:', profile);
       clientConfig.profile = profile;
-    } else {
-      // No profile - check for direct credentials
-      const accessKeyId = this.configService.getAccessKeyId();
-      const secretAccessKey = this.configService.getSecretAccessKey();
+    } else if (accessKeyId && secretAccessKey) {
+      console.log('Using AWS credentials from direct access key/secret');
+      clientConfig.credentials = {
+        accessKeyId,
+        secretAccessKey
+      };
 
-      if (accessKeyId && secretAccessKey) {
-        // Direct credentials provided
-        clientConfig.credentials = {
-          accessKeyId,
-          secretAccessKey
-        };
-
-        // Add session token if available
-        const sessionToken = this.configService.getSessionToken();
-        if (sessionToken) {
-          clientConfig.credentials.sessionToken = sessionToken;
-        }
-      } else {
-        // Check for standalone session token (for using with web identity roles)
-        const sessionToken = this.configService.getSessionToken();
-        if (sessionToken) {
-          // Just session token provided (useful in some container/lambda environments)
-          clientConfig.credentials = {
-            sessionToken
-          };
-        }
-        // If none provided, SDK will fall back to environment variables or instance metadata
+      if (sessionToken) {
+        clientConfig.credentials.sessionToken = sessionToken;
       }
+    } else if (sessionToken) {
+      console.log('Using AWS credentials with session token only');
+      clientConfig.credentials = {
+        sessionToken
+      };
+    } else {
+      console.log('No explicit credentials provided, falling back to SDK defaults');
     }
 
     // Initialize Bedrock clients
@@ -111,7 +109,6 @@ export class BedrockModelService implements ModelServicePort {
   ): Promise<ModelResponse> {
     const modelId = options?.modelId || this.configService.getModelId();
 
-    console.log(JSON.stringify(messages, null, 2));
     try {
       const requestBody = await this.createConverseRequest(
         messages,
@@ -494,42 +491,22 @@ export class BedrockModelService implements ModelServicePort {
         };
       } else if (message.role === "tool") {
         try {
-          const content = typeof message.content === "string" ? message.content : JSON.stringify(message.content);
-          const toolResults = JSON.parse(content);
+          const toolResults = message.toolResults || [];
 
-          // Check if toolResults is an array or a single object
-          if (Array.isArray(toolResults)) {
-            return {
-              role: "user",
-              content: toolResults.map((toolResult: any) => ({
-                toolResult: {
-                  toolUseId: toolResult.toolId,
-                  content: [{
-                    text: typeof toolResult.result === "string"
-                      ? toolResult.result
-                      : JSON.stringify(toolResult.result),
-                  }],
-                  status: toolResult.isError ? "error" : "success",
-                },
-              })),
-            };
-          } else {
-            // Handle single tool result object
-            return {
-              role: "user",
-              content: [{
-                toolResult: {
-                  toolUseId: toolResults.toolId || message.toolCallId,
-                  content: [{
-                    text: typeof toolResults.result === "string"
-                      ? toolResults.result
-                      : JSON.stringify(toolResults.result),
-                  }],
-                  status: toolResults.isError ? "error" : "success",
-                },
-              }],
-            };
-          }
+          return {
+            role: "user",
+            content: toolResults.map((toolResult) => ({
+              toolResult: {
+                toolUseId: toolResult.toolCallId,
+                content: [{
+                  text: typeof toolResult.result === "string"
+                    ? toolResult.result
+                    : JSON.stringify(toolResult.result),
+                }],
+                status: toolResult.isError ? "error" : "success",
+              },
+            })),
+          };
         } catch (error) {
           this.logger.error(`Error parsing tool results: ${error.message}`);
           return {

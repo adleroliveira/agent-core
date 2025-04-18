@@ -1,13 +1,21 @@
 import { createContext } from 'preact';
 import { useContext, useReducer } from 'preact/hooks';
 import { ChatService } from '../services/chat.service';
-import { FrontendAgentService } from '../services/agent.service';
+import { AgentsService } from '../api-client/services/AgentsService';
 import { MessageDto } from '../api-client/models/MessageDto';
 
 export interface ExtendedMessage extends Partial<MessageDto> {
   thinking?: string;
   blockType: 'normal' | 'thinking' | 'tool';
   isComplete: boolean;
+  toolCallId?: string;
+  toolName?: string;
+  toolArguments?: Record<string, any>;
+  toolCalls?: Array<{
+    id: string;
+    name: string;
+    arguments: Record<string, any>;
+  }>;
 }
 
 interface UploadedDocument {
@@ -25,10 +33,11 @@ interface ChatState {
   isLoading: boolean;
   isUsingTool: boolean;
   showThinkingBubbles: boolean;
+  showToolUsage: boolean;
   showLoadingCue: boolean;
   agentName: string;
   chatService: ChatService | null;
-  agentService: FrontendAgentService | null;
+  agentService: typeof AgentsService | null;
   sessionId: string;
   conversationTitle: string;
   conversationId: string | null;
@@ -49,10 +58,11 @@ type ChatAction =
   | { type: 'SET_IS_LOADING'; payload: boolean }
   | { type: 'SET_IS_USING_TOOL'; payload: boolean }
   | { type: 'SET_SHOW_THINKING_BUBBLES'; payload: boolean }
+  | { type: 'SET_SHOW_TOOL_USAGE'; payload: boolean }
   | { type: 'SET_SHOW_LOADING_CUE'; payload: boolean }
   | { type: 'SET_AGENT_NAME'; payload: string }
   | { type: 'SET_CHAT_SERVICE'; payload: ChatService }
-  | { type: 'SET_AGENT_SERVICE'; payload: FrontendAgentService }
+  | { type: 'SET_AGENT_SERVICE'; payload: typeof AgentsService }
   | { type: 'SET_SESSION_ID'; payload: string }
   | { type: 'SET_CONVERSATION_TITLE'; payload: string }
   | { type: 'SET_CONVERSATION_ID'; payload: string | null }
@@ -77,6 +87,7 @@ const initialState: ChatState = {
   isLoading: false,
   isUsingTool: false,
   showThinkingBubbles: true,
+  showToolUsage: true,
   showLoadingCue: false,
   agentName: '',
   chatService: null,
@@ -108,6 +119,8 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, isUsingTool: action.payload };
     case 'SET_SHOW_THINKING_BUBBLES':
       return { ...state, showThinkingBubbles: action.payload };
+    case 'SET_SHOW_TOOL_USAGE':
+      return { ...state, showToolUsage: action.payload };
     case 'SET_SHOW_LOADING_CUE':
       return { ...state, showLoadingCue: action.payload };
     case 'SET_AGENT_NAME':
@@ -169,7 +182,7 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
 const ChatContext = createContext<{
   state: ChatState;
   dispatch: (action: ChatAction) => void;
-  loadConversation: (agentId: string, conversationId: string, agentService: FrontendAgentService) => Promise<void>;
+  loadConversation: (agentId: string, conversationId: string, agentService: typeof AgentsService) => Promise<void>;
   resetState: () => void;
   uploadFile: (file: File) => Promise<void>;
 } | null>(null);
@@ -184,10 +197,11 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
     dispatch({ type: 'SET_IS_LOADING', payload: false });
     dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
     dispatch({ type: 'SET_SHOW_THINKING_BUBBLES', payload: true });
+    dispatch({ type: 'SET_SHOW_TOOL_USAGE', payload: true });
     dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
     dispatch({ type: 'SET_AGENT_NAME', payload: '' });
     dispatch({ type: 'SET_CHAT_SERVICE', payload: null as unknown as ChatService });
-    dispatch({ type: 'SET_AGENT_SERVICE', payload: null as unknown as FrontendAgentService });
+    dispatch({ type: 'SET_AGENT_SERVICE', payload: null as unknown as typeof AgentsService });
     dispatch({ type: 'SET_SESSION_ID', payload: '' });
     dispatch({ type: 'SET_CONVERSATION_TITLE', payload: 'New Conversation' });
     dispatch({ type: 'SET_CONVERSATION_ID', payload: null });
@@ -200,7 +214,7 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
     dispatch({ type: 'SET_IS_UPLOADING', payload: false });
   };
 
-  const loadConversation = async (agentId: string, conversationId: string, agentService: FrontendAgentService) => {
+  const loadConversation = async (agentId: string, conversationId: string, agentService: typeof AgentsService) => {
     if (!agentService || state.isStreamingActive) {
       return;
     }
@@ -209,65 +223,77 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
       dispatch({ type: 'SET_MESSAGES', payload: [] });
       dispatch({ type: 'CLEAR_CURRENT_MESSAGE_REF', payload: null });
 
-      const history = await agentService.getConversationHistory(agentId, conversationId);
+      const history = await agentService.agentControllerGetConversationHistory(agentId, conversationId);
       const processedMessages: ExtendedMessage[] = [];
 
-      for (const message of history) {
-        if (message.role === MessageDto.role.TOOL) {
-          processedMessages.push({
-            ...message,
-            role: MessageDto.role.TOOL,
-            blockType: 'tool' as const,
-            isComplete: true
-          });
-          continue;
-        }
-
-        const thinkingRegex = /<thinking>(.*?)<\/thinking>/gs;
-        let lastIndex = 0;
-        let match;
-        let content = message.content || '';
-
-        while ((match = thinkingRegex.exec(content)) !== null) {
-          if (match.index > lastIndex) {
+      for (const message of history.messages || []) {
+        // Handle assistant messages with tool calls
+        if (message.role === MessageDto.role.ASSISTANT) {
+          // First add the assistant's content if there is any
+          const content = message.content;
+          if (content && content.toString().trim()) {
             processedMessages.push({
-              ...message,
-              role: message.role as MessageDto.role,
-              content: content.slice(lastIndex, match.index).trim(),
+              role: MessageDto.role.ASSISTANT,
+              content: content.toString(),
               blockType: 'normal' as const,
               isComplete: true
             });
           }
 
+          // Then add the tool call messages if they exist
+          if (message.toolCalls && message.toolCalls.length > 0) {
+            for (const toolCall of message.toolCalls) {
+              // Check if we already have this tool call in our processed messages
+              const existingToolCallIndex = processedMessages.findIndex(
+                m => m.blockType === 'tool' && m.toolCallId === toolCall.id
+              );
+
+              if (existingToolCallIndex === -1) {
+                processedMessages.push({
+                  role: MessageDto.role.ASSISTANT,
+                  content: '',
+                  blockType: 'tool' as const,
+                  isComplete: true,
+                  toolCallId: toolCall.id,
+                  toolName: toolCall.name,
+                  toolArguments: toolCall.arguments
+                });
+              }
+            }
+          }
+        } else if (message.role === MessageDto.role.TOOL) {
+          // Handle tool result messages
+          if (message.toolResults && message.toolResults.length > 0) {
+            for (const toolResult of message.toolResults) {
+              // Find the corresponding tool call message
+              const toolCallIndex = processedMessages.findIndex(
+                m => m.blockType === 'tool' && m.toolCallId === toolResult.toolCallId
+              );
+
+              if (toolCallIndex !== -1) {
+                // Update the tool call message with the result
+                processedMessages[toolCallIndex] = {
+                  ...processedMessages[toolCallIndex],
+                  content: toolResult.result,
+                  isComplete: true
+                };
+              }
+            }
+          }
+        } else {
+          // Handle user messages
           processedMessages.push({
-            ...message,
-            role: message.role as MessageDto.role,
-            content: '',
-            thinking: match[1].trim(),
-            blockType: 'thinking' as const,
+            role: message.role,
+            content: message.content.toString(),
+            blockType: 'normal' as const,
             isComplete: true
           });
-
-          lastIndex = match.index + match[0].length;
-        }
-
-        if (lastIndex < content.length) {
-          const remainingContent = content.slice(lastIndex).trim();
-          if (remainingContent) {
-            processedMessages.push({
-              ...message,
-              role: message.role as MessageDto.role,
-              content: remainingContent,
-              blockType: 'normal' as const,
-              isComplete: true
-            });
-          }
         }
       }
 
       dispatch({ type: 'SET_MESSAGES', payload: processedMessages });
     } catch (error) {
-      console.error("Error loading conversation:", error);
+      console.error('Error loading conversation:', error);
     }
   };
 
