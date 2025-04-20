@@ -1,7 +1,5 @@
-import { AgentsService } from '../api-client';
 import type { SendMessageDto } from '../api-client/models/SendMessageDto';
 import { FileInfoDto } from '../api-client/models/FileInfoDto';
-import { MessageDto } from '../api-client/models/MessageDto';
 
 export interface ToolCall {
   id: string;
