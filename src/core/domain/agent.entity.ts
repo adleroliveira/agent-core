@@ -10,7 +10,7 @@ import {
 } from "@ports/model/model-service.port";
 import { Observable, Subject } from "rxjs";
 import { VectorDBPort } from "@ports/storage/vector-db.port";
-import { ModelRequestOptions } from "@ports/model/model-service.port";
+import { ModelRequestOptions, ModelResponse } from "@ports/model/model-service.port";
 import { WorkspaceConfig } from "@core/config/workspace.config";
 import { Logger } from "@nestjs/common";
 
@@ -114,12 +114,9 @@ export class Agent {
 
   public async processMessage(
     message: Message,
-    options?: {
-      stream?: boolean;
-      temperature?: number;
-      maxTokens?: number;
-    }
-  ): Promise<Message | Observable<Partial<Message>>> {
+    options?: ModelRequestOptions,
+    isStreaming?: boolean
+  ): Promise<Observable<Partial<Message>>> {
     if (!this.modelService) {
       throw new Error("Model service not initialized");
     }
@@ -144,121 +141,18 @@ export class Agent {
       maxTokens: options?.maxTokens,
     };
 
-    if (options?.stream) {
-      return this.processStreamingMessage(message, state, requestOptions);
-    } else {
-      return this.processStandardMessage(message, state, requestOptions);
-    }
+    return this.processMessageStream(message, state, requestOptions, isStreaming);
   }
 
-  private async processStandardMessage(
-    message: Message,
-    state: AgentState,
-    options: ModelRequestOptions
-  ): Promise<Message> {
-    const systemPrompt = [this.systemPrompt];
-    const stateMemory = this.getStateMemory(message.stateId);
-
-    systemPrompt.push(new Prompt({
-      content: `
-        <Memory>
-        ${JSON.stringify(stateMemory)}
-        </Memory>`,
-      type: "system",
-    }));
-
-    this.logger.debug(`Generating standard response for agent ${this.id}. Conversation history length: ${state.conversationHistory.length}, Available tools: ${this.tools.map(t => t.name).join(', ')}`);
-    const response = await this.modelService!.generateResponse(
-      state.conversationHistory,
-      systemPrompt,
-      this.tools,
-      { ...options, modelId: this.modelId }
-    );
-
-    if (response.usage) {
-      this.inputTokens += response.usage.promptTokens;
-      this.outputTokens += response.usage.completionTokens;
-    }
-
-    // Create a message from the response
-    const responseMessage = new Message({
-      role: "assistant",
-      content: response.message.content,
-      stateId: message.stateId,
-      toolCalls: response.toolCalls?.map((tc) => ({
-        id: tc.toolId,
-        name: tc.toolName,
-        arguments: tc.arguments,
-      })),
-    });
-
-    this.logger.debug(`Generated response for agent ${this.id}. Content length: ${response.message.content.length}, Tool calls: ${response.toolCalls?.length || 0} (${response.toolCalls?.map(tc => tc.toolName).join(', ') || 'none'})`);
-
-    // Add the initial response to conversation history
-    state.addToConversation(responseMessage);
-
-    // Handle any tool calls and get the final response
-    if (response.toolCalls && response.toolCalls.length > 0) {
-      return this.executeToolCalls(
-        responseMessage,
-        state,
-        response.toolCalls,
-        message.stateId
-      );
-    }
-
-    return responseMessage;
-  }
-
-  public getStateMemory(stateId: string): Record<string, any> {
-    const state = this.getStateById(stateId);
-    if (!state) {
-      throw new Error(`No state found with ID: ${stateId}`);
-    }
-    return state.memory;
-  }
-
-  public setStateMemory(stateId: string, memory: Record<string, any>): void {
-    const state = this.getStateById(stateId);
-    if (!state) {
-      throw new Error(`No state found with ID: ${stateId}`);
-    }
-    state.memory = memory;
-  }
-
-  public updateStateMemory(stateId: string, memory: Record<string, any>): void {
-    const state = this.getStateById(stateId);
-    if (!state) {
-      throw new Error(`No state found with ID: ${stateId}`);
-    }
-    state.memory = { ...state.memory, ...memory };
-  }
-
-  public deleteStateMemory(stateId: string): void {
-    const state = this.getStateById(stateId);
-    if (!state) {
-      throw new Error(`No state found with ID: ${stateId}`);
-    }
-    state.memory = {};
-  }
-
-  public deleteMemoryEntry(stateId: string, key: string): void {
-    const state = this.getStateById(stateId);
-    if (!state) {
-      throw new Error(`No state found with ID: ${stateId}`);
-    }
-    delete state.memory[key];
-  }
-
-  private processStreamingMessage(
+  private processMessageStream(
     message: Message,
     state: AgentState,
     options: ModelRequestOptions,
-    responseSubject?: Subject<Partial<Message>>
+    isStreaming?: boolean,
+    recursiveSubject?: Subject<Partial<Message>>
   ): Observable<Partial<Message>> {
-    this.logger.debug(`Starting streaming response for agent ${this.id}. Options: ${JSON.stringify(options)}, Recursive call: ${!!responseSubject}`);
-    // If no subject provided, we're at the root level
-    const subject = responseSubject || new Subject<Partial<Message>>();
+    this.logger.debug(`Processing message for agent ${this.id}. Options: ${JSON.stringify(options)}, Streaming: ${isStreaming}`);
+    const subject = recursiveSubject || new Subject<Partial<Message>>();
     const collectedToolCalls: ToolCallResult[] = [];
     let streamingContent = "";
 
@@ -272,82 +166,111 @@ export class Agent {
       type: "system",
     }));
 
-    // Ensure we have a valid Observable from the model service
-    const streamingObs = this.modelService!.generateStreamingResponse(
-      state.conversationHistory,
-      systemPrompt,
-      this.tools,
-      { ...options, modelId: this.modelId }
-    );
+    const processResponse = async (response: Partial<ModelResponse>) => {
+      const messageChunk: Partial<Message> = {
+        role: "assistant",
+        stateId: message.stateId,
+      };
 
-    if (!streamingObs || typeof streamingObs.subscribe !== 'function') {
-      this.logger.error(`Invalid streaming response from model service for agent ${this.id}`);
-      subject.error(new Error('Invalid streaming response from model service'));
-      return subject.asObservable();
-    }
+      if (response.message?.content) {
+        streamingContent += response.message.content;
+        messageChunk.content = response.message.content;
+      }
 
-    // Create a promise to track the completion of the streaming process
-    const streamingPromise = new Promise<void>((resolve, reject) => {
-      streamingObs.subscribe({
-        next: (responseChunk) => {
-          const messageChunk: Partial<Message> = {
-            role: "assistant", // Always set the role for clarity
-            stateId: message.stateId, // Always include stateId
-          };
+      if (response.toolCalls) {
+        messageChunk.toolCalls = response.toolCalls.map((tc: ToolCallResult) => ({
+          id: tc.toolId,
+          name: tc.toolName,
+          arguments: tc.arguments,
+        }));
 
-          if (responseChunk.message?.content) {
-            streamingContent += responseChunk.message.content;
-            messageChunk.content = responseChunk.message.content;
+        response.toolCalls.forEach((tc: ToolCallResult) => {
+          if (!collectedToolCalls.some((collected) => collected.toolId === tc.toolId)) {
+            collectedToolCalls.push(tc);
+            if (isStreaming) {
+              subject.next({
+                role: "assistant",
+                stateId: message.stateId,
+                toolCalls: [{
+                  id: tc.toolId,
+                  name: tc.toolName,
+                  arguments: tc.arguments,
+                }],
+                metadata: {
+                  type: "tool_call",
+                  timestamp: new Date().toISOString(),
+                }
+              });
+            }
           }
+        });
+      }
 
-          if (responseChunk.toolCalls) {
-            messageChunk.toolCalls = responseChunk.toolCalls.map((tc) => ({
-              id: tc.toolId,
-              name: tc.toolName,
-              arguments: tc.arguments,
-            }));
+      if (response.usage) {
+        this.inputTokens += response.usage.promptTokens;
+        this.outputTokens += response.usage.completionTokens;
+        messageChunk.metadata = {
+          ...messageChunk.metadata,
+          usage: response.usage,
+        };
+      }
 
-            responseChunk.toolCalls.forEach((tc) => {
-              if (!collectedToolCalls.some((collected) => collected.toolId === tc.toolId)) {
-                collectedToolCalls.push(tc);
-                // Emit a separate tool call message for clarity
-                subject.next({
-                  role: "assistant",
-                  stateId: message.stateId,
-                  toolCalls: [{
-                    id: tc.toolId,
-                    name: tc.toolName,
-                    arguments: tc.arguments,
-                  }],
-                  metadata: {
-                    type: "tool_call",
-                    timestamp: new Date().toISOString(),
-                  }
-                });
-              }
-            });
-          }
+      if (messageChunk.content) {
+        subject.next(messageChunk);
+      }
 
-          if (responseChunk.metadata) {
-            messageChunk.metadata = {
-              ...responseChunk.metadata,
-              type: "content_chunk",
+      return messageChunk;
+    };
+
+    const handleToolCalls = async (assistantMessage: Message) => {
+      if (collectedToolCalls.length > 0) {
+        try {
+          await this.executeToolCallsForStreaming(
+            assistantMessage,
+            state,
+            collectedToolCalls,
+            message.stateId,
+            subject,
+            isStreaming || false
+          );
+        } catch (error) {
+          this.logger.error(`Error in tool calls execution for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Tool calls: ${collectedToolCalls.map(tc => tc.toolName).join(', ')}`);
+          subject.next({
+            role: "assistant",
+            stateId: message.stateId,
+            content: `Error processing tool calls: ${error.message}`,
+            metadata: {
+              type: "error",
+              error: error.message,
               timestamp: new Date().toISOString(),
-            };
-          }
+            }
+          });
+        }
+      } else {
+        // If there are no tool calls, we can complete the stream
+        this.logger.debug(`No tool calls found, completing stream for agent ${this.id}`);
+        subject.complete();
+      }
+    };
 
-          if (responseChunk.usage) {
-            this.inputTokens += responseChunk.usage.promptTokens;
-            this.outputTokens += responseChunk.usage.completionTokens;
-            messageChunk.metadata = {
-              ...messageChunk.metadata,
-              usage: responseChunk.usage,
-            };
-          }
+    if (isStreaming) {
+      console.log('Sending streaming request', state.conversationHistory[state.conversationHistory.length - 1]);
+      const streamingObs = this.modelService!.generateStreamingResponse(
+        state.conversationHistory,
+        systemPrompt,
+        this.tools,
+        { ...options, modelId: this.modelId }
+      );
 
-          if (messageChunk.content) {
-            subject.next(messageChunk);
-          }
+      if (!streamingObs || typeof streamingObs.subscribe !== 'function') {
+        this.logger.error(`Invalid streaming response from model service for agent ${this.id}`);
+        subject.error(new Error('Invalid streaming response from model service'));
+        return subject.asObservable();
+      }
+
+      streamingObs.subscribe({
+        next: async (responseChunk) => {
+          await processResponse(responseChunk);
         },
         complete: async () => {
           const streamingMessage = new Message({
@@ -365,40 +288,12 @@ export class Agent {
             }
           });
 
-          this.logger.debug(`Streaming response completed for agent ${this.id}. Content length: ${streamingContent.length}, Tool calls: ${collectedToolCalls.length} (${collectedToolCalls.map(tc => tc.toolName).join(', ') || 'none'})`);
-
+          this.logger.debug(`Streaming response completed for agent ${this.id}. Content length: ${streamingContent.length}, Tool calls: ${collectedToolCalls.length}`);
           state.addToConversation(streamingMessage);
-
-          if (collectedToolCalls.length > 0) {
-            try {
-              await this.executeToolCallsForStreaming(
-                streamingMessage,
-                state,
-                collectedToolCalls,
-                message.stateId,
-                subject
-              );
-            } catch (error) {
-              this.logger.error(`Error in tool calls execution for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Tool calls: ${collectedToolCalls.map(tc => tc.toolName).join(', ')}`);
-              subject.next({
-                role: "assistant",
-                stateId: message.stateId,
-                content: `Error processing tool calls: ${error.message}`,
-                metadata: {
-                  type: "error",
-                  error: error.message,
-                  timestamp: new Date().toISOString(),
-                }
-              });
-            }
-          }
-
-          // Complete the subject regardless of whether it's a root or nested stream
-          subject.complete();
-          resolve();
+          await handleToolCalls(streamingMessage);
         },
         error: (error) => {
-          this.logger.error(`Streaming error for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Content so far: "${streamingContent.substring(0, 100)}${streamingContent.length > 100 ? '...' : ''}"`);
+          this.logger.error(`Streaming error for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}`);
           subject.next({
             role: "assistant",
             stateId: message.stateId,
@@ -409,23 +304,39 @@ export class Agent {
               timestamp: new Date().toISOString(),
             }
           });
-          if (!responseSubject) {
-            subject.complete();
-          }
-          reject(error);
+          subject.complete();
         },
       });
-    });
-
-    // If this is a recursive call, wait for the streaming to complete
-    if (responseSubject) {
-      streamingPromise.catch(error => {
-        this.logger.error(`Error in recursive streaming for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Parent State ID: ${message.stateId}`);
-      });
     } else {
-      // For root level, ensure we wait for all streaming to complete
-      streamingPromise.then(() => {}).catch(error => {
-        this.logger.error(`Error in root streaming for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, State ID: ${message.stateId}`);
+      this.modelService!.generateResponse(
+        state.conversationHistory,
+        systemPrompt,
+        this.tools,
+        { ...options, modelId: this.modelId }
+      ).then(async (response) => {
+        const messageChunk = await processResponse(response);
+        const standardMessage = new Message({
+          role: "assistant",
+          content: messageChunk.content || "",
+          stateId: message.stateId,
+          toolCalls: messageChunk.toolCalls,
+        });
+
+        state.addToConversation(standardMessage);
+        await handleToolCalls(standardMessage);
+      }).catch((error) => {
+        this.logger.error(`Error generating response for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}`);
+        subject.next({
+          role: "assistant",
+          stateId: message.stateId,
+          content: `Error generating response: ${error.message}`,
+          metadata: {
+            type: "error",
+            error: error.message,
+            timestamp: new Date().toISOString(),
+          }
+        });
+        subject.complete();
       });
     }
 
@@ -438,6 +349,7 @@ export class Agent {
     toolCalls: ToolCallResult[],
     stateId: string,
     responseSubject: Subject<Partial<Message>>,
+    isStreaming: boolean,
     recursionDepth: number = 0
   ): Promise<void> {
     this.logger.debug(`Executing ${toolCalls.length} tool calls for streaming response for agent ${this.id}. Tools: ${toolCalls.map(tc => `${tc.toolName}(${JSON.stringify(tc.arguments)})`).join(', ')}, Recursion depth: ${recursionDepth}`);
@@ -538,8 +450,8 @@ export class Agent {
         isError: r.isError
       })),
       stateId: stateId,
-      toolCallId: toolCalls[0].toolId, // Use the first tool call ID as reference
-      toolName: toolCalls[0].toolName, // Use the first tool name as reference
+      toolCallId: toolCalls[0].toolId,
+      toolName: toolCalls[0].toolName,
       isToolError: hasErrors,
       metadata: {
         type: "tool_complete",
@@ -548,7 +460,6 @@ export class Agent {
     });
 
     // Ensure the tool result message has a different timestamp than the assistant's message
-    // by adding 1 millisecond to the assistant's message timestamp
     toolResponseMessage.createdAt = new Date(assistantMessage.createdAt.getTime() + 1);
     state.addToConversation(toolResponseMessage);
 
@@ -567,162 +478,54 @@ export class Agent {
       return;
     }
 
-    // Recursively process the next streaming response with the same subject
-    this.logger.debug(`Processing recursive streaming response for agent ${this.id}. Previous content length: ${assistantMessage.content.length}, Tool results: ${toolResults.length}`);
-    const recursiveStream = this.processStreamingMessage(
-      assistantMessage,
+    // Let processMessageStream handle the follow-up response
+    this.processMessageStream(
+      toolResponseMessage,
       state,
       { temperature: DEFAULT_TOOL_EXECUTION_TEMPERATURE, modelId: this.modelId },
+      isStreaming,
       responseSubject
     );
-
-    // Subscribe to the recursive stream to ensure it runs
-    await new Promise<void>((resolve, reject) => {
-      const subscription = recursiveStream.subscribe({
-        complete: () => {
-          subscription.unsubscribe();
-          resolve();
-        },
-        error: (error) => {
-          this.logger.error(`Recursive stream error for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Previous content: "${assistantMessage.content.substring(0, 100)}${assistantMessage.content.length > 100 ? '...' : ''}"`);
-          subscription.unsubscribe();
-          reject(error);
-        }
-      });
-    });
   }
 
-  private async executeToolCalls(
-    assistantMessage: Message,
-    state: AgentState,
-    toolCalls: ToolCallResult[],
-    stateId: string,
-    recursionDepth: number = 0
-  ): Promise<Message> {
-    this.logger.debug(`Executing ${toolCalls.length} tool calls for agent ${this.id}. Tools: ${toolCalls.map(tc => `${tc.toolName}(${JSON.stringify(tc.arguments)})`).join(', ')}, Recursion depth: ${recursionDepth}`);
-    const toolResults = [];
-    let hasErrors = false;
-
-    for (const toolCall of toolCalls) {
-      const tool = this.tools.find((t) => t.name === toolCall.toolName);
-
-      if (!tool) {
-        this.logger.warn(`Tool not found: ${toolCall.toolName} for agent ${this.id}. Available tools: ${this.tools.map(t => t.name).join(', ')}`);
-        toolResults.push({
-          toolId: toolCall.toolId,
-          result: TOOL_NOT_FOUND_ERROR.replace("%s", toolCall.toolName),
-          isError: true
-        });
-        hasErrors = true;
-        continue;
-      }
-
-      try {
-        this.logger.debug(`Executing tool ${toolCall.toolName} for agent ${this.id}. Arguments: ${JSON.stringify(toolCall.arguments)}`);
-        const result = await tool.execute(toolCall.arguments, this);
-        toolResults.push({
-          toolId: toolCall.toolId,
-          result: result,
-          isError: false
-        });
-        this.logger.debug(`Tool ${toolCall.toolName} executed successfully for agent ${this.id}. Result type: ${typeof result}, Result length: ${typeof result === 'string' ? result.length : 'N/A'}`);
-      } catch (error) {
-        this.logger.error(`Tool execution failed for ${toolCall.toolName} on agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Arguments: ${JSON.stringify(toolCall.arguments)}`);
-        toolResults.push({
-          toolId: toolCall.toolId,
-          result: TOOL_EXECUTION_ERROR.replace("%s", error.message),
-          isError: true
-        });
-        hasErrors = true;
-      }
+  public getStateMemory(stateId: string): Record<string, any> {
+    const state = this.getStateById(stateId);
+    if (!state) {
+      throw new Error(`No state found with ID: ${stateId}`);
     }
+    return state.memory;
+  }
 
-    const toolResponseMessage = new Message({
-      role: "tool",
-      content: "",
-      toolResults: toolResults.map(r => ({
-        toolCallId: r.toolId,
-        result: r.result,
-        isError: r.isError
-      })),
-      stateId: stateId,
-      toolCallId: toolCalls[0].toolId,
-      toolName: toolCalls[0].toolName,
-      isToolError: hasErrors
-    });
-
-    state.addToConversation(toolResponseMessage);
-
-    if (toolResults.length > 0) {
-      try {
-        const systemPrompt = [this.systemPrompt];
-        const stateMemory = this.getStateMemory(stateId);
-        systemPrompt.push(new Prompt({
-          content: `
-          <Memory>
-          ${JSON.stringify(stateMemory)}
-          </Memory>`,
-          type: "system",
-        }));
-
-        this.logger.debug(`Generating follow-up response for agent ${this.id}. Previous content length: ${assistantMessage.content.length}, Tool results: ${toolResults.length}, Has errors: ${hasErrors}`);
-        const followUpResponse = await this.modelService!.generateResponse(
-          state.conversationHistory,
-          systemPrompt,
-          this.tools,
-          { temperature: DEFAULT_TOOL_EXECUTION_TEMPERATURE, modelId: this.modelId }
-        );
-
-        const followUpMessage = new Message({
-          role: "assistant",
-          content: followUpResponse.message.content,
-          stateId: stateId,
-          toolCalls: followUpResponse.toolCalls?.map((tc) => ({
-            id: tc.toolId,
-            name: tc.toolName,
-            arguments: tc.arguments,
-          })),
-        });
-
-        this.logger.debug(`Generated follow-up response for agent ${this.id}. Content length: ${followUpResponse.message.content.length}, Tool calls: ${followUpResponse.toolCalls?.length || 0} (${followUpResponse.toolCalls?.map(tc => tc.toolName).join(', ') || 'none'})`);
-
-        state.addToConversation(followUpMessage);
-
-        if (followUpResponse.toolCalls && followUpResponse.toolCalls.length > 0) {
-          const nextRecursionDepth = hasErrors ? recursionDepth + 1 : recursionDepth;
-          
-          if (hasErrors && nextRecursionDepth >= MAX_RECURSION_DEPTH_ON_ERRORS) {
-            this.logger.warn(`Max recursion depth reached for agent ${this.id}. Depth: ${nextRecursionDepth}, Previous errors: ${toolResults.filter(r => r.isError).map(r => r.toolId).join(', ')}`);
-            return new Message({
-              role: "assistant",
-              content: MAX_RECURSION_ERROR,
-              stateId: stateId,
-            });
-          }
-
-          return this.executeToolCalls(
-            followUpMessage,
-            state,
-            followUpResponse.toolCalls,
-            stateId,
-            nextRecursionDepth
-          );
-        }
-
-        return followUpMessage;
-      } catch (error) {
-        this.logger.error(`Error processing tool results for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Tool results: ${toolResults.length}, Has errors: ${hasErrors}`);
-        const errorMessage = new Message({
-          role: "assistant",
-          content: TOOL_RESULTS_PROCESSING_ERROR.replace("%s", error.message),
-          stateId: stateId,
-        });
-        state.addToConversation(errorMessage);
-        return errorMessage;
-      }
+  public setStateMemory(stateId: string, memory: Record<string, any>): void {
+    const state = this.getStateById(stateId);
+    if (!state) {
+      throw new Error(`No state found with ID: ${stateId}`);
     }
+    state.memory = memory;
+  }
 
-    return assistantMessage;
+  public updateStateMemory(stateId: string, memory: Record<string, any>): void {
+    const state = this.getStateById(stateId);
+    if (!state) {
+      throw new Error(`No state found with ID: ${stateId}`);
+    }
+    state.memory = { ...state.memory, ...memory };
+  }
+
+  public deleteStateMemory(stateId: string): void {
+    const state = this.getStateById(stateId);
+    if (!state) {
+      throw new Error(`No state found with ID: ${stateId}`);
+    }
+    state.memory = {};
+  }
+
+  public deleteMemoryEntry(stateId: string, key: string): void {
+    const state = this.getStateById(stateId);
+    if (!state) {
+      throw new Error(`No state found with ID: ${stateId}`);
+    }
+    delete state.memory[key];
   }
 
   public get tools(): Tool[] {

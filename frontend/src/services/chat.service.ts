@@ -21,49 +21,14 @@ export class ChatService {
     this.agentId = agentId;
   }
 
-  async sendMessage(content: string, stateId: string, files: FileInfoDto[]): Promise<MessageDto> {
-    const messageDto: SendMessageDto = {
-      content,
-      stateId,
-      files
-    };
-
-    try {
-      const response = await AgentsService.agentControllerSendMessage(
-        this.agentId,
-        messageDto
-      );
-
-      return {
-        id: response.id,
-        role: MessageDto.role.ASSISTANT,
-        content: response.content,
-        stateId: response.stateId,
-        createdAt: response.createdAt,
-        toolCalls: response.toolCalls?.map(toolCall => ({
-          id: toolCall.id,
-          name: toolCall.name,
-          arguments: toolCall.arguments
-        })),
-        toolResults: response.toolResults?.map(result => ({
-          toolCallId: result.toolCallId,
-          result: result.result,
-          isError: result.isError
-        }))
-      };
-    } catch (error) {
-      console.error('Error sending message:', error);
-      throw error;
-    }
-  }
-
   async sendStreamingMessage(
     content: string,
     stateId: string,
     files: FileInfoDto[],
     onChunk: (chunk: string) => void,
     onComplete: () => void,
-    onError: (error: any) => void
+    onError: (error: any) => void,
+    stream: boolean
   ): Promise<void> {
     const messageDto: SendMessageDto = {
       content,
@@ -72,7 +37,7 @@ export class ChatService {
     };
 
     try {
-      const response = await fetch(`http://localhost:3000/api/agents/${this.agentId}/message?stream=true`, {
+        const response = await fetch(`http://localhost:3000/api/agents/${this.agentId}/message?stream=${stream}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

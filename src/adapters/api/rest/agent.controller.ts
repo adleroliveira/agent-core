@@ -239,7 +239,7 @@ export class AgentController {
   ) {
     try {
       // Handle streaming response if stream=true
-      if (stream === "true" && res) {
+      if (res) {
         res.setHeader("Content-Type", "application/json");
         res.setHeader("Cache-Control", "no-cache");
         res.setHeader("Connection", "keep-alive");
@@ -251,7 +251,7 @@ export class AgentController {
           {
             temperature: messageDto.temperature,
             maxTokens: messageDto.maxTokens,
-            stream: true,
+            stream: stream === "true",
           },
           messageDto.files?.map((file) => ({
             id: file.id,
@@ -300,44 +300,6 @@ export class AgentController {
         });
 
         return;
-      }
-
-      // Handle non-streaming response
-      const response = await this.agentService.processMessage(
-        id,
-        messageDto.content,
-        messageDto.stateId,
-        {
-          temperature: messageDto.temperature,
-          maxTokens: messageDto.maxTokens,
-          stream: false,
-        },
-        messageDto.files
-      );
-
-      // Ensure we're working with a Message object, not an Observable
-      if (response instanceof Observable) {
-        throw new Error(
-          "Expected non-streaming response but received streaming response"
-        );
-      }
-
-      // For non-streaming responses
-      if (!res) {
-        return response;
-      } else {
-        res.json({
-          type: "message",
-          data: {
-            id: response.id,
-            content: response.content,
-            role: response.role,
-            stateId: response.stateId,
-            createdAt: response.createdAt,
-            toolCalls: response.toolCalls,
-            metadata: response.metadata,
-          }
-        });
       }
     } catch (error) {
       throw new HttpException(

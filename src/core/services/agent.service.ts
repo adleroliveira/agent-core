@@ -177,7 +177,7 @@ export class AgentService implements OnModuleInit {
       memorySize?: number;
     },
     files?: FileInfo[]
-  ): Promise<Message | Observable<Partial<Message>>> {
+  ): Promise<Observable<Partial<Message>>> {
     // Find the agent with all relations loaded
     const agent = await this.findAgentById(agentId, true);
 
@@ -206,47 +206,37 @@ export class AgentService implements OnModuleInit {
     // Process the message and let the agent handle its state
     const response = await agent.processMessage(message, {
       temperature: options?.temperature,
-      maxTokens: options?.maxTokens,
-      stream: options?.stream,
-    });
+      maxTokens: options?.maxTokens
+    }, options?.stream);
 
     const updatedState = agent.getStateById(stateIdToUse);
     if (!updatedState) {
       throw new NotFoundException(`No state found with ID ${stateIdToUse}`);
     }
 
-    if (options?.stream) {
-      // For streaming responses, we need to wrap the observable to save state when complete
-      const observable = response as Observable<Partial<Message>>;
-      return new Observable<Partial<Message>>((subscriber) => {
-        observable.subscribe({
-          next: (value) => {
-            subscriber.next(value);
-          },
-          error: (error) => {
-            console.error("Error in AgentService stream:", error);
+    const observable = response as Observable<Partial<Message>>;
+    return new Observable<Partial<Message>>((subscriber) => {
+      observable.subscribe({
+        next: (value) => {
+          subscriber.next(value);
+        },
+        error: (error) => {
+          console.error("Error in AgentService stream:", error);
+          subscriber.error(error);
+        },
+        complete: async () => {
+          try {
+            // Save the final state after stream completes
+            await this.agentRepository.save(agent);
+            await this.messageService.appendMessages(updatedState.conversationHistory);
+            subscriber.complete();
+          } catch (error) {
+            console.error("Error saving state:", error);
             subscriber.error(error);
-          },
-          complete: async () => {
-            try {
-              // Save the final state after stream completes
-              await this.agentRepository.save(agent);
-              await this.messageService.appendMessages(updatedState.conversationHistory);
-              subscriber.complete();
-            } catch (error) {
-              console.error("Error saving state:", error);
-              subscriber.error(error);
-            }
-          },
-        });
+          }
+        },
       });
-    } else {
-      // For non-streaming responses, save state immediately
-      await this.agentRepository.save(agent);
-      // await this.stateRepository.save(updatedState);
-      await this.messageService.appendMessages(updatedState.conversationHistory);
-      return response as Message;
-    }
+    });
   }
 
   async addToolToAgent(agentId: string, toolName: string): Promise<Agent> {

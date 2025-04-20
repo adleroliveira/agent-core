@@ -245,14 +245,26 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           isComplete: false,
           toolCallId: token.toolInfo?.id || '',
           toolName: token.toolInfo?.name || 'Unknown Tool',
-          toolArguments: token.toolInfo?.arguments || {}
+          toolArguments: token.toolInfo?.arguments || {},
+          toolCalls: [{
+            id: token.toolInfo?.id || '',
+            name: token.toolInfo?.name || 'Unknown Tool',
+            arguments: token.toolInfo?.arguments || {}
+          }]
         };
 
-        currentMessageRef.current = toolMessage;
-        dispatch({
-          type: 'ADD_MESSAGE',
-          payload: toolMessage
-        });
+        // Check if we already have a tool message with this toolCallId
+        const existingToolMessageIndex = state.messages.findIndex(
+          m => m.blockType === 'tool' && m.toolCallId === toolMessage.toolCallId
+        );
+
+        if (existingToolMessageIndex === -1) {
+          currentMessageRef.current = toolMessage;
+          dispatch({
+            type: 'ADD_MESSAGE',
+            payload: toolMessage
+          });
+        }
         break;
 
       case 'TOOL_RESULT':
@@ -335,72 +347,47 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: true });
 
     try {
-      if (state.isStreaming) {
-        if (!convState.activeConversationId) {
-          throw new Error('No active conversation ID');
-        }
-        dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: true });
-        await state.chatService.sendStreamingMessage(
-          content,
-          convState.activeConversationId,
-          state.uploadedDocuments,
-          chunk => {
-            dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
-            for (const token of lexerRef.current!.processChunk(chunk)) {
-              processToken(token);
-            }
-          },
-          async () => {
-            dispatch({ type: 'SET_IS_LOADING', payload: false });
-            dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
-            dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: false });
-            dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
-            // Clear the current message ref after streaming is complete
-            currentMessageRef.current = null;
-            currentBlockType.current = null;
-            // Clear uploaded documents after message is sent
-            dispatch({ type: 'CLEAR_DOCUMENTS', payload: null });
-            // Refresh memory after streaming completes
-            if (agentId && convState.activeConversationId && state.agentService) {
-              await fetchMemory(agentId, convState.activeConversationId, state.agentService);
-            }
-          },
-          error => {
-            console.error('Streaming error:', error);
-            dispatch({ type: 'SET_IS_LOADING', payload: false });
-            dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
-            dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: false });
-            dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
-            // Clear the current message ref on error
-            currentMessageRef.current = null;
-            currentBlockType.current = null;
-          }
-        );
-      } else {
-        let response;
-        if (convState.activeConversationId) {
-          response = await state.chatService.sendMessage(content, convState.activeConversationId, state.uploadedDocuments);
-        } else {
-          throw new Error('No active conversation ID');
-        }
-        dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
-        dispatch({
-          type: 'ADD_MESSAGE',
-          payload: {
-            role: MessageDto.role.ASSISTANT,
-            content: response.content,
-            blockType: 'normal',
-            isComplete: true
-          }
-        });
-        dispatch({ type: 'SET_IS_LOADING', payload: false });
-        // Clear uploaded documents after message is sent
-        dispatch({ type: 'CLEAR_DOCUMENTS', payload: null });
-        // Refresh memory after non-streaming message completes
-        if (agentId && convState.activeConversationId && state.agentService) {
-          await fetchMemory(agentId, convState.activeConversationId, state.agentService);
-        }
+      if (!convState.activeConversationId) {
+        throw new Error('No active conversation ID');
       }
+      dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: true });
+      await state.chatService.sendStreamingMessage(
+        content,
+        convState.activeConversationId,
+        state.uploadedDocuments,
+        chunk => {
+          dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
+          for (const token of lexerRef.current!.processChunk(chunk)) {
+            processToken(token);
+          }
+        },
+        async () => {
+          dispatch({ type: 'SET_IS_LOADING', payload: false });
+          dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
+          dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: false });
+          dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
+          // Clear the current message ref after streaming is complete
+          currentMessageRef.current = null;
+          currentBlockType.current = null;
+          // Clear uploaded documents after message is sent
+          dispatch({ type: 'CLEAR_DOCUMENTS', payload: null });
+          // Refresh memory after streaming completes
+          if (agentId && convState.activeConversationId && state.agentService) {
+            await fetchMemory(agentId, convState.activeConversationId, state.agentService);
+          }
+        },
+        error => {
+          console.error('Streaming error:', error);
+          dispatch({ type: 'SET_IS_LOADING', payload: false });
+          dispatch({ type: 'SET_IS_USING_TOOL', payload: false });
+          dispatch({ type: 'SET_IS_STREAMING_ACTIVE', payload: false });
+          dispatch({ type: 'SET_SHOW_LOADING_CUE', payload: false });
+          // Clear the current message ref on error
+          currentMessageRef.current = null;
+          currentBlockType.current = null;
+        },
+        state.isStreaming
+      );
     } catch (error) {
       console.error('Error sending message:', error);
       dispatch({ type: 'SET_IS_LOADING', payload: false });
@@ -600,12 +587,13 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
           ) : (
             <>
               {state.messages.map((msg, idx) => {
-                // Skip duplicate tool messages only if they are complete
+                // Skip duplicate tool messages only if they are complete and have the same toolCallId
                 if (msg.blockType === 'tool') {
                   const isDuplicate = state.messages.slice(0, idx).some(
                     prevMsg => prevMsg.blockType === 'tool' &&
                       prevMsg.toolCallId === msg.toolCallId &&
-                      prevMsg.isComplete
+                      prevMsg.isComplete &&
+                      prevMsg.content === msg.content
                   );
                   if (isDuplicate) {
                     return null;
