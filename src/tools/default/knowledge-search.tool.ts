@@ -1,8 +1,16 @@
 import { Tool, ToolParameter } from "@core/domain/tool.entity";
 import { Agent } from "@core/domain/agent.entity";
+import { AgentService } from "@core/services/agent.service";
+import { AGENT_SERVICE } from "@core/injection-tokens";
+import { Inject, Optional } from "@nestjs/common";
 
 export class KnowledgeSearchTool extends Tool {
-  constructor(private toolName?: string) {
+  constructor(
+    @Inject(AGENT_SERVICE)
+    private readonly agentService: AgentService,
+    @Optional()
+    private toolName?: string
+  ) {
     const parameters: ToolParameter[] = [
       {
         name: "query",
@@ -25,7 +33,19 @@ export class KnowledgeSearchTool extends Tool {
       The query should be a string and the topK parameter is optional and specifies the maximum number of results to return.`,
       description: "Search the agent's knowledge base for relevant information",
       parameters,
-      handler: async (args: Record<string, any>, agent: Agent) => {
+      handler: async (args: Record<string, any>, environment?: Record<string, string>) => {
+        const agentId = environment?.agentId;
+        if (!agentId) {
+          throw new Error("Agent ID is not set");
+        }
+        const agent = await this.agentService.findAgentById(agentId, true);
+        if (!agent) {
+          throw new Error("Agent not found");
+        }
+        // Ensure knowledge base is loaded
+        if (!agent.isKnowledgeBaseLoaded()) {
+          throw new Error("Knowledge base not loaded. Please ensure the agent is loaded with knowledge base enabled.");
+        }
         const results = await agent.knowledgeBase.searchKnowledge(args.query, args.topK || 5);
         return results.map(({ entry, score }) => ({
           id: entry.id,

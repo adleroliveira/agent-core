@@ -31,7 +31,9 @@ import {
   STATE_REPOSITORY,
   MODEL_SERVICE,
   VECTOR_DB,
+  MCP_CLIENT
 } from "@core/injection-tokens";
+import { McpClientServicePort } from "@ports/mcp/mcp-client-service.port";
 
 
 @Injectable()
@@ -52,11 +54,13 @@ export class AgentService implements OnModuleInit {
     private readonly workspaceConfig: WorkspaceConfig,
     private readonly messageService: MessageService,
     @Inject(KNOWLEDGE_BASE_REPOSITORY)
-    private readonly knowledgeBaseRepository: KnowledgeBaseRepositoryPort
-  ) {}
+    private readonly knowledgeBaseRepository: KnowledgeBaseRepositoryPort,
+    @Inject(MCP_CLIENT)
+    private readonly mcpClientService: McpClientServicePort
+  ) { }
 
-  onModuleInit() {
-    // No initialization needed
+  async onModuleInit() {
+    await this.mcpClientService.initialize();
   }
 
   async createAgent(params: {
@@ -82,14 +86,16 @@ export class AgentService implements OnModuleInit {
       description,
       modelId: modelId || process.env.BEDROCK_MODEL_ID || "",
       systemPrompt,
-      workspaceConfig: this.workspaceConfig
+      workspaceConfig: this.workspaceConfig,
     });
 
     // Initialize services
     await agent.setServices(
       this.modelService,
       this.vectorDB,
-      this.workspaceConfig
+      this.workspaceConfig,
+      this.mcpClientService,
+      this.stateRepository
     );
 
     // Register tools if specified
@@ -112,7 +118,7 @@ export class AgentService implements OnModuleInit {
       // Save the agent (which will also save its state)
       const savedAgent = await this.agentRepository.save(agent);
       this.logger.debug(`Saved new agent with ID: ${savedAgent.id}`);
-      
+
       // Create and save the knowledge base with the agent's ID
       const knowledgeBase = new KnowledgeBase({
         agentId: savedAgent.id,
@@ -121,11 +127,11 @@ export class AgentService implements OnModuleInit {
         modelService: this.modelService,
         vectorDB: this.vectorDB,
       });
-      
+
       agent.knowledgeBase = knowledgeBase;
       await this.knowledgeBaseRepository.save(knowledgeBase);
       this.logger.debug(`Saved knowledge base for agent ${savedAgent.id}`);
-      
+
       return savedAgent;
     } catch (error) {
       this.logger.error(`Failed to create agent: ${error.message}`);
@@ -145,7 +151,9 @@ export class AgentService implements OnModuleInit {
       await agent.setServices(
         this.modelService,
         this.vectorDB,
-        this.workspaceConfig
+        this.workspaceConfig,
+        this.mcpClientService,
+        this.stateRepository
       );
     }
 
@@ -209,11 +217,6 @@ export class AgentService implements OnModuleInit {
       maxTokens: options?.maxTokens
     }, options?.stream);
 
-    const updatedState = agent.getStateById(stateIdToUse);
-    if (!updatedState) {
-      throw new NotFoundException(`No state found with ID ${stateIdToUse}`);
-    }
-
     const observable = response as Observable<Partial<Message>>;
     return new Observable<Partial<Message>>((subscriber) => {
       observable.subscribe({
@@ -226,9 +229,8 @@ export class AgentService implements OnModuleInit {
         },
         complete: async () => {
           try {
-            // Save the final state after stream completes
-            await this.agentRepository.save(agent);
-            await this.messageService.appendMessages(updatedState.conversationHistory);
+            const updatedState = await this.stateRepository.findById(stateIdToUse, true);
+            await this.messageService.appendMessages(agent.getStateById(stateIdToUse)?.conversationHistory || []);
             subscriber.complete();
           } catch (error) {
             console.error("Error saving state:", error);
@@ -286,19 +288,19 @@ export class AgentService implements OnModuleInit {
 
   async createNewConversation(agentId: string): Promise<Agent> {
     this.logger.debug(`Creating new conversation for agent ${agentId}`);
-    
+
     // Get the agent entity directly to avoid creating a new Agent instance
     const agentEntity = await this.agentRepository.findById(agentId, true);
     if (!agentEntity) {
       throw new NotFoundException(`Agent with ID ${agentId} not found`);
     }
-    
+
     agentEntity.createNewConversation();
-    
+
     // Save the agent with the new state
     const savedAgent = await this.agentRepository.save(agentEntity);
     this.logger.debug(`Successfully saved agent with new state: ${savedAgent.getMostRecentState().id}`);
-    
+
     return savedAgent;
   }
 
@@ -325,7 +327,7 @@ export class AgentService implements OnModuleInit {
     if (agent.states.length === 0) {
       agent.createNewConversation();
     }
-    
+
     return this.agentRepository.save(agent);
   }
 
@@ -366,9 +368,13 @@ export class AgentService implements OnModuleInit {
     }
     state.memory = memory;
     await this.stateRepository.save(state);
+    this.logger.debug(`Updated memory for agent ${agentId} and state ${stateId}`);
+    this.logger.debug(`Updated memory: ${JSON.stringify(memory)}`);
   }
 
   async updateAgentMemory(agentId: string, stateId: string, memory: Record<string, any>): Promise<void> {
+    this.logger.debug(`Updating memory for agent ${agentId} and state ${stateId}`);
+    this.logger.debug(`Current memory: ${JSON.stringify(memory)}`);
     const state = await this.stateRepository.findById(stateId, true);
     if (!state) {
       throw new NotFoundException(`No state found with ID ${stateId}`);
@@ -376,20 +382,12 @@ export class AgentService implements OnModuleInit {
     if (state.agentId !== agentId) {
       throw new NotFoundException(`No state found with ID ${stateId} for agent ${agentId}`);
     }
-    
-    // Create a new memory object with only the new values
-    const updatedMemory: Record<string, any> = {};
-    
-    // Add only the new values that are not undefined
-    for (const [key, value] of Object.entries(memory)) {
-      if (value !== undefined) {
-        updatedMemory[key] = value;
-      }
-    }
-    
+
     // Assign the updated memory back to the state
-    state.memory = updatedMemory;
+    state.memory = memory;
     await this.stateRepository.save(state);
+    this.logger.debug(`Updated memory for agent ${agentId} and state ${stateId}`);
+    this.logger.debug(`Final memory: ${JSON.stringify(state.memory)}`);
   }
 
   async deleteAgentMemory(agentId: string, stateId: string): Promise<void> {

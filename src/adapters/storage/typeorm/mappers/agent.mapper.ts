@@ -10,15 +10,18 @@ import { VectorDBPort } from '@ports/storage/vector-db.port';
 import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
 import { Injectable } from '@nestjs/common';
 import { AgentToolEntity } from '../entities/agent-tool.entity';
-
+import { McpClientServicePort } from '@ports/mcp/mcp-client-service.port';
+import { StateRepositoryPort } from '@ports/storage/state-repository.port';
 @Injectable()
 export class AgentMapper {
   constructor(
     private readonly modelService: ModelServicePort,
     private readonly vectorDB: VectorDBPort,
     private readonly toolRegistry: ToolRegistryPort,
-    private readonly toolMapper: ToolMapper
-  ) {}
+    private readonly toolMapper: ToolMapper,
+    private readonly mcpClientService: McpClientServicePort,
+    private readonly stateRepository: StateRepositoryPort
+  ) { }
 
   async toDomain(entity: AgentEntity, loadRelations: boolean = false): Promise<Agent> {
     const states = loadRelations && entity.states
@@ -30,8 +33,8 @@ export class AgentMapper {
 
     const tools = loadRelations && entity.agentTools
       ? await Promise.all(entity.agentTools
-          .filter(agentTool => agentTool.tool) // Only map tools that exist
-          .map(agentTool => this.toolMapper.toDomain(agentTool.tool))
+        .filter(agentTool => agentTool.tool) // Only map tools that exist
+        .map(agentTool => this.toolMapper.toDomain(agentTool.tool))
       )
       : [];
 
@@ -66,7 +69,7 @@ export class AgentMapper {
 
     // Set services after creating the agent
     if (this.modelService && this.vectorDB) {
-      await agent.setServices(this.modelService, this.vectorDB, workspaceConfig);
+      await agent.setServices(this.modelService, this.vectorDB, workspaceConfig, this.mcpClientService, this.stateRepository);
     }
 
     return agent;

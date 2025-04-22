@@ -1,5 +1,4 @@
 import { v4 as uuidv4 } from "uuid";
-import { Agent } from "./agent.entity";
 export interface ToolParameter {
   name: string;
   type: "string" | "number" | "boolean" | "object" | "array";
@@ -17,7 +16,7 @@ export class Tool {
   public description: string;
   public directive: string;
   public parameters: ToolParameter[];
-  public handler: (args: Record<string, any>, agent: Agent) => Promise<any>;
+  public handler: (args: Record<string, any>, environment?: Record<string, string>) => Promise<any>;
   public metadata?: Record<string, any>;
   public systemPrompt?: string;
   public createdAt: Date;
@@ -30,7 +29,7 @@ export class Tool {
     description: string;
     directive: string;
     parameters: ToolParameter[];
-    handler: (args: Record<string, any>, agent: Agent) => Promise<any>;
+    handler: (args: Record<string, any>, environment?: Record<string, string>) => Promise<any>;
     metadata?: Record<string, any>;
     systemPrompt?: string;
     jsonSchema?: Record<string, any>;
@@ -48,12 +47,12 @@ export class Tool {
     this.updatedAt = new Date();
   }
 
-  public async execute(args: Record<string, any>, agent: Agent): Promise<any> {
+  public async execute(args: Record<string, any>, environment?: Record<string, string>): Promise<any> {
     // Validate parameters before execution
     this.validateParameters(args);
 
     try {
-      return await this.handler(args, agent);
+      return await this.handler(args, environment);
     } catch (error) {
       // Re-throw with additional context
       console.error(error)

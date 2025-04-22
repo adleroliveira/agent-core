@@ -86,7 +86,7 @@ export class ToolRegistryService implements ToolRegistryPort {
     return Array.from(this.tools.values());
   }
 
-  async executeTool(toolId: string, args: Record<string, any>, agent: Agent): Promise<any> {
+  async executeTool(toolId: string, args: Record<string, any>, environment?: Record<string, string>): Promise<any> {
     const tool = this.tools.get(toolId);
     if (!tool) {
       throw new NotFoundException(`Tool with ID ${toolId} not found`);
@@ -94,7 +94,7 @@ export class ToolRegistryService implements ToolRegistryPort {
 
     this.logger.debug(`Executing tool: ${tool.name} with args: ${JSON.stringify(args)}`);
     try {
-      const result = await tool.execute(args, agent);
+      const result = await tool.execute(args, environment);
       this.logger.debug(`Tool execution successful: ${tool.name}`, result);
       return result;
     } catch (error) {
@@ -103,12 +103,12 @@ export class ToolRegistryService implements ToolRegistryPort {
     }
   }
 
-  async executeToolByName(name: string, args: Record<string, any>, agent: Agent): Promise<any> {
+  async executeToolByName(name: string, args: Record<string, any>, environment?: Record<string, string>): Promise<any> {
     const tool = this.toolsByName.get(name);
     if (!tool) {
       throw new NotFoundException(`Tool with name ${name} not found`);
     }
 
-    return this.executeTool(tool.id, args, agent);
+    return this.executeTool(tool.id, args, environment);
   }
 } 

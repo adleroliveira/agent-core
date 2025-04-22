@@ -828,6 +828,35 @@
         ]
       }
     },
+    "/api/tools/mcp": {
+      "get": {
+        "description": "Retrieves a list of all MCP tools",
+        "operationId": "ToolsController_getMcpTools",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "List of all MCP tools",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ToolDto"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Get all MCP tools",
+        "tags": [
+          "tools"
+        ]
+      }
+    },
     "/api/models": {
       "get": {
         "operationId": "ModelsController_getAvailableModels",

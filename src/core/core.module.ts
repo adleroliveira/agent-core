@@ -10,6 +10,8 @@ import { MessageRepositoryPort } from '@ports/storage/message-repository.port';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { FileUploadService } from './services/file-upload.service';
 import { FileService } from './services/file.service';
+import { McpClientService } from './services/mcp-client.service';
+import { McpServerService } from './services/mcp-server.service';
 
 @Module({
   imports: [
@@ -32,14 +34,18 @@ import { FileService } from './services/file.service';
     },
     FileUploadService,
     FileService,
+    McpServerService,
+    McpClientService,
   ],
   exports: [
-    AGENT_SERVICE, 
-    WorkspaceConfig, 
+    AGENT_SERVICE,
+    WorkspaceConfig,
     ProcessManagerService,
     MessageService,
     FileUploadService,
     FileService,
+    McpServerService,
+    McpClientService,
   ],
 })
-export class CoreModule {}
+export class CoreModule { }

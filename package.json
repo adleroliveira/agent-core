@@ -28,6 +28,7 @@
   "dependencies": {
     "@aws-sdk/client-bedrock": "^3.763.0",
     "@aws-sdk/client-bedrock-runtime": "^3.758.0",
+    "@modelcontextprotocol/sdk": "^1.10.1",
     "@nestjs/common": "^11.0.11",
     "@nestjs/config": "^4.0.1",
     "@nestjs/core": "^11.0.11",
@@ -50,7 +51,8 @@
     "sqlite3": "^5.1.7",
     "typeorm": "^0.3.21",
     "uuid": "^11.1.0",
-    "vectra": "^0.9.0"
+    "vectra": "^0.9.0",
+    "zod": "^3.24.3"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.6",

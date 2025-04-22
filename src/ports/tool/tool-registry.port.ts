@@ -1,6 +1,4 @@
 import { Tool } from '@core/domain/tool.entity';
-import { Agent } from '@core/domain/agent.entity';
-
 export const TOOL_REGISTRY = 'TOOL_REGISTRY';
 
 export interface ToolRegistryPort {
@@ -9,6 +7,6 @@ export interface ToolRegistryPort {
   getTool(toolId: string): Promise<Tool | null>;
   getToolByName(name: string): Promise<Tool | null>;
   getAllTools(): Promise<Tool[]>;
-  executeTool(toolId: string, args: Record<string, any>, agent: Agent): Promise<any>;
-  executeToolByName(name: string, args: Record<string, any>, agent: Agent): Promise<any>;
+  executeTool(toolId: string, args: Record<string, any>, environment?: Record<string, string>): Promise<any>;
+  executeToolByName(name: string, args: Record<string, any>, environment?: Record<string, string>): Promise<any>;
 }

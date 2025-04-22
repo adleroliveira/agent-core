@@ -11,7 +11,7 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
   constructor(
     @InjectRepository(MessageEntity)
     private readonly messageRepository: Repository<MessageEntity>
-  ) {}
+  ) { }
 
   async appendMessages(messages: Message[]): Promise<void> {
     const messageEntities = messages.filter(msg => msg.isNew).map(msg => MessageMapper.toPersistence(msg));
@@ -65,7 +65,7 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
 
       // Find the first user message in the additional messages
       const firstUserMessageIndex = additionalMessages.findIndex(msg => msg.role === 'user');
-      
+
       if (firstUserMessageIndex !== -1) {
         // If we found a user message, include all messages up to and including it
         messages = [...messages, ...additionalMessages.slice(0, firstUserMessageIndex + 1)];
@@ -90,7 +90,7 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
 
   async deleteMessages(messageIds: string[]): Promise<void> {
     if (messageIds.length === 0) return;
-    
+
     await this.messageRepository
       .createQueryBuilder()
       .delete()

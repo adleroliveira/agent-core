@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { Message } from "./message.entity";
+import { StateRepositoryPort } from "../../ports/storage/state-repository.port";
 
 export interface BaseMemoryStructure {
   preferences: Record<string, any>;
@@ -27,6 +28,7 @@ export class AgentState {
   public createdAt: Date;
   public updatedAt: Date;
   private _messagesLoaded: boolean = false;
+  private repository?: StateRepositoryPort;
 
   constructor(
     params: {
@@ -49,6 +51,18 @@ export class AgentState {
     this.updatedAt = new Date();
   }
 
+  public setRepository(repository: StateRepositoryPort): void {
+    this.repository = repository;
+  }
+
+  private async saveState(): Promise<void> {
+    if (!this.repository) {
+      // Silently return if repository is not initialized
+      return;
+    }
+    await this.repository.save(this);
+  }
+
   public get conversationHistory(): Message[] {
     return this._conversationHistory;
   }
@@ -62,7 +76,7 @@ export class AgentState {
     return this._messagesLoaded;
   }
 
-  public addToConversation(message: Message): void {
+  public async addToConversation(message: Message): Promise<void> {
     // Ensure the message has a timestamp
     if (!message.createdAt) {
       message.createdAt = new Date();
@@ -126,26 +140,38 @@ export class AgentState {
     return result;
   }
 
-  public storeInMemory(key: string, value: any): void {
+  public async storeInMemory(key: string, value: any): Promise<void> {
     this.memory[key] = value;
     this.updatedAt = new Date();
+    // Only try to save if repository is initialized
+    if (this.repository) {
+      await this.saveState();
+    }
   }
 
   public retrieveFromMemory(key: string): any {
     return this.memory[key];
   }
 
-  public deleteFromMemory(key: string): void {
+  public async deleteFromMemory(key: string): Promise<void> {
     delete this.memory[key];
     this.updatedAt = new Date();
+    // Only try to save if repository is initialized
+    if (this.repository) {
+      await this.saveState();
+    }
   }
 
-  public clearMemory(): void {
+  public async clearMemory(): Promise<void> {
     this.memory = {};
     this.updatedAt = new Date();
+    // Only try to save if repository is initialized
+    if (this.repository) {
+      await this.saveState();
+    }
   }
 
-  public clearConversation(): void {
+  public async clearConversation(): Promise<void> {
     this._conversationHistory = [];
     this._messagesLoaded = true;
     this.updatedAt = new Date();

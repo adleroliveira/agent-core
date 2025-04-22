@@ -1,7 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { Tool, ToolParameter } from "@core/domain/tool.entity";
 import { v4 as uuidv4 } from "uuid";
-import { Agent } from "@core/domain/agent.entity";
+import { AgentService } from "@core/services/agent.service";
+import { AGENT_SERVICE } from "@core/injection-tokens";
+import { Inject } from "@nestjs/common";
 
 @Injectable()
 export class MemoryManagerTool {
@@ -18,6 +20,11 @@ export class MemoryManagerTool {
     // Custom data for flexible use cases
     custom: {}
   };
+
+  constructor(
+    @Inject(AGENT_SERVICE)
+    private readonly agentService: AgentService,
+  ) { }
 
   getTool(): Tool {
     const parameters: ToolParameter[] = [
@@ -38,7 +45,7 @@ export class MemoryManagerTool {
       {
         name: "data",
         type: "string",
-        description: "The data to store at the specified path",
+        description: "The data to store at the specified path. Can be a string or a stringified JSON object.",
         required: true,
       }
     ];
@@ -104,15 +111,16 @@ MEMORY STRUCTURE:
     });
   }
 
-  private async memoryHandler(args: Record<string, any>, agent: Agent): Promise<string> {
+  private async memoryHandler(args: Record<string, any>, environment?: Record<string, string>): Promise<string> {
     try {
-      const stateId = agent.getMostRecentState().id;
-      let currentMemory = agent.getStateMemory(stateId) || {};
+      const agentId = environment?.agentId;
+      const stateId = environment?.stateId;
 
-      // Initialize with default structure if empty
-      if (Object.keys(currentMemory).length === 0) {
-        currentMemory = this.defaultMemoryStructure;
-        agent.updateMemory(stateId, currentMemory);
+      if (!agentId) {
+        throw new Error("Agent ID is not set");
+      }
+      if (!stateId) {
+        throw new Error("State ID is not set");
       }
 
       // Check for missing required parameters
@@ -127,38 +135,43 @@ MEMORY STRUCTURE:
       // Process the requested action
       switch (args.action) {
         case "store":
-          const storedMemory = this.setValueAtPath(currentMemory, args.path, args.data);
-          agent.updateMemory(stateId, storedMemory);
-          return `✅ Stored "${args.data}" at '${args.path}'. This will be available in your system prompt in future interactions.`;
+          // For store action, we'll create a new memory object with just the path and data
+          const storeMemory = {};
+          let storeData = args.data;
+          // If data is a string that looks like JSON, try to parse it
+          if (typeof storeData === 'string' && (storeData.startsWith('{') || storeData.startsWith('['))) {
+            try {
+              storeData = JSON.parse(storeData);
+            } catch (e) {
+              // If parsing fails, keep it as a string
+            }
+          }
+          this.setValueAtPath(storeMemory, args.path, storeData);
+          await this.agentService.setAgentMemory(agentId, stateId, storeMemory);
+          return `✅ Stored data at '${args.path}'. This will be available in your system prompt in future interactions.`;
 
         case "update":
-          const existingValue = this.getValueAtPath(currentMemory, args.path);
-          let newValue;
-
-          // Since data is now a string, handle differently
-          if (Array.isArray(existingValue)) {
-            // For arrays, add the string as a new element
-            newValue = [...existingValue, args.data];
-          } else if (typeof existingValue === 'object' && existingValue !== null) {
-            // For objects, we can't easily merge with a string
-            // So we'll set a default property or overwrite
-            newValue = {
-              ...existingValue,
-              value: args.data
-            };
-          } else {
-            // For primitives or non-existent values, just set
-            newValue = args.data;
+          // For update action, we'll first get the current memory
+          const currentMemory = await this.agentService.getMemory(agentId, stateId);
+          console.log('Current memory before update:', JSON.stringify(currentMemory, null, 2));
+          let updateData = args.data;
+          // If data is a string that looks like JSON, try to parse it
+          if (typeof updateData === 'string' && (updateData.startsWith('{') || updateData.startsWith('['))) {
+            try {
+              updateData = JSON.parse(updateData);
+            } catch (e) {
+              // If parsing fails, keep it as a string
+            }
           }
-
-          const mergedMemory = this.setValueAtPath(currentMemory, args.path, newValue);
-          agent.updateMemory(stateId, mergedMemory);
+          console.log('Updating path:', args.path, 'with data:', updateData);
+          const updatedMemory = this.setValueAtPath(currentMemory, args.path, updateData);
+          console.log('Memory after update:', JSON.stringify(updatedMemory, null, 2));
+          await this.agentService.updateAgentMemory(agentId, stateId, updatedMemory);
           return `✅ Updated data at '${args.path}'. This will be available in your system prompt in future interactions.`;
 
         case "clear":
-          // Clear specific path by setting it to null
-          const clearedMemory = this.setValueAtPath(currentMemory, args.path, null);
-          agent.updateMemory(stateId, clearedMemory);
+          // For clear action, we'll delete the specific memory entry
+          await this.agentService.deleteAgentMemoryEntry(agentId, stateId, args.path);
           return `✅ Cleared data at '${args.path}'. This will be reflected in your system prompt in future interactions.`;
 
         default:
@@ -183,7 +196,6 @@ MEMORY STRUCTURE:
     for (let i = 0; i < keys.length - 1; i++) {
       const key = keys[i];
       if (!current[key] || typeof current[key] !== 'object') {
-        // Create missing path segments as objects
         current[key] = {};
       }
       current = current[key];

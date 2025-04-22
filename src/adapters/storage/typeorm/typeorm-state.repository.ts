@@ -22,7 +22,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
     @Inject(forwardRef(() => VECTOR_DB))
     private readonly vectorDB: VectorDBPort,
     private readonly messageService: MessageService
-  ) {}
+  ) { }
 
   async findById(id: string, loadMessages: boolean = false): Promise<AgentState | null> {
     const stateEntity = await this.stateRepository.findOne({
@@ -35,12 +35,12 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
     }
 
     const state = StateMapper.toDomain(stateEntity, loadMessages);
-    
+
     if (loadMessages) {
       const { messages } = await this.messageService.getMessages(id);
       state.conversationHistory = messages;
     }
-    
+
     return state;
   }
 
@@ -57,12 +57,12 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
 
     const states = stateEntities.map(async (stateEntity) => {
       const state = StateMapper.toDomain(stateEntity, loadMessages);
-      
+
       if (loadMessages) {
         const { messages } = await this.messageService.getMessages(stateEntity.id);
         state.conversationHistory = messages;
       }
-    
+
       return state;
     });
 
@@ -100,7 +100,7 @@ export class TypeOrmStateRepository implements StateRepositoryPort {
     await this.stateRepository.manager.transaction(async (manager) => {
       // 1. Delete all messages associated with this state first
       await manager.delete(MessageEntity, { stateId: id });
-      
+
       // 2. Delete the state
       await manager.delete(StateEntity, { id });
     });

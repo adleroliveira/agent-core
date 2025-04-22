@@ -232,12 +232,39 @@ export function ChatProvider({ children }: { children: preact.ComponentChildren 
           // First add the assistant's content if there is any
           const content = message.content;
           if (content && content.toString().trim()) {
-            processedMessages.push({
-              role: MessageDto.role.ASSISTANT,
-              content: content.toString(),
-              blockType: 'normal' as const,
-              isComplete: true
-            });
+            const contentStr = content.toString();
+
+            // Check for thinking blocks in the content
+            const thinkingMatch = contentStr.match(/<thinking>(.*?)<\/thinking>/s);
+            if (thinkingMatch) {
+              // Add the thinking block as a separate message
+              processedMessages.push({
+                role: MessageDto.role.ASSISTANT,
+                content: '',
+                thinking: thinkingMatch[1].trim(),
+                blockType: 'thinking' as const,
+                isComplete: true
+              });
+
+              // Add the remaining content as a normal message if there is any
+              const remainingContent = contentStr.replace(/<thinking>.*?<\/thinking>/s, '').trim();
+              if (remainingContent) {
+                processedMessages.push({
+                  role: MessageDto.role.ASSISTANT,
+                  content: remainingContent,
+                  blockType: 'normal' as const,
+                  isComplete: true
+                });
+              }
+            } else {
+              // No thinking blocks found, add as normal message
+              processedMessages.push({
+                role: MessageDto.role.ASSISTANT,
+                content: contentStr,
+                blockType: 'normal' as const,
+                isComplete: true
+              });
+            }
           }
 
           // Then add the tool call messages if they exist

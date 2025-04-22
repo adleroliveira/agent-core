@@ -13,7 +13,8 @@ import { VectorDBPort } from "@ports/storage/vector-db.port";
 import { ModelRequestOptions, ModelResponse } from "@ports/model/model-service.port";
 import { WorkspaceConfig } from "@core/config/workspace.config";
 import { Logger } from "@nestjs/common";
-
+import { McpClientServicePort } from "@ports/mcp/mcp-client-service.port";
+import { StateRepositoryPort } from "../../ports/storage/state-repository.port";
 // Tool execution constants
 const MAX_RECURSION_DEPTH_ON_ERRORS = 3;
 const DEFAULT_TOOL_EXECUTION_TEMPERATURE = 0.7;
@@ -22,7 +23,6 @@ const DEFAULT_TOOL_EXECUTION_TEMPERATURE = 0.7;
 const TOOL_NOT_FOUND_ERROR = "Error: Tool '%s' not found";
 const TOOL_EXECUTION_ERROR = "Error executing tool: %s";
 const MAX_RECURSION_ERROR = "I've encountered multiple errors while trying to execute tools. Please try a different approach or check if the tools are working correctly.";
-const TOOL_RESULTS_PROCESSING_ERROR = "I encountered an error processing the tool results: %s";
 
 export class Agent {
   private readonly logger = new Logger(Agent.name);
@@ -37,12 +37,14 @@ export class Agent {
   public createdAt: Date;
   public updatedAt: Date;
   private modelService?: ModelServicePort;
+  private mcpClientService?: McpClientServicePort;
   private vectorDB?: VectorDBPort;
   private _workspaceConfig: WorkspaceConfig;
   private _toolsLoaded: boolean = false;
   private _knowledgeBaseLoaded: boolean = false;
   public inputTokens: number = 0;
   public outputTokens: number = 0;
+  private stateRepository?: StateRepositoryPort;
 
   constructor(
     params: {
@@ -52,7 +54,7 @@ export class Agent {
       modelId: string;
       systemPrompt: Prompt;
       tools?: Tool[];
-      modelService?: ModelServicePort;
+      mcpClientService?: McpClientServicePort;
       vectorDB?: VectorDBPort;
       knowledgeBase?: KnowledgeBase;
       workspaceConfig: WorkspaceConfig;
@@ -68,7 +70,7 @@ export class Agent {
     this.systemPrompt = params.systemPrompt;
     this._tools = params.tools || [];
     this._toolsLoaded = params.tools !== undefined;
-    this.modelService = params.modelService;
+    this.mcpClientService = params.mcpClientService;
     this.vectorDB = params.vectorDB;
     this._workspaceConfig = params.workspaceConfig;
     this.inputTokens = params.inputTokens || 0;
@@ -76,10 +78,10 @@ export class Agent {
 
     // Initialize states
     this._states = params.states || [];
-    
+
     // If no states provided, create a default one
     if (this._states.length === 0) {
-      const defaultState = new AgentState({ 
+      const defaultState = new AgentState({
         agentId: this.id,
       });
       this._states = [defaultState];
@@ -134,7 +136,7 @@ export class Agent {
     }
 
     // Record the incoming message in conversation history
-    state.addToConversation(message);
+    await state.addToConversation(message);
 
     const requestOptions = {
       temperature: options?.temperature,
@@ -254,7 +256,6 @@ export class Agent {
     };
 
     if (isStreaming) {
-      console.log('Sending streaming request', state.conversationHistory[state.conversationHistory.length - 1]);
       const streamingObs = this.modelService!.generateStreamingResponse(
         state.conversationHistory,
         systemPrompt,
@@ -289,7 +290,7 @@ export class Agent {
           });
 
           this.logger.debug(`Streaming response completed for agent ${this.id}. Content length: ${streamingContent.length}, Tool calls: ${collectedToolCalls.length}`);
-          state.addToConversation(streamingMessage);
+          await state.addToConversation(streamingMessage);
           await handleToolCalls(streamingMessage);
         },
         error: (error) => {
@@ -322,7 +323,7 @@ export class Agent {
           toolCalls: messageChunk.toolCalls,
         });
 
-        state.addToConversation(standardMessage);
+        await state.addToConversation(standardMessage);
         await handleToolCalls(standardMessage);
       }).catch((error) => {
         this.logger.error(`Error generating response for agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}`);
@@ -352,6 +353,9 @@ export class Agent {
     isStreaming: boolean,
     recursionDepth: number = 0
   ): Promise<void> {
+    if (!this.mcpClientService) {
+      throw new Error("MCP client service not initialized");
+    }
     this.logger.debug(`Executing ${toolCalls.length} tool calls for streaming response for agent ${this.id}. Tools: ${toolCalls.map(tc => `${tc.toolName}(${JSON.stringify(tc.arguments)})`).join(', ')}, Recursion depth: ${recursionDepth}`);
     const toolResults = [];
     let hasErrors = false;
@@ -389,7 +393,10 @@ export class Agent {
 
       try {
         this.logger.debug(`Executing tool ${toolCall.toolName} for agent ${this.id}. Arguments: ${JSON.stringify(toolCall.arguments)}`);
-        const result = await tool.execute(toolCall.arguments, this);
+
+        const result = await this.mcpClientService.callTool(toolCall.toolName, { agentId: this.id, stateId: stateId }, toolCall.arguments);
+        this.logger.debug(`Tool ${toolCall.toolName} executed successfully using MCP client for agent ${this.id}. Result: ${result}`);
+
         toolResults.push({
           toolId: toolCall.toolId,
           result: result,
@@ -411,7 +418,7 @@ export class Agent {
             timestamp: new Date().toISOString(),
           }
         });
-        this.logger.debug(`Tool ${toolCall.toolName} executed successfully for agent ${this.id}. Result type: ${typeof result}, Result length: ${typeof result === 'string' ? result.length : 'N/A'}`);
+
       } catch (error) {
         this.logger.error(`Tool execution failed for ${toolCall.toolName} on agent ${this.id}. Error: ${error.message}, Stack: ${error.stack}, Arguments: ${JSON.stringify(toolCall.arguments)}`);
         toolResults.push({
@@ -461,7 +468,7 @@ export class Agent {
 
     // Ensure the tool result message has a different timestamp than the assistant's message
     toolResponseMessage.createdAt = new Date(assistantMessage.createdAt.getTime() + 1);
-    state.addToConversation(toolResponseMessage);
+    await state.addToConversation(toolResponseMessage);
 
     if (hasErrors && recursionDepth >= MAX_RECURSION_DEPTH_ON_ERRORS) {
       this.logger.warn(`Max recursion depth reached for agent ${this.id}. Depth: ${recursionDepth}, Errors: ${toolResults.filter(r => r.isError).map(r => r.toolId).join(', ')}`);
@@ -570,12 +577,21 @@ export class Agent {
   public async setServices(
     modelService: ModelServicePort,
     vectorDB: VectorDBPort,
-    workspaceConfig: WorkspaceConfig
+    workspaceConfig: WorkspaceConfig,
+    mcpClientService: McpClientServicePort,
+    stateRepository: StateRepositoryPort
   ): Promise<void> {
     this.modelService = modelService;
     this.vectorDB = vectorDB;
     this._workspaceConfig = workspaceConfig;
     this.knowledgeBase.setServices(modelService, vectorDB);
+    this.mcpClientService = mcpClientService;
+    this.stateRepository = stateRepository;
+
+    // Update all existing states with the repository
+    for (const state of this._states) {
+      state.setRepository(stateRepository);
+    }
   }
 
   public registerTool(tool: Tool): void {
@@ -605,6 +621,9 @@ export class Agent {
     const newState = new AgentState({
       agentId: this.id,
     });
+    if (this.stateRepository) {
+      newState.setRepository(this.stateRepository);
+    }
     this._states.push(newState);
     this.updatedAt = new Date();
     return newState;

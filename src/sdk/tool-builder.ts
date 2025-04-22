@@ -1,6 +1,3 @@
-import { Agent } from "@core/domain/agent.entity";
-import { ToolParameter } from "@core/domain/tool.entity";
-
 export type ToolInput = {
   type: "string" | "number" | "boolean" | "object" | "array";
   description: string;
@@ -40,9 +37,9 @@ export class ToolBuilder {
     required = true,
     options: Partial<Omit<ToolInput, "type" | "description" | "required">> = {}
   ) {
-    this.inputs[name] = { 
-      type, 
-      description, 
+    this.inputs[name] = {
+      type,
+      description,
       required,
       ...options
     };
@@ -58,11 +55,11 @@ export class ToolBuilder {
     return this;
   }
 
-  handle(handler: (input: any, agent: Agent) => Promise<any>) {
+  handle(handler: (input: any, environment?: Record<string, string>) => Promise<any>) {
     if (this.description === undefined) {
       throw new Error("Tool description is required");
     }
-    
+
     // If a JSONSchema is provided, use it directly
     if (this.jsonSchema) {
       return {
@@ -79,7 +76,7 @@ export class ToolBuilder {
         name: this.name,
       };
     }
-    
+
     return {
       spec: () => ({
         toolSpec: {

@@ -1,11 +1,13 @@
 import { Tool, ToolParameter } from "@core/domain/tool.entity";
 import * as path from "path";
 import * as fs from "fs";
-import { Logger } from "@nestjs/common";
+import { Logger, Inject } from "@nestjs/common";
 import { WorkspaceConfig } from "@core/config/workspace.config";
 import { Agent } from "@core/domain/agent.entity";
 import { spawn } from "child_process";
 import * as os from "os";
+import { AgentService } from "@core/services/agent.service";
+import { AGENT_SERVICE } from "@core/injection-tokens";
 
 export class CommandTool extends Tool {
   private readonly DEFAULT_TIMEOUT = 30000; // 30 seconds timeout
@@ -13,7 +15,10 @@ export class CommandTool extends Tool {
   private shellCommand: string;
   private shellArgs: string[];
 
-  constructor() {
+  constructor(
+    @Inject(AGENT_SERVICE)
+    private readonly agentService: AgentService
+  ) {
     const parameters: ToolParameter[] = [
       {
         name: "command",
@@ -60,7 +65,15 @@ export class CommandTool extends Tool {
       - Useful for commands that generate large outputs or when you only need the final result`,
       description: `Execute a command and return its output to the LLM. All commands are strictly confined to the workspace directory.`,
       parameters,
-      handler: async (args: Record<string, any>, agent: Agent) => {
+      handler: async (args: Record<string, any>, environment?: Record<string, string>) => {
+        const agentId = environment?.agentId;
+        if (!agentId) {
+          throw new Error("Agent ID is not set");
+        }
+        const agent = await this.agentService.findAgentById(agentId);
+        if (!agent) {
+          throw new Error("Agent not found");
+        }
         this.ensureWorkspaceExists(agent.workspaceConfig);
         return this.executeCommand(args, agent.workspaceConfig!);
       },

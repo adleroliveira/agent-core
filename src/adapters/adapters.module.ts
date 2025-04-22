@@ -14,6 +14,7 @@ import { ToolMapper } from './storage/typeorm/mappers/tool.mapper';
 import { TypeOrmToolRegistryService } from './storage/typeorm/typeorm-tool-registry.service';
 import { StateMapper } from './storage/typeorm/mappers/state.mapper';
 import { MimeTypeService } from '@core/services/mime-type.service';
+import { McpClientService } from '@core/services/mcp-client.service';
 import {
   AGENT_REPOSITORY,
   STATE_REPOSITORY,
@@ -23,6 +24,7 @@ import {
   AGENT_SERVICE,
   MESSAGE_REPOSITORY,
   KNOWLEDGE_BASE_REPOSITORY,
+  MCP_CLIENT,
 } from '@core/injection-tokens';
 
 // Storage entities
@@ -54,7 +56,7 @@ import { FileUploadController, BusboyFileUploadService } from "./api/rest/file-u
 
 // Tools
 import { ProcessTool } from "@tools/default/process.tool";
-
+import { McpClientServicePort } from "@ports/mcp/mcp-client-service.port";
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -96,7 +98,10 @@ import { ProcessTool } from "@tools/default/process.tool";
       provide: KNOWLEDGE_BASE_REPOSITORY,
       useClass: TypeOrmKnowledgeBaseRepository,
     },
-
+    {
+      provide: MCP_CLIENT,
+      useClass: McpClientService,
+    },
     // Model providers
     BedrockConfigService,
     {
@@ -107,7 +112,7 @@ import { ProcessTool } from "@tools/default/process.tool";
     // Process management
     ProcessTool,
     WorkspaceConfig,
-    
+
     // File upload service
     BusboyFileUploadService,
     MimeTypeService,
@@ -121,11 +126,13 @@ import { ProcessTool } from "@tools/default/process.tool";
         modelService: ModelServicePort,
         vectorDB: VectorDBPort,
         toolRegistry: ToolRegistryPort,
-        toolMapper: ToolMapper
+        toolMapper: ToolMapper,
+        mcpClientService: McpClientServicePort,
+        stateRepository: StateRepositoryPort
       ) => {
-        return new AgentMapper(modelService, vectorDB, toolRegistry, toolMapper);
+        return new AgentMapper(modelService, vectorDB, toolRegistry, toolMapper, mcpClientService, stateRepository);
       },
-      inject: [MODEL_SERVICE, VECTOR_DB, TOOL_REGISTRY, ToolMapper],
+      inject: [MODEL_SERVICE, VECTOR_DB, TOOL_REGISTRY, ToolMapper, McpClientService, STATE_REPOSITORY],
     },
 
     // Direct API adapter
@@ -155,6 +162,7 @@ import { ProcessTool } from "@tools/default/process.tool";
     KNOWLEDGE_BASE_REPOSITORY,
     ToolMapper,
     TOOL_REGISTRY,
+    MCP_CLIENT,
   ],
 })
-export class AdaptersModule {}
+export class AdaptersModule { }
