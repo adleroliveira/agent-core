@@ -25,6 +25,7 @@ import {
   MESSAGE_REPOSITORY,
   KNOWLEDGE_BASE_REPOSITORY,
   MCP_CLIENT,
+  MCP_SERVER_REPOSITORY,
 } from '@core/injection-tokens';
 
 // Storage entities
@@ -36,12 +37,16 @@ import { KnowledgeBaseEntity } from "./storage/typeorm/entities/knowledge-base.e
 import { ProcessEntity } from "./storage/typeorm/entities/process.entity";
 import { VectraAdapter } from "./vector-db/vectra.adapter";
 import { AgentToolEntity } from "./storage/typeorm/entities/agent-tool.entity";
+import { MCPServerEntity } from "./storage/typeorm/entities/mcp-server.entity";
+import { MCPToolEntity } from './storage/typeorm/entities/mcp-tool.entity';
 
 // Storage repositories
 import { TypeOrmAgentRepository } from "./storage/typeorm/typeorm-agent.repository";
 import { TypeOrmStateRepository } from "./storage/typeorm/typeorm-state.repository";
 import { TypeOrmProcessRepository } from "./storage/typeorm/typeorm-process.repository";
+import { TypeOrmMCPServerRepository } from "./storage/typeorm/typeorm-mcp-server.repository";
 import { TypeOrmKnowledgeBaseRepository } from "./storage/typeorm/typeorm-knowledge-base.repository";
+import { MCPToolRepository } from './storage/typeorm/typeorm-mcp-tool.repository';
 
 // Model services
 import { BedrockModelService } from "./model/bedrock/bedrock-model.service";
@@ -49,8 +54,8 @@ import { BedrockConfigService } from "./model/bedrock/bedrock-config.service";
 
 // API interfaces
 import { AgentController } from "./api/rest/agent.controller";
-import { ToolsController } from "./api/rest/tools.controller";
 import { ModelsController } from "./api/rest/models.controller";
+import { MCPServerController } from "./api/rest/mcp-server.controller";
 import { DirectAgentAdapter } from "./api/direct/direct-agent.adapter";
 import { FileUploadController, BusboyFileUploadService } from "./api/rest/file-upload.controller";
 
@@ -67,11 +72,13 @@ import { McpClientServicePort } from "@ports/mcp/mcp-client-service.port";
       KnowledgeBaseEntity,
       ProcessEntity,
       AgentToolEntity,
+      MCPServerEntity,
+      MCPToolEntity,
     ]),
     forwardRef(() => CoreModule),
     ConfigModule,
   ],
-  controllers: [AgentController, ToolsController, ModelsController, FileUploadController],
+  controllers: [AgentController, ModelsController, FileUploadController, MCPServerController],
   providers: [
     // Storage providers
     {
@@ -85,6 +92,10 @@ import { McpClientServicePort } from "@ports/mcp/mcp-client-service.port";
     {
       provide: PROCESS_REPOSITORY,
       useClass: TypeOrmProcessRepository,
+    },
+    {
+      provide: MCP_SERVER_REPOSITORY,
+      useClass: TypeOrmMCPServerRepository,
     },
     {
       provide: VECTOR_DB,
@@ -125,14 +136,12 @@ import { McpClientServicePort } from "@ports/mcp/mcp-client-service.port";
       useFactory: (
         modelService: ModelServicePort,
         vectorDB: VectorDBPort,
-        toolRegistry: ToolRegistryPort,
-        toolMapper: ToolMapper,
         mcpClientService: McpClientServicePort,
         stateRepository: StateRepositoryPort
       ) => {
-        return new AgentMapper(modelService, vectorDB, toolRegistry, toolMapper, mcpClientService, stateRepository);
+        return new AgentMapper(modelService, vectorDB, mcpClientService, stateRepository);
       },
-      inject: [MODEL_SERVICE, VECTOR_DB, TOOL_REGISTRY, ToolMapper, McpClientService, STATE_REPOSITORY],
+      inject: [MODEL_SERVICE, VECTOR_DB, McpClientService, STATE_REPOSITORY],
     },
 
     // Direct API adapter
@@ -148,6 +157,9 @@ import { McpClientServicePort } from "@ports/mcp/mcp-client-service.port";
       provide: TOOL_REGISTRY,
       useClass: TypeOrmToolRegistryService,
     },
+
+    // MCP repositories
+    MCPToolRepository,
   ],
   exports: [
     AGENT_REPOSITORY,
@@ -163,6 +175,8 @@ import { McpClientServicePort } from "@ports/mcp/mcp-client-service.port";
     ToolMapper,
     TOOL_REGISTRY,
     MCP_CLIENT,
+    MCP_SERVER_REPOSITORY,
+    MCPToolRepository,
   ],
 })
 export class AdaptersModule { }

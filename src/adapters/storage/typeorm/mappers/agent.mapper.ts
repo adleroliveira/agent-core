@@ -2,23 +2,21 @@ import { Agent } from '@core/domain/agent.entity';
 import { Prompt } from '@core/domain/prompt.entity';
 import { AgentEntity } from '../entities/agent.entity';
 import { StateMapper } from './state.mapper';
-import { ToolMapper } from './tool.mapper';
 import { KnowledgeBaseMapper } from './knowledge-base.mapper';
 import { WorkspaceConfig } from '@core/config/workspace.config';
 import { ModelServicePort } from '@ports/model/model-service.port';
 import { VectorDBPort } from '@ports/storage/vector-db.port';
-import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
 import { Injectable } from '@nestjs/common';
 import { AgentToolEntity } from '../entities/agent-tool.entity';
 import { McpClientServicePort } from '@ports/mcp/mcp-client-service.port';
 import { StateRepositoryPort } from '@ports/storage/state-repository.port';
+import { MCPToolMapper } from './mcp-tool.mapper';
+
 @Injectable()
 export class AgentMapper {
   constructor(
     private readonly modelService: ModelServicePort,
     private readonly vectorDB: VectorDBPort,
-    private readonly toolRegistry: ToolRegistryPort,
-    private readonly toolMapper: ToolMapper,
     private readonly mcpClientService: McpClientServicePort,
     private readonly stateRepository: StateRepositoryPort
   ) { }
@@ -34,7 +32,10 @@ export class AgentMapper {
     const tools = loadRelations && entity.agentTools
       ? await Promise.all(entity.agentTools
         .filter(agentTool => agentTool.tool) // Only map tools that exist
-        .map(agentTool => this.toolMapper.toDomain(agentTool.tool))
+        .map(agentTool => {
+          const mcpTool = MCPToolMapper.toDomain(agentTool.tool);
+          return mcpTool;
+        })
       )
       : [];
 

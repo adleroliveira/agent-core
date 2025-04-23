@@ -2,7 +2,6 @@ import { Injectable, Logger, NotFoundException, forwardRef, Inject } from '@nest
 import { Tool } from '@core/domain/tool.entity';
 import { ToolRegistryPort } from '@ports/tool/tool-registry.port';
 import { WorkspaceConfig } from '@core/config/workspace.config';
-import { Agent } from '@core/domain/agent.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ToolEntity } from '@adapters/storage/typeorm/entities/tool.entity';

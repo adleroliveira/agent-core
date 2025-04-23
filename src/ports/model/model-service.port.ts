@@ -2,6 +2,7 @@ import { Observable } from "rxjs";
 import { Message } from "@core/domain/message.entity";
 import { Prompt } from "@core/domain/prompt.entity";
 import { Tool } from "@core/domain/tool.entity";
+import { MCPTool } from "@core/domain/mcp-tool.entity";
 
 export interface ModelRequestOptions {
   maxTokens?: number;
@@ -62,14 +63,14 @@ export interface ModelServicePort {
   generateResponse(
     messages: Message[],
     systemPrompt: Prompt | Prompt[],
-    tools?: Tool[],
+    tools?: MCPTool[],
     options?: ModelRequestOptions
   ): Promise<ModelResponse>;
 
   generateStreamingResponse(
     messages: Message[],
     systemPrompt: Prompt | Prompt[],
-    tools?: Tool[],
+    tools?: MCPTool[],
     options?: ModelRequestOptions
   ): Observable<Partial<ModelResponse>>;
 

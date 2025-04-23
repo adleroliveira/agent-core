@@ -22,6 +22,7 @@ export class Tool {
   public createdAt: Date;
   public updatedAt: Date;
   public jsonSchema?: Record<string, any>;
+  public serverId?: string;
 
   constructor(params: {
     id?: string;
@@ -33,6 +34,7 @@ export class Tool {
     metadata?: Record<string, any>;
     systemPrompt?: string;
     jsonSchema?: Record<string, any>;
+    serverId?: string;
   }) {
     this.id = params.id || uuidv4();
     this.name = params.name;
@@ -45,6 +47,7 @@ export class Tool {
     this.jsonSchema = params.jsonSchema;
     this.createdAt = new Date();
     this.updatedAt = new Date();
+    this.serverId = params.serverId;
   }
 
   public async execute(args: Record<string, any>, environment?: Record<string, string>): Promise<any> {

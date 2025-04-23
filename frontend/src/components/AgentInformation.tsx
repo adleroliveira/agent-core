@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { AgentsService } from '@/api-client/services/AgentsService';
-import { ToolDto } from '@/api-client/models/ToolDto';
+import { McpToolDto } from '@/api-client/models/McpToolDto';
 import '../styles/agent-information.css';
 import { Tools } from './Tools';
 
@@ -10,7 +10,7 @@ interface AgentResponse {
   description: string;
   modelId?: string;
   systemPrompt: string;
-  tools?: ToolDto[];
+  tools?: McpToolDto[];
   createdAt?: string;
   updatedAt?: string;
   inputTokens?: number;

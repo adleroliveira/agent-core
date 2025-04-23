@@ -23,10 +23,10 @@ import {
 } from "@ports/model/model-service.port";
 import { Message } from "@core/domain/message.entity";
 import { Prompt } from "@core/domain/prompt.entity";
-import { Tool } from "@core/domain/tool.entity";
 import { BedrockConfigService } from "./bedrock-config.service";
 import { FileService } from "@core/services/file.service";
 import { MimeTypeService } from '@core/services/mime-type.service';
+import { MCPTool } from "@core/domain/mcp-tool.entity";
 
 @Injectable()
 export class BedrockModelService implements ModelServicePort {
@@ -104,7 +104,7 @@ export class BedrockModelService implements ModelServicePort {
   async generateResponse(
     messages: Message[],
     systemPrompt: Prompt | Prompt[],
-    tools?: Tool[],
+    tools?: MCPTool[],
     options?: ModelRequestOptions
   ): Promise<ModelResponse> {
     const modelId = options?.modelId || this.configService.getModelId();
@@ -116,7 +116,6 @@ export class BedrockModelService implements ModelServicePort {
         tools,
         options
       );
-
 
       const conversationId = messages[0].stateId;
 
@@ -140,7 +139,7 @@ export class BedrockModelService implements ModelServicePort {
   generateStreamingResponse(
     messages: Message[],
     systemPrompt: Prompt | Prompt[],
-    tools?: Tool[],
+    tools?: MCPTool[],
     options?: ModelRequestOptions
   ): Observable<Partial<ModelResponse>> {
     const modelId = options?.modelId || this.configService.getModelId();
@@ -426,7 +425,7 @@ export class BedrockModelService implements ModelServicePort {
   private async createConverseRequest(
     messages: Message[],
     systemPrompt: Prompt | Prompt[],
-    tools?: Tool[],
+    tools?: MCPTool[],
     options?: ModelRequestOptions
   ): Promise<any> {
     const formattedMessages = await Promise.all(messages.map(async (message) => {
@@ -554,27 +553,9 @@ export class BedrockModelService implements ModelServicePort {
         tools: tools.map((tool) => ({
           toolSpec: {
             name: tool.name,
-            description: tool.directive || tool.description || tool.name,
+            description: tool.description || tool.name,
             inputSchema: {
-              json: tool.jsonSchema || {
-                type: "object",
-                properties: tool.parameters.reduce(
-                  (acc: Record<string, any>, param) => {
-                    acc[param.name] = {
-                      type: param.type,
-                      description: param.description || "",
-                    };
-                    if (param.enum) {
-                      acc[param.name].enum = param.enum;
-                    }
-                    return acc;
-                  },
-                  {}
-                ),
-                required: tool.parameters
-                  .filter((param) => param.required)
-                  .map((param) => param.name),
-              },
+              json: tool.inputSchema,
             },
           },
         })),

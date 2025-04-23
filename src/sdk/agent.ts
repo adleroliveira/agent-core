@@ -2,7 +2,7 @@ import { Agent as AgentEntity } from '@core/domain/agent.entity';
 import { Message, MessageContent } from '@core/domain/message.entity';
 import { DirectAgentAdapter } from '../adapters/api/direct/direct-agent.adapter';
 import { StreamCallbacks } from './types';
-import { Tool } from '@core/domain/tool.entity';
+import { MCPTool } from '@core/domain/mcp-tool.entity';
 import { Prompt } from '@core/domain/prompt.entity';
 
 export interface MessageOptions {
@@ -73,7 +73,7 @@ export class Agent {
    * @returns The full Message entity from the agent's response
    */
   public async ask(
-    message: string, 
+    message: string,
     options?: MessageOptions & { conversationId?: string }
   ): Promise<Message> {
     const response = await this.adapter.sendMessageSync(
@@ -94,7 +94,7 @@ export class Agent {
    * Convenience method if you just want the text
    */
   public async askForText(
-    message: string, 
+    message: string,
     options?: MessageOptions & { conversationId?: string }
   ): Promise<string> {
     const response = await this.ask(message, { ...options, conversationId: this._conversationId ? this._conversationId : options?.conversationId });
@@ -189,8 +189,8 @@ export class Agent {
    * Add a tool to the agent
    * @param tool The tool to add
    */
-  public async addTool(tool: Tool): Promise<void> {
-    await this.adapter.addToolToAgent(this.id, tool.name);
+  public async addTool(tool: MCPTool): Promise<void> {
+    await this.adapter.addToolToAgent(this.id, tool.id);
   }
 
   /**
@@ -219,7 +219,7 @@ export class Agent {
   /**
    * Get all tools registered with this agent
    */
-  public getTools(): Tool[] {
+  public getTools(): MCPTool[] {
     return this.entity.tools;
   }
 

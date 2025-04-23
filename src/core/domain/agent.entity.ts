@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { AgentState } from "./agent-state.entity";
 import { Prompt } from "./prompt.entity";
-import { Tool } from "./tool.entity";
+import { MCPTool } from "./mcp-tool.entity";
 import { Message } from "./message.entity";
 import { KnowledgeBase } from "./knowledge-base.entity";
 import {
@@ -32,7 +32,7 @@ export class Agent {
   public modelId: string;
   private _states: AgentState[];
   public systemPrompt: Prompt;
-  private _tools: Tool[];
+  private _tools: MCPTool[];
   private _knowledgeBase: KnowledgeBase;
   public createdAt: Date;
   public updatedAt: Date;
@@ -53,7 +53,7 @@ export class Agent {
       description: string;
       modelId: string;
       systemPrompt: Prompt;
-      tools?: Tool[];
+      tools?: MCPTool[];
       mcpClientService?: McpClientServicePort;
       vectorDB?: VectorDBPort;
       knowledgeBase?: KnowledgeBase;
@@ -394,7 +394,11 @@ export class Agent {
       try {
         this.logger.debug(`Executing tool ${toolCall.toolName} for agent ${this.id}. Arguments: ${JSON.stringify(toolCall.arguments)}`);
 
-        const result = await this.mcpClientService.callTool(toolCall.toolName, { agentId: this.id, stateId: stateId }, toolCall.arguments);
+        const toolToUse = this.tools.find((t) => t.name === toolCall.toolName);
+        if (!toolToUse) {
+          throw new Error(`Tool not found: ${toolCall.toolName} for agent ${this.id}. Available tools: ${this.tools.map(t => t.name).join(', ')}`);
+        }
+        const result = await this.mcpClientService.callTool(toolToUse.serverId, toolToUse.id, toolCall.arguments);
         this.logger.debug(`Tool ${toolCall.toolName} executed successfully using MCP client for agent ${this.id}. Result: ${result}`);
 
         toolResults.push({
@@ -535,11 +539,11 @@ export class Agent {
     delete state.memory[key];
   }
 
-  public get tools(): Tool[] {
+  public get tools(): MCPTool[] {
     return this._tools;
   }
 
-  public set tools(tools: Tool[]) {
+  public set tools(tools: MCPTool[]) {
     this._tools = tools;
     this._toolsLoaded = true;
   }
@@ -594,8 +598,7 @@ export class Agent {
     }
   }
 
-  public registerTool(tool: Tool): void {
-    this.logger.debug(`Registering tool ${tool.name} for agent ${this.id}. Tool ID: ${tool.id}, Parameters: ${JSON.stringify(tool.parameters)}`);
+  public registerTool(tool: MCPTool): void {
     this.tools.push(tool);
     this._toolsLoaded = true;
     this.updatedAt = new Date();

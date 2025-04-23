@@ -1,20 +1,15 @@
 import { useState, useEffect } from 'preact/hooks';
 import type { ComponentType } from 'preact';
-import { AgentsService, ToolsService } from '../api-client';
+import { AgentsService } from '../api-client';
+import { McpServersService } from '../api-client/services/McpServersService';
+import { McpToolDto } from '../api-client/models/McpToolDto';
 import { route } from 'preact-router';
 import { ModelService } from '../services/models.service';
 import type { ModelInfoDto } from '../api-client/models/ModelInfoDto';
 import { ModelSelector } from '../components/ModelSelector';
 import { SystemPromptEditor } from '../components/SystemPromptEditor';
+import { ToolPicker } from '../components/ToolPicker';
 import '../styles/create-agent.css';
-
-interface Tool {
-  id: string;
-  name: string;
-  description: string;
-  parameters: any;
-  systemPrompt?: string;
-}
 
 export const CreateAgent: ComponentType = () => {
   const [formData, setFormData] = useState({
@@ -26,7 +21,7 @@ export const CreateAgent: ComponentType = () => {
     limitations: [] as string[],
     tools: [] as string[],
   });
-  const [availableTools, setAvailableTools] = useState<Tool[]>([]);
+  const [availableTools, setAvailableTools] = useState<McpToolDto[]>([]);
   const [availableModels, setAvailableModels] = useState<ModelInfoDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
@@ -35,17 +30,17 @@ export const CreateAgent: ComponentType = () => {
 
   const selectedModel = availableModels.find(model => model.id === formData.modelId);
   const showToolsSection = selectedModel?.supportsToolCalls ?? false;
-  const selectedTools = availableTools.filter(tool => formData.tools.includes(tool.name));
 
   useEffect(() => {
     const fetchData = async () => {
       setLoadingData(true);
       setError(null);
       try {
-        const [tools, models] = await Promise.all([
-          ToolsService.toolsControllerGetAllTools(),
+        const [servers, models] = await Promise.all([
+          McpServersService.mcpServerControllerGetAllMcpServers(),
           ModelService.getInstance().getAvailableModels()
         ]);
+        const tools = servers.flatMap(server => server.tools);
         setAvailableTools(tools);
         setAvailableModels(models);
         // Set default model if available
@@ -93,12 +88,12 @@ export const CreateAgent: ComponentType = () => {
     }));
   };
 
-  const handleToolToggle = (toolName: string) => {
+  const handleToolToggle = (toolId: string) => {
     setFormData(prev => ({
       ...prev,
-      tools: prev.tools.includes(toolName)
-        ? prev.tools.filter(t => t !== toolName)
-        : [...prev.tools, toolName]
+      tools: prev.tools.includes(toolId)
+        ? prev.tools.filter(t => t !== toolId)
+        : [...prev.tools, toolId]
     }));
   };
 
@@ -169,26 +164,11 @@ export const CreateAgent: ComponentType = () => {
         </div>
 
         {showToolsSection && (
-          <div class="form-group">
-            <label>Available Tools</label>
-            <div class="tools-grid">
-              {availableTools.map(tool => (
-                <div key={tool.id} class="tool-card">
-                  <label class="tool-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={formData.tools.includes(tool.name)}
-                      onChange={() => handleToolToggle(tool.name)}
-                    />
-                    <div class="tool-info">
-                      <h4>{tool.name}</h4>
-                      <p>{tool.description}</p>
-                    </div>
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
+          <ToolPicker
+            tools={availableTools}
+            selectedTools={formData.tools}
+            onToolToggle={handleToolToggle}
+          />
         )}
 
         <div class="form-group">
@@ -198,7 +178,6 @@ export const CreateAgent: ComponentType = () => {
             primaryFunction={formData.primaryFunction}
             thinkingApproach={formData.thinkingApproach}
             limitations={formData.limitations}
-            selectedTools={selectedTools}
             onChange={setSystemPrompt}
           />
         </div>

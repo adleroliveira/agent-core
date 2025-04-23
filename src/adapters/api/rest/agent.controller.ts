@@ -38,23 +38,23 @@ export class AgentController {
     private readonly agentService: AgentService,
     @Inject(TOOL_REGISTRY)
     private readonly toolRegistry: ToolRegistryService
-  ) {}
+  ) { }
 
   @Post()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Create a new agent',
     description: 'Creates a new agent with the specified configuration'
   })
-  @ApiBody({ 
+  @ApiBody({
     type: CreateAgentDto,
     description: 'The agent configuration including name, description, and system prompt'
   })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'Agent created successfully'
   })
-  @ApiResponse({ 
-    status: 400, 
+  @ApiResponse({
+    status: 400,
     description: 'Invalid request parameters'
   })
   async createAgent(@Body() createAgentDto: CreateAgentDto) {
@@ -83,16 +83,16 @@ export class AgentController {
   }
 
   @Get()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get all agents',
     description: 'Retrieves a list of all available agents'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'List of agents retrieved successfully'
   })
-  @ApiResponse({ 
-    status: 500, 
+  @ApiResponse({
+    status: 500,
     description: 'Internal server error'
   })
   async getAllAgents() {
@@ -123,21 +123,21 @@ export class AgentController {
   }
 
   @Get(":id")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get agent by ID',
     description: 'Retrieves detailed information about a specific agent'
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'The ID of the agent to retrieve',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Agent retrieved successfully'
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent not found'
   })
   async getAgent(@Param("id") id: string) {
@@ -153,8 +153,7 @@ export class AgentController {
           id: tool.id,
           name: tool.name,
           description: tool.description,
-          parameters: tool.parameters,
-          systemPrompt: tool.systemPrompt,
+          parameters: tool.inputSchema,
         })),
         inputTokens: agent.inputTokens,
         outputTokens: agent.outputTokens,
@@ -171,25 +170,25 @@ export class AgentController {
   }
 
   @Delete(":id")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Delete an agent',
     description: 'Deletes a specific agent by ID'
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'The ID of the agent to delete',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Agent deleted successfully'
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent not found'
   })
-  @ApiResponse({ 
-    status: 500, 
+  @ApiResponse({
+    status: 500,
     description: 'Internal server error'
   })
   async deleteAgent(@Param("id") id: string) {
@@ -208,27 +207,27 @@ export class AgentController {
   }
 
   @Post(":id/message")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Send a message to an agent',
     description: 'Send a message to an agent. The StateId is required to identify the conversation.'
   })
   @ApiParam({ name: 'id', description: 'The ID of the agent' })
   @ApiQuery({ name: 'stream', required: false, type: Boolean, description: 'Whether to stream the response' })
-  @ApiBody({ 
+  @ApiBody({
     type: SendMessageDto,
     description: 'The message to send, including stateId to identify the conversation and optional file attachments'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Message processed successfully',
     type: MessageDto
   })
-  @ApiResponse({ 
-    status: 400, 
+  @ApiResponse({
+    status: 400,
     description: 'Invalid request parameters'
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent not found'
   })
   async sendMessage(
@@ -310,29 +309,29 @@ export class AgentController {
   }
 
   @Put(":id/prompt")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Update system prompt',
     description: 'Updates the system prompt for a specific agent'
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'The ID of the agent',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiBody({ 
+  @ApiBody({
     type: UpdatePromptDto,
     description: 'The new system prompt content'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'System prompt updated successfully'
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent not found'
   })
-  @ApiResponse({ 
-    status: 500, 
+  @ApiResponse({
+    status: 500,
     description: 'Internal server error'
   })
   async updateSystemPrompt(
@@ -359,29 +358,29 @@ export class AgentController {
   }
 
   @Post(":id/tools")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Add tool to agent',
     description: 'Adds a new tool to the agent\'s capabilities'
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'The ID of the agent',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiBody({ 
+  @ApiBody({
     type: AddToolDto,
     description: 'The tool to add to the agent'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Tool added successfully'
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent not found'
   })
-  @ApiResponse({ 
-    status: 500, 
+  @ApiResponse({
+    status: 500,
     description: 'Internal server error'
   })
   async addTool(@Param("id") id: string, @Body() toolDto: AddToolDto) {
@@ -409,30 +408,30 @@ export class AgentController {
   }
 
   @Delete(":id/tools/:toolId")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Remove tool from agent',
     description: 'Removes a tool from the agent\'s capabilities'
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'The ID of the agent',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiParam({ 
-    name: 'toolId', 
+  @ApiParam({
+    name: 'toolId',
     description: 'The ID of the tool to remove',
     example: 'tool_123'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Tool removed successfully'
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent or tool not found'
   })
-  @ApiResponse({ 
-    status: 500, 
+  @ApiResponse({
+    status: 500,
     description: 'Internal server error'
   })
   async removeTool(@Param("id") id: string, @Param("toolId") toolId: string) {
@@ -456,25 +455,25 @@ export class AgentController {
   }
 
   @Post(":id/reset")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Reset agent state',
     description: 'Resets the state of a specific agent'
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'The ID of the agent to reset',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Agent state reset successfully'
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent not found'
   })
-  @ApiResponse({ 
-    status: 500, 
+  @ApiResponse({
+    status: 500,
     description: 'Internal server error'
   })
   async resetState(@Param("id") id: string) {
@@ -490,31 +489,31 @@ export class AgentController {
   }
 
   @Post(":id/new-conversation")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Create new conversation',
     description: 'Creates a new conversation for a specific agent'
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'The ID of the agent',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiQuery({ 
+  @ApiQuery({
     name: 'stateId',
     description: 'Optional state ID to specify when creating a new conversation',
     required: false,
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'New conversation created successfully'
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent not found'
   })
-  @ApiResponse({ 
-    status: 500, 
+  @ApiResponse({
+    status: 500,
     description: 'Internal server error'
   })
   async createNewConversation(
@@ -537,26 +536,26 @@ export class AgentController {
   }
 
   @Get(":id/conversations")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get agent conversations',
     description: 'Retrieves all conversations for a specific agent'
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'The ID of the agent',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Conversations retrieved successfully',
     type: [ConversationDto]
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent not found'
   })
-  @ApiResponse({ 
-    status: 500, 
+  @ApiResponse({
+    status: 500,
     description: 'Internal server error'
   })
   async getConversations(@Param("id") id: string): Promise<ConversationDto[]> {
@@ -580,30 +579,30 @@ export class AgentController {
   }
 
   @Delete(":id/conversations/:stateId")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Delete conversation',
     description: 'Deletes a specific conversation for an agent'
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'The ID of the agent',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiParam({ 
-    name: 'stateId', 
+  @ApiParam({
+    name: 'stateId',
     description: 'The ID of the conversation to delete',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Conversation deleted successfully'
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent or conversation not found'
   })
-  @ApiResponse({ 
-    status: 500, 
+  @ApiResponse({
+    status: 500,
     description: 'Internal server error'
   })
   async deleteConversation(
@@ -626,37 +625,37 @@ export class AgentController {
   }
 
   @Get(":id/conversation-history")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get conversation history',
     description: 'Retrieves the conversation history for a specific agent and state'
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'The ID of the agent',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiQuery({ 
-    name: 'stateId', 
+  @ApiQuery({
+    name: 'stateId',
     description: 'The ID of the conversation state',
     required: true,
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiQuery({ 
-    name: 'limit', 
+  @ApiQuery({
+    name: 'limit',
     description: 'Maximum number of messages to retrieve',
     required: false,
     type: Number,
     example: 50
   })
-  @ApiQuery({ 
-    name: 'beforeTimestamp', 
+  @ApiQuery({
+    name: 'beforeTimestamp',
     description: 'Retrieve messages before this timestamp',
     required: false,
     type: Date,
     example: '2024-04-15T08:00:00.000Z'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Conversation history retrieved successfully',
     schema: {
       type: 'object',
@@ -675,12 +674,12 @@ export class AgentController {
       }
     }
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent or state not found'
   })
-  @ApiResponse({ 
-    status: 500, 
+  @ApiResponse({
+    status: 500,
     description: 'Internal server error'
   })
   async getConversationHistory(
@@ -720,22 +719,22 @@ export class AgentController {
   }
 
   @Get(":id/memory/:stateId")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get agent memory',
     description: 'Retrieves the memory state for a specific agent and conversation state'
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'The ID of the agent',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiParam({ 
-    name: 'stateId', 
+  @ApiParam({
+    name: 'stateId',
     description: 'The ID of the conversation state',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Memory retrieved successfully',
     schema: {
       type: 'object',
@@ -758,12 +757,12 @@ export class AgentController {
       }
     }
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent or state not found'
   })
-  @ApiResponse({ 
-    status: 500, 
+  @ApiResponse({
+    status: 500,
     description: 'Internal server error'
   })
   async getMemory(
@@ -786,33 +785,33 @@ export class AgentController {
   }
 
   @Put(":id/memory/:stateId")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Set agent memory',
     description: 'Sets the complete memory state for a specific agent and conversation state'
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'The ID of the agent',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiParam({ 
-    name: 'stateId', 
+  @ApiParam({
+    name: 'stateId',
     description: 'The ID of the conversation state',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiBody({ 
+  @ApiBody({
     schema: {
       type: 'object',
       additionalProperties: true,
       description: 'The complete memory state to set'
     }
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Memory set successfully'
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent or state not found'
   })
   async setMemory(
@@ -832,33 +831,33 @@ export class AgentController {
   }
 
   @Patch(":id/memory/:stateId")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Update agent memory',
     description: 'Updates the memory state by merging new values with existing ones'
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'The ID of the agent',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiParam({ 
-    name: 'stateId', 
+  @ApiParam({
+    name: 'stateId',
     description: 'The ID of the conversation state',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiBody({ 
+  @ApiBody({
     schema: {
       type: 'object',
       additionalProperties: true,
       description: 'The memory updates to merge with existing memory'
     }
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Memory updated successfully'
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent or state not found'
   })
   async updateMemory(
@@ -878,26 +877,26 @@ export class AgentController {
   }
 
   @Delete(":id/memory/:stateId")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Delete agent memory',
     description: 'Clears all memory for a specific agent and conversation state'
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'The ID of the agent',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiParam({ 
-    name: 'stateId', 
+  @ApiParam({
+    name: 'stateId',
     description: 'The ID of the conversation state',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Memory cleared successfully'
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent or state not found'
   })
   async deleteMemory(
@@ -916,31 +915,31 @@ export class AgentController {
   }
 
   @Delete(":id/memory/:stateId/:key")
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Delete memory entry',
     description: 'Removes a specific key from the agent\'s memory'
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'The ID of the agent',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiParam({ 
-    name: 'stateId', 
+  @ApiParam({
+    name: 'stateId',
     description: 'The ID of the conversation state',
     example: '123e4567-e89b-12d3-a456-426614174000'
   })
-  @ApiParam({ 
-    name: 'key', 
+  @ApiParam({
+    name: 'key',
     description: 'The key to remove from memory',
     example: 'last_user_query'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Memory entry deleted successfully'
   })
-  @ApiResponse({ 
-    status: 404, 
+  @ApiResponse({
+    status: 404,
     description: 'Agent or state not found'
   })
   async deleteMemoryEntry(

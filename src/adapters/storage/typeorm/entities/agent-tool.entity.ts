@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from "typeorm";
 import { AgentEntity } from "./agent.entity";
-import { ToolEntity } from "./tool.entity";
+import { MCPToolEntity } from "./mcp-tool.entity";
 
 @Entity("agent_tools")
 export class AgentToolEntity {
@@ -17,9 +17,9 @@ export class AgentToolEntity {
   @JoinColumn({ name: "agent_id" })
   agent: AgentEntity;
 
-  @ManyToOne(() => ToolEntity, { onDelete: "CASCADE" })
+  @ManyToOne(() => MCPToolEntity, { onDelete: "CASCADE" })
   @JoinColumn({ name: "tool_id" })
-  tool: ToolEntity;
+  tool: MCPToolEntity;
 
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;

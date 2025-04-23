@@ -1,17 +1,8 @@
-import { ToolDto } from '../api-client/models/ToolDto';
+import { McpToolDto } from '../api-client/models/McpToolDto';
 import '../styles/tools.css';
 
 interface ToolsProps {
-  tools: ToolDto[];
-}
-
-interface ToolParameter {
-  name: string;
-  type: string;
-  description: string;
-  required: boolean;
-  default?: string;
-  enum?: string[];
+  tools: McpToolDto[];
 }
 
 export const Tools = ({ tools }: ToolsProps) => {
@@ -21,25 +12,27 @@ export const Tools = ({ tools }: ToolsProps) => {
         <div className="no-tools">No tools available</div>
       ) : (
         tools.map((tool, index) => (
-          <div key={tool.name}>
+          <div key={tool.id}>
             <div className="tool-item">
               <div className="tool-main">
                 <h4>{tool.name}</h4>
                 <p className="tool-description">{tool.description}</p>
-                {tool.parameters && (
+                {tool.inputSchema && (
                   <div className="tool-parameters">
                     <table className="parameters-table">
                       <thead>
                         <tr>
                           <th>Parameter</th>
                           <th>Type</th>
+                          <th>Required</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {tool.parameters.map((param: ToolParameter) => (
-                          <tr key={param.name}>
-                            <td>{param.name}</td>
-                            <td>{param.type}</td>
+                        {Object.entries(tool.inputSchema.properties || {}).map(([name, prop]: [string, any]) => (
+                          <tr key={name}>
+                            <td>{name}</td>
+                            <td>{prop.type}</td>
+                            <td>{tool.inputSchema.required?.includes(name) ? 'Yes' : 'No'}</td>
                           </tr>
                         ))}
                       </tbody>

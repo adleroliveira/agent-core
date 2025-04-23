@@ -10,21 +10,19 @@ import {
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { ToolRegistryService } from './tool-registry.service';
-import { Tool } from '@core/domain/tool.entity';
-import { TOOL_REGISTRY } from '@core/constants';
+import { MCP_SERVER_REPOSITORY } from '@core/injection-tokens';
+import { MCPServer } from '@core/domain/mcp-server.entity';
 
 @Injectable()
 export class McpServerService {
   private server: Server;
   private currentTransport: DirectTransport | null = null;
+  private currentServer: MCPServer | null = null;
 
   constructor(
-    @Inject(TOOL_REGISTRY)
-    private readonly toolRegistry: ToolRegistryService,
+    @Inject(MCP_SERVER_REPOSITORY)
+    private readonly mcpServerRepository: any, // TODO: Add proper type
   ) {
-
-
     this.server = new Server(
       {
         name: "test-server",
@@ -67,26 +65,40 @@ export class McpServerService {
 
     // Handler that lists available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      const tools = await this.toolRegistry.getAllTools();
+      if (!this.currentServer) {
+        throw new Error("No MCP server connected");
+      }
+
+      const tools = this.currentServer.tools || [];
 
       return {
         tools: tools.map(tool => ({
           name: tool.name,
           description: tool.description,
-          inputSchema: this.convertToolParametersToSchema(tool.parameters)
+          inputSchema: tool.getInputSchema()
         }))
       };
     });
 
     // Handler for tool execution
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const tool = await this.toolRegistry.getToolByName(request.params.name);
+      if (!this.currentServer) {
+        throw new Error("No MCP server connected");
+      }
+
+      const tool = this.currentServer.tools?.find(t => t.id === request.params.name);
       if (!tool) {
-        throw new Error(`Tool ${request.params.name} not found`);
+        throw new Error(`Tool with ID ${request.params.name} not found`);
       }
 
       const environment = this.getEnvironment();
-      const result = await tool.execute(request.params.arguments || {}, environment);
+      const result = await tool.execute(
+        this.currentServer.command,
+        this.currentServer.args,
+        tool.name,
+        request.params.arguments || {},
+        { ...this.currentServer.env, ...environment }
+      );
 
       return {
         content: [{
@@ -109,49 +121,18 @@ export class McpServerService {
     });
   }
 
-  private convertToolParametersToSchema(parameters: Tool['parameters']): any {
-    const properties: Record<string, any> = {};
-    const required: string[] = [];
-
-    for (const param of parameters) {
-      properties[param.name] = {
-        type: param.type,
-        description: param.description
-      };
-
-      if (param.required) {
-        required.push(param.name);
-      }
-
-      if (param.enum) {
-        properties[param.name].enum = param.enum;
-      }
-
-      if (param.default !== undefined) {
-        properties[param.name].default = param.default;
-      }
-
-      if (param.properties) {
-        properties[param.name].properties = param.properties;
-      }
-
-      if (param.items) {
-        properties[param.name].items = param.items;
-      }
-    }
-
-    return {
-      type: "object",
-      properties,
-      required
-    };
-  }
-
-  async connect(transport: Transport) {
+  async connect(transport: Transport, serverId: string) {
     if (!(transport instanceof DirectTransport)) {
       throw new Error('McpServerService only supports DirectTransport');
     }
+
+    const server = await this.mcpServerRepository.findById(serverId);
+    if (!server) {
+      throw new Error(`MCP server with ID ${serverId} not found`);
+    }
+
     this.currentTransport = transport;
+    this.currentServer = server;
     await this.server.connect(transport);
   }
 

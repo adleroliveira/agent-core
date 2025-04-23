@@ -3,7 +3,6 @@ import {
   Logger,
   NotFoundException,
   Inject,
-  OnModuleInit,
 } from "@nestjs/common";
 import { Observable } from "rxjs";
 
@@ -15,9 +14,7 @@ import { StateRepositoryPort } from "@ports/storage/state-repository.port";
 import {
   ModelServicePort,
 } from "@ports/model/model-service.port";
-import { ToolRegistryPort } from "@ports/tool/tool-registry.port";
 import { VectorDBPort } from "@ports/storage/vector-db.port";
-import { TOOL_REGISTRY } from "@core/constants";
 import { DEFAULT_SYSTEM_PROMPT } from "@config/prompts.config";
 import { WorkspaceConfig } from "@core/config/workspace.config";
 import { AgentState } from "@core/domain/agent-state.entity";
@@ -34,10 +31,10 @@ import {
   MCP_CLIENT
 } from "@core/injection-tokens";
 import { McpClientServicePort } from "@ports/mcp/mcp-client-service.port";
-
+import { MCPToolRepository } from "@adapters/storage/typeorm/typeorm-mcp-tool.repository";
 
 @Injectable()
-export class AgentService implements OnModuleInit {
+export class AgentService {
   private readonly logger = new Logger(AgentService.name);
 
   constructor(
@@ -47,8 +44,6 @@ export class AgentService implements OnModuleInit {
     private readonly stateRepository: StateRepositoryPort,
     @Inject(MODEL_SERVICE)
     private readonly modelService: ModelServicePort,
-    @Inject(TOOL_REGISTRY)
-    private readonly toolRegistry: ToolRegistryPort,
     @Inject(VECTOR_DB)
     private readonly vectorDB: VectorDBPort,
     private readonly workspaceConfig: WorkspaceConfig,
@@ -56,12 +51,9 @@ export class AgentService implements OnModuleInit {
     @Inject(KNOWLEDGE_BASE_REPOSITORY)
     private readonly knowledgeBaseRepository: KnowledgeBaseRepositoryPort,
     @Inject(MCP_CLIENT)
-    private readonly mcpClientService: McpClientServicePort
+    private readonly mcpClientService: McpClientServicePort,
+    private readonly mcpToolRepository: MCPToolRepository
   ) { }
-
-  async onModuleInit() {
-    await this.mcpClientService.initialize();
-  }
 
   async createAgent(params: {
     name: string;
@@ -100,16 +92,13 @@ export class AgentService implements OnModuleInit {
 
     // Register tools if specified
     if (tools && tools.length > 0) {
-      const allTools = await this.toolRegistry.getAllTools();
-      const toolMap = new Map(allTools.map((tool) => [tool.name, tool]));
-
-      for (const toolName of tools) {
-        const tool = toolMap.get(toolName);
-        if (tool) {
-          agent.registerTool(tool);
-          this.logger.debug(`Registered tool: ${toolName} for agent: ${agent.id}`);
+      for (const toolId of tools) {
+        const mcpTool = await this.mcpToolRepository.findById(toolId);
+        if (mcpTool) {
+          agent.registerTool(mcpTool);
+          this.logger.debug(`Registered MCP tool: ${toolId} for agent: ${agent.id}`);
         } else {
-          this.logger.warn(`Tool '${toolName}' not found in registry`);
+          this.logger.warn(`MCP tool with ID '${toolId}' not found`);
         }
       }
     }
@@ -229,7 +218,7 @@ export class AgentService implements OnModuleInit {
         },
         complete: async () => {
           try {
-            const updatedState = await this.stateRepository.findById(stateIdToUse, true);
+            await this.agentRepository.save(agent);
             await this.messageService.appendMessages(agent.getStateById(stateIdToUse)?.conversationHistory || []);
             subscriber.complete();
           } catch (error) {
@@ -241,12 +230,12 @@ export class AgentService implements OnModuleInit {
     });
   }
 
-  async addToolToAgent(agentId: string, toolName: string): Promise<Agent> {
+  async addToolToAgent(agentId: string, toolId: string): Promise<Agent> {
     const agent = await this.findAgentById(agentId, true);
-    const tool = await this.toolRegistry.getToolByName(toolName);
+    const tool = await this.mcpToolRepository.findById(toolId);
 
     if (!tool) {
-      throw new NotFoundException(`Tool with name ${toolName} not found`);
+      throw new NotFoundException(`Tool with ID ${toolId} not found`);
     }
 
     agent.registerTool(tool);

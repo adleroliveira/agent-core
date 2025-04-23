@@ -1,6 +1,7 @@
 .create-agent-page {
   width: 100%;
-  min-height: calc(100vh - 64px); /* Subtract header height */
+  min-height: calc(100vh - 64px);
+  /* Subtract header height */
   background-color: #f8fafc;
   display: flex;
   flex-direction: column;
@@ -82,38 +83,45 @@
   min-height: 100px;
 }
 
+.server-selector {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 16px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  font-size: 14px;
+}
+
 .tools-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1rem;
-  margin-top: 0.5rem;
+  gap: 16px;
+  margin-top: 8px;
 }
 
 .tool-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid #ddd;
   border-radius: 4px;
-  padding: 1rem;
-  background-color: #f8fafc;
+  padding: 12px;
+  background-color: white;
   transition: all 0.2s ease;
 }
 
 .tool-card:hover {
-  border-color: #1a365d;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
 }
 
 .tool-checkbox {
   display: flex;
   align-items: flex-start;
-  gap: 1rem;
+  gap: 12px;
   cursor: pointer;
 }
 
 .tool-checkbox input[type="checkbox"] {
-  margin-top: 0.25rem;
-  width: 1.2rem;
-  height: 1.2rem;
-  accent-color: #1a365d;
+  margin-top: 4px;
 }
 
 .tool-info {
@@ -121,17 +129,32 @@
 }
 
 .tool-info h4 {
-  margin: 0 0 0.5rem 0;
-  color: #1a365d;
-  font-size: 1rem;
-  font-weight: 600;
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  color: #333;
 }
 
 .tool-info p {
-  margin: 0;
-  color: #64748b;
-  font-size: 0.9rem;
-  line-height: 1.4;
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.tool-server {
+  display: inline-block;
+  padding: 2px 6px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
+.error {
+  color: #dc3545;
+  padding: 8px;
+  background-color: #f8d7da;
+  border-radius: 4px;
+  margin-bottom: 16px;
 }
 
 .form-actions {
@@ -182,16 +205,6 @@
   border-color: #cbd5e1;
 }
 
-.error {
-  color: #dc2626;
-  margin: 0.5rem 0;
-  padding: 0.75rem;
-  background-color: #fee2e2;
-  border: 1px solid #fecaca;
-  border-radius: 4px;
-  font-size: 0.9rem;
-}
-
 .loading {
   display: inline-flex;
   align-items: center;
@@ -237,4 +250,4 @@
   outline: none;
   border-color: #007bff;
   box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-} 
+}

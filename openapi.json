@@ -799,64 +799,6 @@
         ]
       }
     },
-    "/api/tools": {
-      "get": {
-        "description": "Retrieves a list of all available tools that can be used by agents",
-        "operationId": "ToolsController_getAllTools",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "List of all available tools",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ToolDto"
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        },
-        "summary": "Get all available tools",
-        "tags": [
-          "tools"
-        ]
-      }
-    },
-    "/api/tools/mcp": {
-      "get": {
-        "description": "Retrieves a list of all MCP tools",
-        "operationId": "ToolsController_getMcpTools",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "List of all MCP tools",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ToolDto"
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        },
-        "summary": "Get all MCP tools",
-        "tags": [
-          "tools"
-        ]
-      }
-    },
     "/api/models": {
       "get": {
         "operationId": "ModelsController_getAvailableModels",
@@ -932,6 +874,179 @@
         "summary": "Upload files",
         "tags": [
           "Files"
+        ]
+      }
+    },
+    "/api/mcp-servers": {
+      "post": {
+        "description": "Creates a new MCP server with the specified configuration",
+        "operationId": "MCPServerController_createMCPServer",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMCPServerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "MCP server created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MCPServerDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters or failed to connect to MCP server"
+          }
+        },
+        "summary": "Create a new MCP server",
+        "tags": [
+          "MCP Servers"
+        ]
+      },
+      "get": {
+        "description": "Retrieves a list of all available MCP servers",
+        "operationId": "MCPServerController_getAllMCPServers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "List of MCP servers retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MCPServerDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get all MCP servers",
+        "tags": [
+          "MCP Servers"
+        ]
+      }
+    },
+    "/api/mcp-servers/{id}": {
+      "get": {
+        "description": "Retrieves a specific MCP server by its ID",
+        "operationId": "MCPServerController_getMCPServer",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the MCP server to retrieve",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MCP server retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MCPServerDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "MCP server not found"
+          }
+        },
+        "summary": "Get MCP server by ID",
+        "tags": [
+          "MCP Servers"
+        ]
+      },
+      "put": {
+        "description": "Updates an existing MCP server with new configuration",
+        "operationId": "MCPServerController_updateMCPServer",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the MCP server to update",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMCPServerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MCP server updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MCPServerDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "MCP server not found"
+          }
+        },
+        "summary": "Update MCP server",
+        "tags": [
+          "MCP Servers"
+        ]
+      },
+      "delete": {
+        "description": "Deletes a specific MCP server by its ID",
+        "operationId": "MCPServerController_deleteMCPServer",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the MCP server to delete",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MCP server deleted successfully"
+          },
+          "400": {
+            "description": "Cannot delete MCP server because its tools are being used by agents"
+          },
+          "404": {
+            "description": "MCP server not found"
+          }
+        },
+        "summary": "Delete MCP server",
+        "tags": [
+          "MCP Servers"
         ]
       }
     }
@@ -1229,48 +1344,6 @@
           "updatedAt"
         ]
       },
-      "ToolDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "The unique identifier of the tool",
-            "example": "tool_123"
-          },
-          "name": {
-            "type": "string",
-            "description": "The name of the tool",
-            "example": "search"
-          },
-          "description": {
-            "type": "string",
-            "description": "A description of what the tool does",
-            "example": "Searches for information using a search engine"
-          },
-          "parameters": {
-            "type": "object",
-            "description": "The parameters that the tool accepts",
-            "example": {
-              "query": {
-                "type": "string",
-                "description": "The search query",
-                "required": true
-              }
-            }
-          },
-          "systemPrompt": {
-            "type": "string",
-            "description": "The system prompt that describes how to use the tool",
-            "example": "Use this tool to search for information on the web"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "description",
-          "parameters"
-        ]
-      },
       "ModelPricingDto": {
         "type": "object",
         "properties": {
@@ -1396,6 +1469,167 @@
           "originalName",
           "size",
           "mimetype"
+        ]
+      },
+      "CreateMCPServerDto": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "description": "The provider of the MCP server",
+            "example": "openai"
+          },
+          "repository": {
+            "type": "string",
+            "description": "The repository of the MCP server",
+            "example": "openai/gpt-4"
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the MCP server",
+            "example": "GPT-4 Server"
+          },
+          "description": {
+            "type": "string",
+            "description": "A description of the MCP server",
+            "example": "A powerful language model server"
+          },
+          "command": {
+            "type": "string",
+            "description": "The command to start the server",
+            "example": "python server.py"
+          },
+          "args": {
+            "description": "Command line arguments for the server",
+            "example": [
+              "--port",
+              "8000"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "env": {
+            "type": "object",
+            "description": "Environment variables for the server",
+            "example": {
+              "API_KEY": "secret-key"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "provider",
+          "repository",
+          "name",
+          "command",
+          "args",
+          "env"
+        ]
+      },
+      "McpToolDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "inputSchema": {
+            "type": "object"
+          },
+          "serverId": {
+            "type": "string",
+            "description": "The ID of the MCP server this tool belongs to",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "inputSchema",
+          "serverId"
+        ]
+      },
+      "MCPServerDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The unique identifier of the MCP server",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "provider": {
+            "type": "string",
+            "description": "The provider of the MCP server",
+            "example": "openai"
+          },
+          "repository": {
+            "type": "string",
+            "description": "The repository of the MCP server",
+            "example": "openai/gpt-4"
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the MCP server",
+            "example": "GPT-4 Server"
+          },
+          "command": {
+            "type": "string",
+            "description": "The command to start the server",
+            "example": "python server.py"
+          },
+          "args": {
+            "description": "Command line arguments for the server",
+            "example": [
+              "--port",
+              "8000"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "env": {
+            "type": "object",
+            "description": "Environment variables for the server",
+            "example": {
+              "API_KEY": "secret-key"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "description": {
+            "type": "string",
+            "description": "A description of the MCP server",
+            "example": "A powerful language model server"
+          },
+          "tools": {
+            "description": "Tools associated with the MCP server",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/McpToolDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "repository",
+          "name",
+          "command",
+          "args",
+          "env",
+          "tools"
         ]
       }
     }

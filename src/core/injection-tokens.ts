@@ -7,4 +7,5 @@ export const VECTOR_DB = Symbol('VECTOR_DB');
 export const AGENT_SERVICE = "AGENT_SERVICE";
 export const MESSAGE_REPOSITORY = Symbol('MESSAGE_REPOSITORY');
 export const KNOWLEDGE_BASE_REPOSITORY = Symbol('KNOWLEDGE_BASE_REPOSITORY');
-export const MCP_CLIENT = Symbol('MCP_CLIENT'); 
+export const MCP_CLIENT = Symbol('MCP_CLIENT');
+export const MCP_SERVER_REPOSITORY = Symbol('MCP_SERVER_REPOSITORY');

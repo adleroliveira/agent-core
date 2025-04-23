@@ -1,7 +1,10 @@
-import { Tool } from "@core/domain/tool.entity";
+import { MCPTool } from "@core/domain/mcp-tool.entity";
 
 export interface McpClientServicePort {
-  initialize(): Promise<void>;
-  listTools(): Promise<Tool[]>;
-  callTool(name: string, environment: Record<string, any>, args: Record<string, any>): Promise<any>;
+  listTools(serverId: string): Promise<MCPTool[]>;
+  callTool(serverId: string, name: string, args: Record<string, any>): Promise<any>;
+  listResources(serverId: string): Promise<any[]>;
+  readResource(serverId: string, uri: string): Promise<any>;
+  listPrompts(serverId: string): Promise<any[]>;
+  getPrompt(serverId: string, name: string): Promise<any>;
 }
