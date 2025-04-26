@@ -159,14 +159,6 @@ export class Agent {
     let streamingContent = "";
 
     const systemPrompt = [this.systemPrompt];
-    const stateMemory = this.getStateMemory(message.stateId);
-    systemPrompt.push(new Prompt({
-      content: `
-        <Memory>
-        ${JSON.stringify(stateMemory)}
-        </Memory>`,
-      type: "system",
-    }));
 
     const processResponse = async (response: Partial<ModelResponse>) => {
       const messageChunk: Partial<Message> = {

@@ -152,11 +152,11 @@
   border-radius: 50%;
 }
 
-input:checked + .toggle-slider {
+input:checked+.toggle-slider {
   background-color: #10b981;
 }
 
-input:checked + .toggle-slider:before {
+input:checked+.toggle-slider:before {
   transform: translateX(26px);
 }
 
@@ -415,7 +415,8 @@ input:checked + .toggle-slider:before {
   hyphens: none;
 }
 
-.message-content ul, .message-content ol {
+.message-content ul,
+.message-content ol {
   margin: 0.35em 0;
   padding-left: 1.5em;
 }
@@ -449,11 +450,11 @@ input:checked + .toggle-slider:before {
   font-style: italic;
 }
 
-.message-content h1, 
-.message-content h2, 
-.message-content h3, 
-.message-content h4, 
-.message-content h5, 
+.message-content h1,
+.message-content h2,
+.message-content h3,
+.message-content h4,
+.message-content h5,
 .message-content h6 {
   margin: 0.5em 0 0.35em;
   color: #111827;
@@ -462,17 +463,19 @@ input:checked + .toggle-slider:before {
   letter-spacing: -0.01em;
 }
 
-.message-content h1 { 
+.message-content h1 {
   font-size: 1.5em;
   letter-spacing: -0.02em;
   color: #111827;
 }
-.message-content h2 { 
+
+.message-content h2 {
   font-size: 1.3em;
   letter-spacing: -0.01em;
   color: #1f2937;
 }
-.message-content h3 { 
+
+.message-content h3 {
   font-size: 1.2em;
   color: #374151;
 }
@@ -487,7 +490,7 @@ input:checked + .toggle-slider:before {
   display: table;
 }
 
-.message-content th, 
+.message-content th,
 .message-content td,
 .markdown-body th,
 .markdown-body td {
@@ -683,10 +686,19 @@ input:checked + .toggle-slider:before {
   font-size: 1rem;
   outline: none;
   transition: border-color 0.2s ease;
+  resize: none;
+  min-height: 4.5rem;
+  max-height: 10rem;
+  overflow-y: auto;
+  line-height: 1.5;
 }
 
 .chat-input:focus {
   border-color: #3b82f6;
+}
+
+.chat-input::placeholder {
+  color: #94a3b8;
 }
 
 .file-input {
@@ -920,10 +932,14 @@ input:checked + .toggle-slider:before {
 }
 
 @keyframes bounce {
-  0%, 80%, 100% { 
+
+  0%,
+  80%,
+  100% {
     transform: scale(0);
-  } 
-  40% { 
+  }
+
+  40% {
     transform: scale(1.0);
   }
 }
@@ -1028,10 +1044,14 @@ input:checked + .toggle-slider:before {
 }
 
 @keyframes bounce {
-  0%, 80%, 100% { 
+
+  0%,
+  80%,
+  100% {
     transform: scale(0);
   }
-  40% { 
+
+  40% {
     transform: scale(1);
   }
 }
@@ -1088,7 +1108,8 @@ input:checked + .toggle-slider:before {
   padding: 0;
 }
 
-.markdown-body ul, .markdown-body ol {
+.markdown-body ul,
+.markdown-body ol {
   margin: 0.5rem 0;
   padding-left: 1.5rem;
 }
@@ -1113,14 +1134,24 @@ input:checked + .toggle-slider:before {
   color: #64748b;
 }
 
-.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 {
   margin: 1rem 0 0.5rem 0;
   font-weight: 600;
 }
 
-.markdown-body h1 { font-size: 1.5rem; }
-.markdown-body h2 { font-size: 1.25rem; }
-.markdown-body h3 { font-size: 1.125rem; }
+.markdown-body h1 {
+  font-size: 1.5rem;
+}
+
+.markdown-body h2 {
+  font-size: 1.25rem;
+}
+
+.markdown-body h3 {
+  font-size: 1.125rem;
+}
 
 .markdown-body table {
   width: 100%;
@@ -1128,7 +1159,8 @@ input:checked + .toggle-slider:before {
   margin: 0.5rem 0;
 }
 
-.markdown-body th, .markdown-body td {
+.markdown-body th,
+.markdown-body td {
   border: 1px solid #e2e8f0;
   padding: 0.5rem;
   text-align: left;
@@ -1167,7 +1199,8 @@ input:checked + .toggle-slider:before {
   text-decoration: line-through;
 }
 
-.markdown-body sup, .markdown-body sub {
+.markdown-body sup,
+.markdown-body sub {
   font-size: 0.75rem;
   line-height: 0;
   position: relative;
@@ -1355,6 +1388,51 @@ input:checked + .toggle-slider:before {
   font-size: 0.8em;
 }
 
+.tool-call-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.tool-loading-spinner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 8px;
+}
+
+.spinner-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #3b82f6;
+  border-radius: 50%;
+  animation: spinner-bounce 1.4s infinite ease-in-out both;
+}
+
+.spinner-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.spinner-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes spinner-bounce {
+
+  0%,
+  80%,
+  100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 .tool-call-content {
   margin-top: 8px;
   padding-top: 8px;
@@ -1413,4 +1491,4 @@ input:checked + .toggle-slider:before {
   word-wrap: break-word;
   font-family: monospace;
   font-size: 0.9em;
-} 
+}

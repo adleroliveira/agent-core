@@ -477,7 +477,7 @@ export class BedrockModelService implements ModelServicePort {
                 format: format,
                 name: this.sanitizeFileName(file.originalName),
                 source: {
-                  bytes: fileContents[index].toString('base64')
+                  bytes: fileContents[index]
                 }
               }
             };

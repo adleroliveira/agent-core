@@ -1,12 +1,17 @@
-FROM node:20-bullseye
+FROM ubuntu:22.04
 
 # Install common dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     unzip \
     ca-certificates \
-    --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+    qemu-kvm qemu-system-x86 \
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN pip3 install uv --break-system-packages
 
 # Check for Linux and install KVM only if on Linux
 RUN if [ "$(uname -s)" = "Linux" ]; then \
@@ -40,6 +45,10 @@ RUN rm -f pnpm-lock.yaml && pnpm install --no-frozen-lockfile --no-strict-peer-d
 
 # Copy application code
 COPY . .
+
+# Extract rootfs
+RUN tar -xzf /app/assets/rootfs.ext4.tar.gz -C /app/assets/ && \
+    rm /app/assets/rootfs.ext4.tar.gz
 
 # Install frontend dependencies
 WORKDIR /app/frontend

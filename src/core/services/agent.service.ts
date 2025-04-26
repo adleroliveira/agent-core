@@ -5,7 +5,6 @@ import {
   Inject,
 } from "@nestjs/common";
 import { Observable } from "rxjs";
-
 import { Agent } from "@core/domain/agent.entity";
 import { Message } from "@core/domain/message.entity";
 import { Prompt } from "@core/domain/prompt.entity";

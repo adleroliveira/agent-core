@@ -6,6 +6,7 @@ import { MCPTool } from '@core/domain/mcp-tool.entity';
 import { McpClientServicePort } from '@ports/mcp/mcp-client-service.port';
 import { EventEmitter } from 'events';
 import { v4 as uuidv4 } from 'uuid';
+import { CallToolResult } from '@modelcontextprotocol/sdk/types';
 
 @Injectable()
 export class McpClientService implements McpClientServicePort {
@@ -84,10 +85,19 @@ export class McpClientService implements McpClientServicePort {
   async callTool(serverId: string, name: string, args: Record<string, any>) {
     await this.connect(serverId);
     try {
-      return await this.client.callTool({
+      const toolsResult = await this.client.callTool({
         name,
         arguments: args
-      });
+      }) as CallToolResult;
+      const resultContent = toolsResult.content[0].text as string;
+      try {
+        return JSON.parse(resultContent);
+      } catch (e) {
+        return { result: resultContent };
+      }
+    } catch (error) {
+      console.error("Error calling tool", error);
+      throw error;
     } finally {
       await this.disconnect();
     }

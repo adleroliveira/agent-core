@@ -10,9 +10,7 @@ import { ChatService } from '@/services/chat.service';
 import { AgentsService } from '@/api-client/services/AgentsService';
 import '@preact/compat';
 import { MessageDto } from '../api-client/models/MessageDto';
-import { Memory } from '@/components/Memory';
 import { CollapsiblePanel } from '@/components/CollapsiblePanel';
-import { CircleStackIcon } from '@heroicons/react/24/outline';
 import { AgentInformation } from '@/components/AgentInformation';
 import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import Prism from 'prismjs';
@@ -62,7 +60,7 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
   } = useConversationStore();
   const { fetchMemory } = useMemoryStore();
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const lexerRef = useRef<GenAIStreamLexer | null>(null);
   const initializedRef = useRef(false);
   const currentBlockType = useRef<'thinking' | 'tool' | 'normal' | null>(null);
@@ -422,6 +420,14 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
     setIsDragging(false);
   };
 
+  const autoResizeTextarea = () => {
+    const textarea = inputRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
+    }
+  };
+
   const handleDrop = async (e: DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
@@ -502,18 +508,18 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
               />
             )
           },
-          {
-            id: 'memory',
-            icon: <CircleStackIcon className="w-5 h-5" />,
-            title: 'Memory',
-            content: agentId && convState.activeConversationId && state.agentService ? (
-              <Memory
-                agentId={agentId}
-                conversationId={convState.activeConversationId}
-                agentService={state.agentService}
-              />
-            ) : null
-          },
+          // {
+          //   id: 'memory',
+          //   icon: <CircleStackIcon className="w-5 h-5" />,
+          //   title: 'Memory',
+          //   content: agentId && convState.activeConversationId && state.agentService ? (
+          //     <Memory
+          //       agentId={agentId}
+          //       conversationId={convState.activeConversationId}
+          //       agentService={state.agentService}
+          //     />
+          //   ) : null
+          // },
           {
             id: 'tools',
             icon: <WrenchScrewdriverIcon className="w-5 h-5" />,
@@ -713,14 +719,23 @@ export const Chat: ComponentType<ChatProps> = ({ agentId }) => {
               </div>
             )}
             <div class="chat-input-wrapper">
-              <input
+              <textarea
                 ref={inputRef}
-                type="text"
                 value={state.inputMessage}
-                onInput={e => dispatch({ type: 'SET_INPUT_MESSAGE', payload: (e.target as HTMLInputElement).value })}
+                onInput={e => {
+                  dispatch({ type: 'SET_INPUT_MESSAGE', payload: (e.target as HTMLTextAreaElement).value });
+                  autoResizeTextarea();
+                }}
                 placeholder="Type your message..."
                 class="chat-input"
                 disabled={state.isLoading}
+                rows={3}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage(e);
+                  }
+                }}
               />
               <input
                 ref={fileInputRef}

@@ -30,6 +30,14 @@ const CommandDisplay = ({ command }: { command: string }) => {
   );
 };
 
+const LoadingSpinner = () => (
+  <div class="tool-loading-spinner">
+    <div class="spinner-dot"></div>
+    <div class="spinner-dot"></div>
+    <div class="spinner-dot"></div>
+  </div>
+);
+
 export const ToolCall = ({ toolId, toolName, arguments: args, content }: ToolCallProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -49,6 +57,7 @@ export const ToolCall = ({ toolId, toolName, arguments: args, content }: ToolCal
           <span class="tool-id">({toolId})</span>
         </div>
         <div class="tool-call-toggle">
+          {!content && <LoadingSpinner />}
           {isExpanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
         </div>
       </div>

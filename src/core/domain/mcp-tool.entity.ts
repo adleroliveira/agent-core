@@ -1,6 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { CallToolRequest } from "@modelcontextprotocol/sdk/types.js";
+import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { v4 as uuidv4 } from 'uuid';
 
 export class MCPTool {
@@ -33,7 +33,6 @@ export class MCPTool {
   }
 
   async execute(command: string, args: string[], name: string, params: Record<string, any>, env: Record<string, any> = {}): Promise<any> {
-    console.log("Connecting to server", command, args);
     const transport = new StdioClientTransport({
       command,
       args
@@ -46,11 +45,14 @@ export class MCPTool {
       capabilities: {}
     });
     await client.connect(transport);
-    console.log("Connection successful");
-
-    console.log("Executing tool", name, params);
-    const toolsResult = await client.callTool({ name, arguments: params });
+    const toolsResult = await client.callTool({ name, arguments: params }) as CallToolResult;
+    const resultContent = toolsResult.content[0].text as string;
     await client.close();
-    return toolsResult;
+
+    try {
+      return JSON.parse(resultContent);
+    } catch (e) {
+      return { result: resultContent };
+    }
   }
 } 

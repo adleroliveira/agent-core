@@ -1,0 +1,19 @@
+FROM alpine:3.19
+
+# Install Node.js, npm, Python, and dependencies
+RUN apk add --no-cache \
+  nodejs \
+  npm \
+  python3 \
+  py3-pip \
+  curl \
+  bash \
+  && curl -fsSL https://astral.sh/uv/install.sh | bash - \
+  && mv /root/.local/bin/uv /usr/local/bin/uv \
+  && npm cache clean --force \
+  && rm -rf /tmp/*
+
+# Create init script
+RUN echo '#!/bin/bash\nexec /bin/bash' > /init.sh && chmod +x /init.sh
+
+CMD ["/init.sh"]

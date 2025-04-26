@@ -17,11 +17,11 @@ export function App() {
         <header class="app-header">
           <div class="header-content">
             <div class="header-brand">
-              <h1>Agent Core v0.4</h1>
+              <h1>Agent Core v0.5.1</h1>
               <span class="header-subtitle">GenAI Agent Framework</span>
             </div>
             <nav class="header-nav">
-              <a href="/" class="nav-link">Dashboard</a>
+              <a href="/" class="nav-link">Agents</a>
               <a href="/create-agent" class="nav-link">Create Agent</a>
               <a href="/tools-studio" class="nav-link">Tools Studio</a>
             </nav>
