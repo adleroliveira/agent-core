@@ -35,7 +35,8 @@ export class MCPTool {
   async execute(command: string, args: string[], name: string, params: Record<string, any>, env: Record<string, any> = {}): Promise<any> {
     const transport = new StdioClientTransport({
       command,
-      args
+      args,
+      env: { ...process.env, ...env } as Record<string, string>
     });
 
     const client = new Client({

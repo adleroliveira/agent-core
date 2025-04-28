@@ -29,26 +29,32 @@ export class MCPServerController {
     private readonly mcpServerRepository: TypeOrmMCPServerRepository
   ) { }
 
-  private async getToolsFromServer(command: string, args: string[], serverId: string): Promise<MCPTool[]> {
-    const transport = new StdioClientTransport({
-      command,
-      args
-    });
-    const client = new Client({
-      name: "ToolCheckerClient",
-      version: "1.0.0",
-    }, {
-      capabilities: {}
-    });
-    await client.connect(transport);
-    const toolsResult = await client.listTools() as ListToolsResult;
-    return toolsResult.tools.map(tool => MCPTool.create(
-      uuidv4(),
-      tool.name,
-      tool.description ?? '',
-      tool.inputSchema,
-      serverId
-    ));
+  private async getToolsFromServer(command: string, args: string[], serverId: string, env: Record<string, string> = {}): Promise<MCPTool[]> {
+    try {
+      const transport = new StdioClientTransport({
+        command,
+        args,
+        env: { ...process.env, ...env } as Record<string, string>
+      });
+      const client = new Client({
+        name: "ToolCheckerClient",
+        version: "1.0.0",
+      }, {
+        capabilities: {}
+      });
+      await client.connect(transport);
+      const toolsResult = await client.listTools() as ListToolsResult;
+      return toolsResult.tools.map(tool => MCPTool.create(
+        uuidv4(),
+        tool.name,
+        tool.description ?? '',
+        tool.inputSchema,
+        serverId
+      ));
+    } catch (error) {
+      console.error('Error getting tools from server', error);
+      throw error;
+    }
   }
 
   @Post()
@@ -68,7 +74,7 @@ export class MCPServerController {
   async createMCPServer(@Body() createDto: CreateMCPServerDto): Promise<MCPServerDto> {
     try {
       const serverId = uuidv4();
-      const tools = await this.getToolsFromServer(createDto.command, createDto.args, serverId);
+      const tools = await this.getToolsFromServer(createDto.command, createDto.args, serverId, createDto.env);
 
       const mcpServer = new MCPServer(
         serverId,

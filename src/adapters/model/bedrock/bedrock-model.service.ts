@@ -69,13 +69,6 @@ export class BedrockModelService implements ModelServicePort {
     const secretAccessKey = this.configService.getSecretAccessKey();
     const sessionToken = this.configService.getSessionToken();
 
-    // Log available credential sources
-    this.logger.debug('Available credential sources:');
-    this.logger.debug(`- Profile: ${profile || 'not set'}`);
-    this.logger.debug(`- Access Key ID: ${accessKeyId ? 'set' : 'not set'}`);
-    this.logger.debug(`- Secret Access Key: ${secretAccessKey ? 'set' : 'not set'}`);
-    this.logger.debug(`- Session Token: ${sessionToken ? 'set' : 'not set'}`);
-
     // Explicit credential resolution with clear priority:
     // 1. Direct credentials (access key + secret)
     if (accessKeyId && secretAccessKey) {
@@ -112,12 +105,6 @@ export class BedrockModelService implements ModelServicePort {
       this.logger.debug('4. Container credentials (ECS)');
       this.logger.debug('5. Instance profile credentials (EC2)');
     }
-
-    // Log final configuration
-    this.logger.debug('Final AWS configuration:');
-    this.logger.debug(`- Region: ${clientConfig.region}`);
-    this.logger.debug(`- Profile: ${clientConfig.profile || 'not set'}`);
-    this.logger.debug(`- Using credentials: ${clientConfig.credentials ? 'yes' : 'no'}`);
 
     // Initialize Bedrock clients
     try {
