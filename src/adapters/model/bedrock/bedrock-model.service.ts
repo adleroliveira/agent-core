@@ -70,13 +70,8 @@ export class BedrockModelService implements ModelServicePort {
     const sessionToken = this.configService.getSessionToken();
 
     // Explicit credential resolution with clear priority:
-    // 1. Profile (if specified)
-    if (profile) {
-      this.logger.debug(`Using AWS credentials from profile: ${profile}`);
-      clientConfig.profile = profile;
-    }
-    // 2. Direct credentials (access key + secret)
-    else if (accessKeyId && secretAccessKey) {
+    // 1. Direct credentials (access key + secret)
+    if (accessKeyId && secretAccessKey) {
       this.logger.debug('Using AWS credentials from direct access key/secret');
       clientConfig.credentials = {
         accessKeyId,
@@ -88,12 +83,17 @@ export class BedrockModelService implements ModelServicePort {
         clientConfig.credentials.sessionToken = sessionToken;
       }
     }
-    // 3. Session token only (for web identity roles)
+    // 2. Session token only (for web identity roles)
     else if (sessionToken) {
       this.logger.debug('Using AWS credentials with session token only');
       clientConfig.credentials = {
         sessionToken
       };
+    }
+    // 3. Profile (only if no access key or secret is present)
+    else if (profile && !accessKeyId && !secretAccessKey) {
+      this.logger.debug(`Using AWS credentials from profile: ${profile}`);
+      clientConfig.profile = profile;
     }
     // 4. Fallback to SDK defaults
     else {
