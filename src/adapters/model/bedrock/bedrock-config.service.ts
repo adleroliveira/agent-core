@@ -26,45 +26,45 @@ export class BedrockConfigService {
   constructor(private readonly configService: ConfigService) { }
 
   getRegion(): string {
-    return this.configService.get<string>("AWS_REGION") || "us-east-1";
+    return process.env.AWS_REGION || this.configService.get<string>("AWS_REGION") || "us-east-1";
   }
 
   getSessionToken(): string {
-    return this.configService.get<string>("AWS_SESSION_TOKEN") || "";
+    return process.env.AWS_SESSION_TOKEN || this.configService.get<string>("AWS_SESSION_TOKEN") || "";
   }
 
   getProfile(): string {
-    return this.configService.get<string>("AWS_PROFILE") || "default";
+    return process.env.AWS_PROFILE || this.configService.get<string>("AWS_PROFILE") || "default";
   }
 
   getAccessKeyId(): string {
-    return this.configService.get<string>("AWS_ACCESS_KEY_ID") || "";
+    return process.env.AWS_ACCESS_KEY_ID || this.configService.get<string>("AWS_ACCESS_KEY_ID") || "";
   }
 
   getSecretAccessKey(): string {
-    return this.configService.get<string>("AWS_SECRET_ACCESS_KEY") || "";
+    return process.env.AWS_SECRET_ACCESS_KEY || this.configService.get<string>("AWS_SECRET_ACCESS_KEY") || "";
   }
 
   getModelId(): string {
-    return (
+    return process.env.BEDROCK_MODEL_ID ||
       this.configService.get<string>("BEDROCK_MODEL_ID") ||
-      "anthropic.claude-3-haiku-20240307-v1:0"
-    );
+      "anthropic.claude-3-haiku-20240307-v1:0";
   }
 
   getEmbeddingModelId(): string {
-    return (
+    return process.env.BEDROCK_EMBEDDING_MODEL_ID ||
       this.configService.get<string>("BEDROCK_EMBEDDING_MODEL_ID") ||
-      "amazon.titan-embed-text-v2:0"
-    );
+      "amazon.titan-embed-text-v2:0";
   }
 
   getKnowledgeBaseId(): string | undefined {
-    return this.configService.get<string>("BEDROCK_KNOWLEDGE_BASE_ID");
+    return process.env.BEDROCK_KNOWLEDGE_BASE_ID ||
+      this.configService.get<string>("BEDROCK_KNOWLEDGE_BASE_ID");
   }
 
   getAgentId(): string | undefined {
-    return this.configService.get<string>("BEDROCK_AGENT_ID");
+    return process.env.BEDROCK_AGENT_ID ||
+      this.configService.get<string>("BEDROCK_AGENT_ID");
   }
 
   supportsToolCalling(modelId?: string): boolean {

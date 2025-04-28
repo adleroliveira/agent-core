@@ -56,8 +56,9 @@ export class BedrockModelService implements ModelServicePort {
     private readonly fileService: FileService,
     private readonly mimeTypeService: MimeTypeService
   ) {
-    // Get region
+    // Get region - this is always required
     const region = this.configService.getRegion();
+    this.logger.debug(`Using AWS region: ${region}`);
 
     // Create basic config
     const clientConfig: any = { region };
@@ -70,35 +71,45 @@ export class BedrockModelService implements ModelServicePort {
 
     // Explicit credential resolution with clear priority:
     // 1. Profile (if specified)
-    // 2. Direct credentials (access key + secret)
-    // 3. Session token only (for web identity roles)
-    // 4. Fallback to SDK defaults
-
     if (profile) {
-      console.log('Using AWS credentials from profile:', profile);
+      this.logger.debug(`Using AWS credentials from profile: ${profile}`);
       clientConfig.profile = profile;
-    } else if (accessKeyId && secretAccessKey) {
-      console.log('Using AWS credentials from direct access key/secret');
+    }
+    // 2. Direct credentials (access key + secret)
+    else if (accessKeyId && secretAccessKey) {
+      this.logger.debug('Using AWS credentials from direct access key/secret');
       clientConfig.credentials = {
         accessKeyId,
         secretAccessKey
       };
 
       if (sessionToken) {
+        this.logger.debug('Adding session token to credentials');
         clientConfig.credentials.sessionToken = sessionToken;
       }
-    } else if (sessionToken) {
-      console.log('Using AWS credentials with session token only');
+    }
+    // 3. Session token only (for web identity roles)
+    else if (sessionToken) {
+      this.logger.debug('Using AWS credentials with session token only');
       clientConfig.credentials = {
         sessionToken
       };
-    } else {
-      console.log('No explicit credentials provided, falling back to SDK defaults');
+    }
+    // 4. Fallback to SDK defaults
+    else {
+      this.logger.debug('No explicit credentials provided, falling back to SDK defaults');
+      this.logger.debug('SDK will attempt to load credentials from:');
+      this.logger.debug('1. Environment variables');
+      this.logger.debug('2. Shared credentials file (~/.aws/credentials)');
+      this.logger.debug('3. Shared config file (~/.aws/config)');
+      this.logger.debug('4. Container credentials (ECS)');
+      this.logger.debug('5. Instance profile credentials (EC2)');
     }
 
     // Initialize Bedrock clients
     this.bedrockClient = new BedrockRuntimeClient(clientConfig);
     this.bedrockControlClient = new BedrockClient(clientConfig);
+    this.logger.debug('Bedrock clients initialized successfully');
   }
 
   async generateResponse(
